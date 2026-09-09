@@ -1,0 +1,159 @@
+<title>Terminalis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;550;600;650;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>__CSS__</style>
+
+<div id="app">
+
+  <!-- barra lateral fixa -->
+  <aside id="sidebar">
+    <div class="sb-brand" id="sb-brand" role="button" tabindex="0" title="Início">
+      <div class="mark">&gt;_</div>
+      <div class="brand-name">TERMINALIS</div>
+    </div>
+
+    <nav class="sb-nav">
+      <button class="sb-item" data-nav="home">__ICON_HOME__<span>Início</span></button>
+      <button class="sb-item" data-nav="cursos">__ICON_BOOK__<span>Cursos</span></button>
+      <button class="sb-item" data-nav="jornada">__ICON_ROUTE__<span>Jornada</span></button>
+      <button class="sb-item" data-nav="projetos">__ICON_CUBE__<span>Projetos</span></button>
+    </nav>
+
+    <div class="sb-section">
+      <div class="sb-label">Cursos atuais</div>
+      <div class="sb-cursos" id="sb-cursos"></div>
+    </div>
+
+    <div class="sb-foot">
+      <button class="sb-item sb-config" data-nav="config">__ICON_GEAR__<span>Configurações</span></button>
+    </div>
+  </aside>
+
+  <!-- topo do conteúdo -->
+  <header id="topbar">
+    <button id="rail-toggle" aria-label="Abrir menu">__ICON_MENU__</button>
+    <button id="topback" class="topback hidden">__ICON_BACK__<span>Voltar</span></button>
+    <nav class="crumbs">
+      <span class="c1" id="crumb-1">Terminalis</span>
+      <span class="sep" id="crumb-sep">/</span>
+      <span class="c2" id="crumb-2">Início</span>
+    </nav>
+    <span class="c2 hidden" id="mobile-now"></span>
+    <div class="topbar-spacer"></div>
+    <div class="modprog" id="modprog" style="visibility:hidden">
+      <span class="lb">Progresso do módulo</span>
+      <span class="row"><span class="bar"><i id="modprog-bar" style="width:0%"></i></span><span class="pc" id="modprog-pct">0%</span></span>
+    </div>
+    <button class="tb-icon" id="btn-bell" title="Notificações">__ICON_BELL__</button>
+    <div class="conta-wrap">
+      <button class="tb-chip conta" id="conta-chip" title="Sua conta de estudo"></button>
+      <div class="conta-menu hidden" id="conta-menu"></div>
+    </div>
+  </header>
+
+  <!-- corpo -->
+  <div id="body">
+
+    <section id="lesson-panel">
+      <div id="page"></div>
+      <footer id="lesson-foot" class="hidden"></footer>
+    </section>
+
+    <section id="side-panel">
+      <div class="sp-tabs" role="tablist">
+        <button class="sp-tab" data-tab="term" role="tab" aria-selected="true">__ICON_TERM__<span>Terminal</span></button>
+        <button class="sp-tab" data-tab="files" role="tab" aria-selected="false">__ICON_FILES__<span>Arquivos</span></button>
+        <button class="sp-tab" data-tab="notes" role="tab" aria-selected="false">__ICON_NOTES__<span>Anotações</span></button>
+        <div class="sp-tabs-spacer"></div>
+        <button class="mini-btn danger sp-reset" id="btn-reset-term" title="Recriar o ambiente">__ICON_RESET__<span>Reset</span></button>
+      </div>
+
+      <div class="sp-actions" id="sp-term-actions">
+        <button class="mini-btn square" id="btn-new-term" title="Limpar terminal">__ICON_PLUS__</button>
+        <div class="spacer"></div>
+        <span class="sp-hint">terminal interativo — resolva a atividade aqui</span>
+      </div>
+      <div class="sp-actions hidden" id="sp-file-actions">
+        <span class="fb-path" id="fb-crumbs" style="padding:0;border:0"></span>
+        <div class="spacer"></div>
+        <button class="mini-btn" id="fb-here">ir para o diretório atual</button>
+      </div>
+
+      <!-- terminal -->
+      <div class="sp-view active" data-view="term">
+        <div class="term-shell">
+          <div id="term-out"></div>
+          <textarea id="term-hidden" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" aria-label="Entrada do terminal"></textarea>
+          <div class="term-mobile-input">
+            <input id="term-mobile-in" placeholder="digite um comando…" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false">
+            <button id="term-mobile-go">Enter</button>
+          </div>
+        </div>
+        <div class="term-status" id="term-status">
+          <span class="live"><span class="pulse"></span><span id="term-env">aluno@srv-aula</span></span>
+          <span id="term-ctx"></span>
+          <span class="spacer"></span>
+          <span id="term-exit"></span>
+          <span class="sync-state dot-local" id="sync-state"><i></i><span>local</span></span>
+          <span class="clock">__ICON_CLOCK__<span id="term-clock">00:00:00</span></span>
+        </div>
+      </div>
+
+      <!-- arquivos -->
+      <div class="sp-view" data-view="files">
+        <div class="files-wrap"><div id="fb-list"></div></div>
+        <div class="fb-preview hidden" id="fb-preview">
+          <div class="h"><span id="fb-prev-name"></span><span class="spacer"></span>
+            <button class="mini-btn" id="fb-prev-edit">editar</button>
+            <button class="mini-btn" id="fb-prev-close">fechar</button>
+          </div>
+          <pre id="fb-prev-body"></pre>
+        </div>
+      </div>
+
+      <!-- anotações -->
+      <div class="sp-view" data-view="notes">
+        <div class="notes-wrap">
+          <textarea id="notes-area" placeholder="Suas anotações desta aula…&#10;&#10;Ficam salvas no seu navegador." spellcheck="false"></textarea>
+          <div class="notes-foot"><span id="notes-title">Anotações</span><span class="spacer" style="flex:1"></span><span id="notes-status">salvo automaticamente</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<nav class="mobile-tabs">
+  <button data-nav="home" aria-pressed="true">__ICON_HOME__<span>Início</span></button>
+  <button data-nav="cursos" aria-pressed="false">__ICON_BOOK__<span>Cursos</span></button>
+  <button data-nav="jornada" aria-pressed="false">__ICON_ROUTE__<span>Jornada</span></button>
+  <button data-nav="projetos" aria-pressed="false">__ICON_CUBE__<span>Projetos</span></button>
+</nav>
+
+<script>__JS__</script>
+<script>
+  window.addEventListener('DOMContentLoaded', async function () {
+    const falhar = (e) => {
+      document.getElementById('page').innerHTML =
+        '<div class="doc"><h1 class="title">Falha ao iniciar</h1><p class="lede">' +
+        String(e && e.message) + '</p><pre style="white-space:pre-wrap;font-size:12px;color:var(--tx-3)">' +
+        String(e && e.stack).replace(/</g, '&lt;') + '</pre></div>';
+      console.error(e);
+    };
+    try {
+      const usuario = await LX.Auth.iniciar();
+      LX.AuthUI.montar();
+      LX.AuthUI.aoEntrar = async function () {
+        if (!window.__app) { window.__app = new LX.App(); window.__app.start(); }
+        else { await window.__app.entrarComUsuario(); }
+      };
+      if (usuario) {
+        LX.AuthUI.esconder();
+        window.__app = new LX.App();
+        window.__app.start();
+      } else {
+        LX.AuthUI.mostrar('entrar');
+      }
+    } catch (e) { falhar(e); }
+  });
+</script>
