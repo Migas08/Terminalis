@@ -1,5 +1,7 @@
 {
-  "dependencies": {
+  "name": "terminalis",
+  "private": true,
+  "devDependencies": {
     "playwright": "^1.62.1"
   },
   "scripts": {

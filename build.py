@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Monta o arquivo único da plataforma Terminalis."""
-import os, re, sys, json
+from pathlib import Path
 
-SRC = os.path.join(os.path.dirname(__file__), 'src')
-DIST = os.path.join(os.path.dirname(__file__), 'dist')
-os.makedirs(DIST, exist_ok=True)
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT / "src"
+DIST = ROOT / "dist"
+OUTPUT = DIST / "terminalis.html"
+MAX_ARTIFACT_SIZE = 15_500_000
 
 ICONS = {
     '__ICON_MENU__': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
@@ -27,36 +29,30 @@ ICONS = {
 }
 
 def js_files():
-    names = sorted(f for f in os.listdir(SRC) if f.endswith('.js'))
-    # ordem: motor (1x-4x), conteúdo (5x), ui (7x)
-    return [os.path.join(SRC, n) for n in names]
+    """Retorna os módulos na ordem definida pelos prefixos numéricos."""
+    return sorted(SRC.glob("*.js"))
 
 def build():
-    parts = []
-    for f in js_files():
-        with open(f, encoding='utf-8') as fh:
-            parts.append('/* ==== %s ==== */\n' % os.path.basename(f) + fh.read())
+    DIST.mkdir(exist_ok=True)
+    modules = js_files()
+    parts = [f"/* ==== {path.name} ==== */\n{path.read_text(encoding='utf-8')}" for path in modules]
     js = '\n;\n'.join(parts)
 
-    with open(os.path.join(SRC, '70-styles.css'), encoding='utf-8') as fh:
-        css = fh.read()
-    with open(os.path.join(SRC, '75-shell.html'), encoding='utf-8') as fh:
-        html = fh.read()
+    css = (SRC / "70-styles.css").read_text(encoding="utf-8")
+    html = (SRC / "75-shell.html").read_text(encoding="utf-8")
 
     for k, v in ICONS.items():
         html = html.replace(k, v)
     html = html.replace('__CSS__', css)
     html = html.replace('__JS__', js)
 
-    out = os.path.join(DIST, 'terminalis.html')
-    with open(out, 'w', encoding='utf-8') as fh:
-        fh.write(html)
+    OUTPUT.write_text(html, encoding="utf-8")
 
-    size = os.path.getsize(out)
-    print('OK  %s  (%.2f MB, %d arquivos JS)' % (out, size / 1048576, len(js_files())))
-    if size > 15_500_000:
-        print('AVISO: acima do limite de 16 MB do Artifact')
-    return out
+    size = OUTPUT.stat().st_size
+    print(f"OK  {OUTPUT}  ({size / 1048576:.2f} MB, {len(modules)} arquivos JS)")
+    if size > MAX_ARTIFACT_SIZE:
+        print("AVISO: acima do limite de 16 MB do Artifact")
+    return OUTPUT
 
 if __name__ == '__main__':
     build()
