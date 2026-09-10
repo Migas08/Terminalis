@@ -43039,7 +43039,174 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       $$('[data-task]').forEach(el => this.wireTask(el));
     }
 
-    /* ----------------------------- tarefas ----------------------------- */
+    onCommandRun() {
+      if (LX.GitVisual) LX.GitVisual.refresh(this);
+      if ($('.sp-tab[aria-selected="true"]').dataset.tab === 'files') this.renderFiles();
+    }
+
+    /* ----------------------------- roadmap ----------------------------- */
+    renderRoadmap() {
+      const st = this.stats();
+      const tr = this.trilha();
+      let html = `<div class="doc wide">
+        <div class="eyebrow">Trilha de aprendizado</div>
+        <h1 class="title">${esc(tr ? tr.nome : 'Do primeiro comando ao servidor em produção')}</h1>
+        <p class="lede">${esc(tr && tr.detalhe ? tr.detalhe : 'Uma sequência única: cada módulo assume o anterior. Você lê, pratica no terminal ao lado e só avança depois de resolver.')}</p>
+        <div class="stat-grid">
+          <div class="stat"><div class="v">${st.pct}%</div><div class="l">Progresso</div></div>
+          <div class="stat"><div class="v">${st.done}<span style="color:var(--tx-3);font-size:16px">/${st.total}</span></div><div class="l">Aulas</div></div>
+          <div class="stat"><div class="v">${st.tasks}<span style="color:var(--tx-3);font-size:16px">/${st.totalTasks}</span></div><div class="l">Desafios</div></div>
+          <div class="stat"><div class="v">${st.modsDone}<span style="color:var(--tx-3);font-size:16px">/${st.totalMods}</span></div><div class="l">Módulos</div></div>
+        </div>`;
+
+      let lastGroup = null;
+      let firstIncomplete = true;
+      for (const m of this.modulosDaTrilha()) {
+        if (m.group !== lastGroup) {
+          if (lastGroup !== null) html += `</div>`;
+          const g = m.group.toLowerCase();
+          const tag = g.includes('docker') ? 'docker' : (g.includes('final') || g.includes('projet') || g.includes('opera') ? 'final' : 'linux');
+          html += `<div class="rm-phase"><span class="tag ${tag}">${esc(m.group)}</span></div><div class="rm-track">`;
+          lastGroup = m.group;
+        }
+        const done = m.lessons.filter(l => Progress.lessonDone(l.id)).length;
+        const complete = done === m.lessons.length && m.lessons.length > 0;
+        if (!m.lessons.length) { html += `<div class="rm-node"><button class="rm-card" data-mod="${m.id}" disabled style="opacity:.5;cursor:default"><span class="n">${esc(m.num)}</span><span><span class="t">${esc(m.title)}</span><span class="d">${esc(m.blurb || '')}</span></span><span class="pg">em breve</span></button></div>`; continue; }
+        let cls = complete ? 'done' : '';
+        if (!complete && firstIncomplete) { cls = 'current'; firstIncomplete = false; }
+        html += `<div class="rm-node ${cls}">
+          <button class="rm-card" data-mod="${m.id}">
+            <span class="n">${esc(m.num)}</span>
+            <span><span class="t">${esc(m.title)}</span><span class="d">${esc(m.blurb || '')}</span></span>
+            <span class="pg ${complete ? 'full' : ''}">${m.lessons.length ? done + '/' + m.lessons.length : 'em breve'}</span>
+          </button></div>`;
+      }
+      if (lastGroup !== null) html += `</div>`;
+      html += `</div>`;
+      $('#page').innerHTML = html;
+      $$('.rm-card').forEach(b => b.onclick = () => {
+        const m = this.course.modules.find(x => x.id === b.dataset.mod);
+        if (m && m.lessons.length) {
+          const nextL = m.lessons.find(l => !Progress.lessonDone(l.id)) || m.lessons[0];
+          this.goLesson(nextL.id);
+        }
+      });
+    }
+
+    renderHelp() {
+      $('#page').innerHTML = `<div class="doc">
+        <div class="eyebrow">Guia rápido</div>
+        <h1 class="title">Como usar esta plataforma</h1>
+        <p class="lede">O terminal à direita é um simulador educacional de Linux no navegador: sistema de arquivos, permissões, processos, serviços, rede e Docker. Os comandos suportados modificam o estado do laboratório; não executam programas no seu computador.</p>
+        <h2>O ciclo</h2>
+        <p>Cada aula segue o mesmo caminho: você <strong>lê</strong> a explicação, <strong>testa</strong> os exemplos no terminal, resolve o <strong>exercício guiado</strong>, responde uma <strong>pergunta conceitual</strong> e resolve uma <strong>atividade prática</strong>.</p>
+        <p>Quando você clica em <em>Verificar desafio</em>, a plataforma não olha o que você digitou: ela inspeciona o <strong>estado real da máquina</strong> — se o diretório existe, se a permissão está certa, se o serviço subiu. Existem muitos caminhos para o mesmo resultado, e todos valem.</p>
+        <h2>Teclas do terminal</h2>
+        <div class="cheat">
+          <div class="cheat-row"><code>Tab</code><span>Completa comandos e caminhos</span></div>
+          <div class="cheat-row"><code>↑ / ↓</code><span>Navega pelo histórico</span></div>
+          <div class="cheat-row"><code>Ctrl+C</code><span>Interrompe o comando em execução</span></div>
+          <div class="cheat-row"><code>Ctrl+L</code><span>Limpa a tela</span></div>
+          <div class="cheat-row"><code>Ctrl+A / Ctrl+E</code><span>Início / fim da linha</span></div>
+          <div class="cheat-row"><code>Ctrl+U / Ctrl+K</code><span>Apaga até o início / fim da linha</span></div>
+          <div class="cheat-row"><code>Ctrl+W</code><span>Apaga a palavra anterior</span></div>
+          <div class="cheat-row"><code>Ctrl+D</code><span>Sai de uma sessão aninhada (ssh, container)</span></div>
+        </div>
+        <h2>Editar arquivos</h2>
+        <p>Use <code>nano arquivo.sh</code> para abrir o editor em tela cheia. <span class="kbd">Ctrl+S</span> grava, <span class="kbd">Ctrl+X</span> grava e sai, <span class="kbd">Esc</span> sai sem gravar. Também funciona <code>cat &gt; arquivo &lt;&lt; 'EOF'</code>.</p>
+        <h2>Se você quebrar tudo</h2>
+        <p>Ótimo — quebrar é parte do aprendizado. O botão <em>Resetar terminal</em>, no topo do painel, recria a máquina do zero. Seu progresso nas aulas não é perdido.</p>
+        <div class="box note"><div class="box-label">Onde fica salvo</div><p>Aulas concluídas, desafios verificados, anotações e tempo de estudo ficam gravados <strong>na sua conta</strong> — separados dos de qualquer outra pessoa que use esta plataforma. Sua senha nunca é guardada: o que fica é um hash PBKDF2-SHA256 com salt próprio, do qual não dá para voltar à senha. A máquina do terminal, essa sim, vive só na memória da aba: resetar ou fechar não afeta o seu progresso.</p></div>
+      </div>`;
+    }
+  }
+
+  LX.App = App;
+})();
+
+;
+/* ==== 72-file-browser.js ==== */
+/* =========================================================================
+   TERMINALIS — navegador de arquivos do laboratório
+   ========================================================================= */
+'use strict';
+(function () {
+  const { query: $, queryAll: $$, escapeHtml: esc } = LX.Util;
+  const { ICON } = LX;
+
+  class FileBrowser extends LX.App {
+    renderFiles(path) {
+      const sh = this.term.sh;
+      this.fbPath = path || this.fbPath || sh.cwd;
+      let node;
+      try { node = sh.m.fs.stat(this.fbPath, sh.fsopts()); }
+      catch (e) { this.fbPath = '/'; node = sh.m.fs.root; }
+      const parts = this.fbPath.split('/').filter(Boolean);
+      let crumbs = `<button data-go="/">/</button>`;
+      let acc = '';
+      parts.forEach((p, i) => { acc += '/' + p; crumbs += `<span class="sep">/</span><button data-go="${esc(acc)}">${esc(p)}</button>`; });
+      let rows = '';
+      let names = [];
+      try { names = sh.m.fs.readdir(this.fbPath, sh.fsopts()); } catch (e) { rows = `<div class="fb-empty">Sem permissão de leitura neste diretório.</div>`; }
+      const entries = names.map(n => {
+        let st; try { st = sh.m.fs.lstat(LX.FileSystem.join(this.fbPath, n), sh.fsopts()); } catch (e) { st = null; }
+        return { n, st };
+      }).filter(e => e.st);
+      entries.sort((a, b) => (b.st.type === 'dir') - (a.st.type === 'dir') || a.n.localeCompare(b.n));
+      if (this.fbPath !== '/') rows += `<div class="fb-row dir" data-dir="${esc(LX.FileSystem.dirname(this.fbPath))}"><span class="ic">${ICON.folder}</span><span class="nm">..</span><span class="mode"></span><span class="sz"></span></div>`;
+      for (const e of entries) {
+        const isDir = e.st.type === 'dir';
+        const isExe = !isDir && (e.st.mode & 0o111);
+        const cls = isDir ? 'dir' : (isExe ? 'exe' : '');
+        const ic = isDir ? ICON.folder : (e.st.type === 'link' ? ICON.link : ICON.file);
+        rows += `<div class="fb-row ${cls}" data-${isDir ? 'dir' : 'file'}="${esc(LX.FileSystem.join(this.fbPath, e.n))}">
+          <span class="ic">${ic}</span>
+          <span class="nm">${esc(e.n)}${isDir ? '/' : ''}</span>
+          <span class="mode">${LX.modeToRwx(e.st.mode, e.st.type)}</span>
+          <span class="sz">${isDir ? '—' : LX.humanSize(e.st.size)}</span>
+        </div>`;
+      }
+      if (!rows) rows = `<div class="fb-empty">Diretório vazio.</div>`;
+      $('#fb-crumbs').innerHTML = crumbs;
+      $('#fb-list').innerHTML = rows;
+      $$('#fb-crumbs button').forEach(b => b.onclick = () => this.renderFiles(b.dataset.go));
+      $$('#fb-list .fb-row').forEach(r => r.onclick = () => {
+        if (r.dataset.dir !== undefined) this.renderFiles(r.dataset.dir);
+        else this.previewFile(r.dataset.file);
+      });
+      $('#fb-here').onclick = () => this.renderFiles(this.term.sh.cwd);
+    }
+
+    previewFile(path) {
+      const sh = this.term.sh;
+      let content;
+      try { content = sh.m.fs.readFile(path, sh.fsopts()); }
+      catch (e) { content = `(não foi possível ler: ${e.message})`; }
+      if (content.length > 20000) content = content.slice(0, 20000) + '\n… (truncado)';
+      $('#fb-preview').classList.remove('hidden');
+      $('#fb-prev-name').textContent = path;
+      $('#fb-prev-body').textContent = content || '(arquivo vazio)';
+      $('#fb-prev-close').onclick = () => $('#fb-preview').classList.add('hidden');
+      $('#fb-prev-edit').onclick = async () => { await this.term.editor(path); this.previewFile(path); };
+    }
+  }
+
+  for (const name of ['renderFiles', 'previewFile']) {
+    Object.defineProperty(LX.App.prototype, name, Object.getOwnPropertyDescriptor(FileBrowser.prototype, name));
+  }
+})();
+
+;
+/* ==== 72-task-ui.js ==== */
+/* =========================================================================
+   TERMINALIS — interface e verificação das atividades
+   ========================================================================= */
+'use strict';
+(function () {
+  const { query: $, queryAll: $$, escapeHtml: esc } = LX.Util;
+  const { ICON, Progress } = LX;
+
+  class TaskUI extends LX.App {
     renderTask(t) {
       const done = Progress.taskDone(t.id);
       const kindLabel = { guiado: 'Exercício guiado', desafio: 'Desafio', avancado: 'Desafio avançado', quiz: 'Conceito', erro: 'Encontre o erro', prever: 'Preveja o resultado', trouble: 'Investigação' }[t.kind] || t.kind;
@@ -43185,146 +43352,11 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       }
       this.avaliarProgressao(true);
     }
-
-    onCommandRun() {
-      if (LX.GitVisual) LX.GitVisual.refresh(this);
-      if ($('.sp-tab[aria-selected="true"]').dataset.tab === 'files') this.renderFiles();
-    }
-
-    /* ----------------------------- navegador de arquivos ----------------------------- */
-    renderFiles(path) {
-      const sh = this.term.sh;
-      this.fbPath = path || this.fbPath || sh.cwd;
-      let node;
-      try { node = sh.m.fs.stat(this.fbPath, sh.fsopts()); }
-      catch (e) { this.fbPath = '/'; node = sh.m.fs.root; }
-      const parts = this.fbPath.split('/').filter(Boolean);
-      let crumbs = `<button data-go="/">/</button>`;
-      let acc = '';
-      parts.forEach((p, i) => { acc += '/' + p; crumbs += `<span class="sep">/</span><button data-go="${esc(acc)}">${esc(p)}</button>`; });
-      let rows = '';
-      let names = [];
-      try { names = sh.m.fs.readdir(this.fbPath, sh.fsopts()); } catch (e) { rows = `<div class="fb-empty">Sem permissão de leitura neste diretório.</div>`; }
-      const entries = names.map(n => {
-        let st; try { st = sh.m.fs.lstat(LX.FileSystem.join(this.fbPath, n), sh.fsopts()); } catch (e) { st = null; }
-        return { n, st };
-      }).filter(e => e.st);
-      entries.sort((a, b) => (b.st.type === 'dir') - (a.st.type === 'dir') || a.n.localeCompare(b.n));
-      if (this.fbPath !== '/') rows += `<div class="fb-row dir" data-dir="${esc(LX.FileSystem.dirname(this.fbPath))}"><span class="ic">${ICON.folder}</span><span class="nm">..</span><span class="mode"></span><span class="sz"></span></div>`;
-      for (const e of entries) {
-        const isDir = e.st.type === 'dir';
-        const isExe = !isDir && (e.st.mode & 0o111);
-        const cls = isDir ? 'dir' : (isExe ? 'exe' : '');
-        const ic = isDir ? ICON.folder : (e.st.type === 'link' ? ICON.link : ICON.file);
-        rows += `<div class="fb-row ${cls}" data-${isDir ? 'dir' : 'file'}="${esc(LX.FileSystem.join(this.fbPath, e.n))}">
-          <span class="ic">${ic}</span>
-          <span class="nm">${esc(e.n)}${isDir ? '/' : ''}</span>
-          <span class="mode">${LX.modeToRwx(e.st.mode, e.st.type)}</span>
-          <span class="sz">${isDir ? '—' : LX.humanSize(e.st.size)}</span>
-        </div>`;
-      }
-      if (!rows) rows = `<div class="fb-empty">Diretório vazio.</div>`;
-      $('#fb-crumbs').innerHTML = crumbs;
-      $('#fb-list').innerHTML = rows;
-      $$('#fb-crumbs button').forEach(b => b.onclick = () => this.renderFiles(b.dataset.go));
-      $$('#fb-list .fb-row').forEach(r => r.onclick = () => {
-        if (r.dataset.dir !== undefined) this.renderFiles(r.dataset.dir);
-        else this.previewFile(r.dataset.file);
-      });
-      $('#fb-here').onclick = () => this.renderFiles(this.term.sh.cwd);
-    }
-
-    previewFile(path) {
-      const sh = this.term.sh;
-      let content;
-      try { content = sh.m.fs.readFile(path, sh.fsopts()); }
-      catch (e) { content = `(não foi possível ler: ${e.message})`; }
-      if (content.length > 20000) content = content.slice(0, 20000) + '\n… (truncado)';
-      $('#fb-preview').classList.remove('hidden');
-      $('#fb-prev-name').textContent = path;
-      $('#fb-prev-body').textContent = content || '(arquivo vazio)';
-      $('#fb-prev-close').onclick = () => $('#fb-preview').classList.add('hidden');
-      $('#fb-prev-edit').onclick = async () => { await this.term.editor(path); this.previewFile(path); };
-    }
-
-    /* ----------------------------- roadmap ----------------------------- */
-    renderRoadmap() {
-      const st = this.stats();
-      const tr = this.trilha();
-      let html = `<div class="doc wide">
-        <div class="eyebrow">Trilha de aprendizado</div>
-        <h1 class="title">${esc(tr ? tr.nome : 'Do primeiro comando ao servidor em produção')}</h1>
-        <p class="lede">${esc(tr && tr.detalhe ? tr.detalhe : 'Uma sequência única: cada módulo assume o anterior. Você lê, pratica no terminal ao lado e só avança depois de resolver.')}</p>
-        <div class="stat-grid">
-          <div class="stat"><div class="v">${st.pct}%</div><div class="l">Progresso</div></div>
-          <div class="stat"><div class="v">${st.done}<span style="color:var(--tx-3);font-size:16px">/${st.total}</span></div><div class="l">Aulas</div></div>
-          <div class="stat"><div class="v">${st.tasks}<span style="color:var(--tx-3);font-size:16px">/${st.totalTasks}</span></div><div class="l">Desafios</div></div>
-          <div class="stat"><div class="v">${st.modsDone}<span style="color:var(--tx-3);font-size:16px">/${st.totalMods}</span></div><div class="l">Módulos</div></div>
-        </div>`;
-
-      let lastGroup = null;
-      let firstIncomplete = true;
-      for (const m of this.modulosDaTrilha()) {
-        if (m.group !== lastGroup) {
-          if (lastGroup !== null) html += `</div>`;
-          const g = m.group.toLowerCase();
-          const tag = g.includes('docker') ? 'docker' : (g.includes('final') || g.includes('projet') || g.includes('opera') ? 'final' : 'linux');
-          html += `<div class="rm-phase"><span class="tag ${tag}">${esc(m.group)}</span></div><div class="rm-track">`;
-          lastGroup = m.group;
-        }
-        const done = m.lessons.filter(l => Progress.lessonDone(l.id)).length;
-        const complete = done === m.lessons.length && m.lessons.length > 0;
-        if (!m.lessons.length) { html += `<div class="rm-node"><button class="rm-card" data-mod="${m.id}" disabled style="opacity:.5;cursor:default"><span class="n">${esc(m.num)}</span><span><span class="t">${esc(m.title)}</span><span class="d">${esc(m.blurb || '')}</span></span><span class="pg">em breve</span></button></div>`; continue; }
-        let cls = complete ? 'done' : '';
-        if (!complete && firstIncomplete) { cls = 'current'; firstIncomplete = false; }
-        html += `<div class="rm-node ${cls}">
-          <button class="rm-card" data-mod="${m.id}">
-            <span class="n">${esc(m.num)}</span>
-            <span><span class="t">${esc(m.title)}</span><span class="d">${esc(m.blurb || '')}</span></span>
-            <span class="pg ${complete ? 'full' : ''}">${m.lessons.length ? done + '/' + m.lessons.length : 'em breve'}</span>
-          </button></div>`;
-      }
-      if (lastGroup !== null) html += `</div>`;
-      html += `</div>`;
-      $('#page').innerHTML = html;
-      $$('.rm-card').forEach(b => b.onclick = () => {
-        const m = this.course.modules.find(x => x.id === b.dataset.mod);
-        if (m && m.lessons.length) {
-          const nextL = m.lessons.find(l => !Progress.lessonDone(l.id)) || m.lessons[0];
-          this.goLesson(nextL.id);
-        }
-      });
-    }
-
-    renderHelp() {
-      $('#page').innerHTML = `<div class="doc">
-        <div class="eyebrow">Guia rápido</div>
-        <h1 class="title">Como usar esta plataforma</h1>
-        <p class="lede">O terminal à direita é um simulador educacional de Linux no navegador: sistema de arquivos, permissões, processos, serviços, rede e Docker. Os comandos suportados modificam o estado do laboratório; não executam programas no seu computador.</p>
-        <h2>O ciclo</h2>
-        <p>Cada aula segue o mesmo caminho: você <strong>lê</strong> a explicação, <strong>testa</strong> os exemplos no terminal, resolve o <strong>exercício guiado</strong>, responde uma <strong>pergunta conceitual</strong> e resolve uma <strong>atividade prática</strong>.</p>
-        <p>Quando você clica em <em>Verificar desafio</em>, a plataforma não olha o que você digitou: ela inspeciona o <strong>estado real da máquina</strong> — se o diretório existe, se a permissão está certa, se o serviço subiu. Existem muitos caminhos para o mesmo resultado, e todos valem.</p>
-        <h2>Teclas do terminal</h2>
-        <div class="cheat">
-          <div class="cheat-row"><code>Tab</code><span>Completa comandos e caminhos</span></div>
-          <div class="cheat-row"><code>↑ / ↓</code><span>Navega pelo histórico</span></div>
-          <div class="cheat-row"><code>Ctrl+C</code><span>Interrompe o comando em execução</span></div>
-          <div class="cheat-row"><code>Ctrl+L</code><span>Limpa a tela</span></div>
-          <div class="cheat-row"><code>Ctrl+A / Ctrl+E</code><span>Início / fim da linha</span></div>
-          <div class="cheat-row"><code>Ctrl+U / Ctrl+K</code><span>Apaga até o início / fim da linha</span></div>
-          <div class="cheat-row"><code>Ctrl+W</code><span>Apaga a palavra anterior</span></div>
-          <div class="cheat-row"><code>Ctrl+D</code><span>Sai de uma sessão aninhada (ssh, container)</span></div>
-        </div>
-        <h2>Editar arquivos</h2>
-        <p>Use <code>nano arquivo.sh</code> para abrir o editor em tela cheia. <span class="kbd">Ctrl+S</span> grava, <span class="kbd">Ctrl+X</span> grava e sai, <span class="kbd">Esc</span> sai sem gravar. Também funciona <code>cat &gt; arquivo &lt;&lt; 'EOF'</code>.</p>
-        <h2>Se você quebrar tudo</h2>
-        <p>Ótimo — quebrar é parte do aprendizado. O botão <em>Resetar terminal</em>, no topo do painel, recria a máquina do zero. Seu progresso nas aulas não é perdido.</p>
-        <div class="box note"><div class="box-label">Onde fica salvo</div><p>Aulas concluídas, desafios verificados, anotações e tempo de estudo ficam gravados <strong>na sua conta</strong> — separados dos de qualquer outra pessoa que use esta plataforma. Sua senha nunca é guardada: o que fica é um hash PBKDF2-SHA256 com salt próprio, do qual não dá para voltar à senha. A máquina do terminal, essa sim, vive só na memória da aba: resetar ou fechar não afeta o seu progresso.</p></div>
-      </div>`;
-    }
   }
 
-  LX.App = App;
+  for (const name of ['renderTask', 'wireTask', 'taskById', 'completeTask']) {
+    Object.defineProperty(LX.App.prototype, name, Object.getOwnPropertyDescriptor(TaskUI.prototype, name));
+  }
 })();
 
 ;
