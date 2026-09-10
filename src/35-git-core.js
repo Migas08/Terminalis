@@ -2,9 +2,7 @@
    Não executa Git nativo nem acessa a rede. */
 'use strict';
 (function () {
-  const copy = x => JSON.parse(JSON.stringify(x));
-  const eq = (a,b) => JSON.stringify(a) === JSON.stringify(b);
-  const keys = (...xs) => [...new Set(xs.flatMap(x=>Object.keys(x||{})))].sort();
+  const { deepClone: copy, objectEqual: eq, uniqueKeys: keys } = LX.Util;
   const fail = msg => { throw new Error(msg); };
   class GitRepo {
     constructor(sh, root, data) { this.sh=sh; this.root=root; this.d=data; }

@@ -13,9 +13,7 @@
    ========================================================================= */
 'use strict';
 (function () {
-  const $ = (s, r) => (r || document).querySelector(s);
-  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
-  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const { query: $, queryAll: $$, escapeHtml: esc } = LX.Util;
 
   const IC = () => LX.ICON;
 

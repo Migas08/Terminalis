@@ -1607,14 +1607,54 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
   <button data-nav="projetos" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 21 7v10l-9 4.5L3 17V7z"/><path d="M3 7l9 4.5L21 7M12 11.5V21.5"/></svg><span>Projetos</span></button>
 </nav>
 
-<script>/* ==== 10-vfs.js ==== */
+<script>/* ==== 09-runtime.js ==== */
+'use strict';
+
+var LX = typeof window !== 'undefined'
+  ? (window.LX = window.LX || {})
+  : (globalThis.LX = globalThis.LX || {});
+
+(function () {
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, character => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[character]);
+  }
+
+  function query(selector, root) {
+    return (root || document).querySelector(selector);
+  }
+
+  function queryAll(selector, root) {
+    return Array.from((root || document).querySelectorAll(selector));
+  }
+
+  function deepClone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function objectEqual(left, right) {
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+
+  function uniqueKeys(...objects) {
+    return [...new Set(objects.flatMap(object => Object.keys(object || {})))].sort();
+  }
+
+  LX.Util = { escapeHtml, query, queryAll, deepClone, objectEqual, uniqueKeys };
+})();
+
+;
+/* ==== 10-vfs.js ==== */
 /* =========================================================================
    TERMINALIS — Núcleo virtual: sistema de arquivos
    Implementação real de inodes, permissões, links e caminhos.
    ========================================================================= */
 'use strict';
-
-const LX = (typeof window !== 'undefined' ? (window.LX = window.LX || {}) : (globalThis.LX = globalThis.LX || {}));
 
 /* ---------- Erros de sistema (mensagens autênticas em inglês, como no Linux) ---------- */
 const ERRNO_MSG = {
@@ -13623,9 +13663,7 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
    Não executa Git nativo nem acessa a rede. */
 'use strict';
 (function () {
-  const copy = x => JSON.parse(JSON.stringify(x));
-  const eq = (a,b) => JSON.stringify(a) === JSON.stringify(b);
-  const keys = (...xs) => [...new Set(xs.flatMap(x=>Object.keys(x||{})))].sort();
+  const { deepClone: copy, objectEqual: eq, uniqueKeys: keys } = LX.Util;
   const fail = msg => { throw new Error(msg); };
   class GitRepo {
     constructor(sh, root, data) { this.sh=sh; this.root=root; this.d=data; }
@@ -41673,9 +41711,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
    ========================================================================= */
 'use strict';
 (function () {
-  const $ = (s, r) => (r || document).querySelector(s);
-  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
-  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const { query: $, queryAll: $$, escapeHtml: esc } = LX.Util;
 
   const ICON = {
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" fill="currentColor" stroke="none" opacity=".18"/><circle cx="12" cy="12" r="9.5"/><path d="M8 12.4l2.6 2.6L16 9.6"/></svg>',
@@ -42600,7 +42636,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
    ========================================================================= */
 'use strict';
 (function () {
-  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const { escapeHtml: esc } = LX.Util;
 
   function highlightShell(line) {
     return String(line).split(/('[^']*'|"[^"]*"|#[^\n]*|--?[A-Za-z][\w-]*)/g).map(token => {
@@ -43349,9 +43385,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
    ========================================================================= */
 'use strict';
 (function () {
-  const $ = (s, r) => (r || document).querySelector(s);
-  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
-  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const { query: $, queryAll: $$, escapeHtml: esc } = LX.Util;
 
   const IC = {
     term: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-5-6-5"/><path d="M12 19h8"/></svg>',
@@ -43612,9 +43646,7 @@ drwxrws--- 4 root dados 4096 /srv/projeto
    ========================================================================= */
 'use strict';
 (function () {
-  const $ = (s, r) => (r || document).querySelector(s);
-  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
-  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const { query: $, queryAll: $$, escapeHtml: esc } = LX.Util;
 
   const IC = () => LX.ICON;
 
@@ -56437,7 +56469,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
 /* ==== 87-git-visual.js ==== */
 'use strict';
 (function () {
-  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const { escapeHtml: esc } = LX.Util;
   const flow = (items, caption) => `<figure class="git-figure"><div class="git-flow">${items.map(([title,detail],i)=>`${i?'<span class="git-arrow" aria-hidden="true">→</span>':''}<div><strong>${title}</strong><small>${detail}</small></div>`).join('')}</div><figcaption>${caption}</figcaption></figure>`;
   function graph(rebase) {
     return `<figure class="git-figure"><svg viewBox="0 0 560 170" role="img" aria-label="${rebase?'Antes: duas linhas divergentes. Depois: commits da feature reaplicados sobre main.':'Main e feature partem de um ancestral comum e se encontram num merge.'}"><g fill="none" stroke="currentColor" stroke-width="2"><path d="M50 45H270${rebase?'':'L430 45'}M160 45L220 105H325${rebase?'':'L430 45'}"/>${rebase?'<path d="M50 150H470" stroke-dasharray="5 4"/>':''}</g>${[[50,45,'A'],[160,45,'B'],[270,45,'C'],[220,105,'D'],[325,105,'E'],...(rebase?[[270,150,'C'],[370,150,'D′'],[470,150,'E′']]:[[430,45,'F']])].map(([x,y,t])=>`<circle cx="${x}" cy="${y}" r="16" fill="var(--surface)" stroke="currentColor"/><text x="${x}" y="${y+5}" text-anchor="middle" fill="currentColor">${t}</text>`).join('')}<text x="475" y="50" fill="currentColor">main</text><text x="360" y="110" fill="currentColor">feature</text></svg><figcaption>${rebase?'Rebase reaplica D e E sobre C: D′ e E′ são novos commits. O original continua recuperável enquanto houver referências ou reflog.':'F tem dois pais: integra os dois históricos. Se main não tivesse avançado, seria possível apenas mover sua referência (fast-forward).'}</figcaption></figure>`;

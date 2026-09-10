@@ -4,8 +4,6 @@
    ========================================================================= */
 'use strict';
 
-const LX = (typeof window !== 'undefined' ? (window.LX = window.LX || {}) : (globalThis.LX = globalThis.LX || {}));
-
 /* ---------- Erros de sistema (mensagens autênticas em inglês, como no Linux) ---------- */
 const ERRNO_MSG = {
   ENOENT: 'No such file or directory',

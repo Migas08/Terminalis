@@ -3,7 +3,7 @@
    ========================================================================= */
 'use strict';
 (function () {
-  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const { escapeHtml: esc } = LX.Util;
 
   function highlightShell(line) {
     return String(line).split(/('[^']*'|"[^"]*"|#[^\n]*|--?[A-Za-z][\w-]*)/g).map(token => {
