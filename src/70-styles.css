@@ -542,7 +542,10 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
 .opt button.right .k { border-color: var(--green); color: var(--green); }
 .opt button.wrong { border-color: rgba(137,137,137,.4); background: var(--red-soft); }
 .opt button.wrong .k { border-color: var(--red); color: var(--red); }
-.explain { font-size: 13.5px; color: var(--tx-2); margin-top: 9px; }
+.task .explain { margin: 0 16px 16px; padding: 14px 16px; border-radius: 8px; background: var(--surface-2); color: var(--tx-2); font-size: 14px; line-height: 1.75; overflow-wrap: anywhere; }
+.task .explain > strong:first-child { display: block; margin-bottom: 5px; color: var(--tx); }
+.task .explain code { white-space: normal; }
+.task .explain pre { max-width: 100%; overflow-x: auto; white-space: pre; }
 
 .fill { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; font-family: var(--f-mono); font-size: 13.5px; }
 .fill input {
