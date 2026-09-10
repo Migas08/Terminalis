@@ -84,5 +84,20 @@
   }
 
   LX.renderBlocks = renderBlocks;
+  // Verifier messages mix prose and code markup with values from the lab.
+  // Rebuild only formatting tags; never insert attributes or executable HTML.
+  LX.feedbackHtml = message => {
+    const template = document.createElement('template');
+    template.innerHTML = String(message);
+    const allowed = new Set(['CODE', 'STRONG', 'B', 'EM', 'I', 'BR', 'P', 'PRE', 'UL', 'OL', 'LI']);
+    const render = node => {
+      if (node.nodeType === 3) return esc(node.textContent);
+      if (node.nodeType !== 1) return '';
+      if (!allowed.has(node.tagName)) return esc(node.outerHTML);
+      const tag = node.tagName.toLowerCase();
+      return tag === 'br' ? '<br>' : `<${tag}>${Array.from(node.childNodes, render).join('')}</${tag}>`;
+    };
+    return Array.from(template.content.childNodes, render).join('');
+  };
   LX.highlightShell = highlightShell;
 })();

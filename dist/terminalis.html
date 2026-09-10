@@ -531,7 +531,10 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
 .hint.solution .hl { color: var(--green); }
 .hint code { background: var(--surface-4); }
 
-.verdict { margin: 0 16px 15px; padding: 11px 14px; border-radius: 8px; font-family: var(--f-mono); font-size: 12.5px; line-height: 1.65; white-space: pre-wrap; }
+.verdict { margin: 0 16px 15px; padding: 14px 16px; border-radius: 8px; font-family: var(--f-ui); font-size: 14px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.verdict > strong:first-child { display: block; margin-bottom: 5px; }
+.verdict code { white-space: normal; }
+.verdict pre { max-width: 100%; overflow-x: auto; }
 .verdict.ok   { background: var(--green-soft); color: var(--green); border: 1px solid var(--green-line); }
 .verdict.fail { background: var(--red-soft);   color: var(--red);   border: 1px solid rgba(137,137,137,.3); }
 
@@ -548,7 +551,10 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
 .opt button.right .k { border-color: var(--green); color: var(--green); }
 .opt button.wrong { border-color: rgba(137,137,137,.4); background: var(--red-soft); }
 .opt button.wrong .k { border-color: var(--red); color: var(--red); }
-.explain { font-size: 13.5px; color: var(--tx-2); margin-top: 9px; }
+.task .explain { margin: 0 16px 16px; padding: 14px 16px; border-radius: 8px; background: var(--surface-2); color: var(--tx-2); font-size: 14px; line-height: 1.75; overflow-wrap: anywhere; }
+.task .explain > strong:first-child { display: block; margin-bottom: 5px; color: var(--tx); }
+.task .explain code { white-space: normal; }
+.task .explain pre { max-width: 100%; overflow-x: auto; white-space: pre; }
 
 .fill { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; font-family: var(--f-mono); font-size: 13.5px; }
 .fill input {
@@ -42326,7 +42332,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       if (t.hints && t.hints.length) {
         inner += `<div class="hints" id="hints-${t.id}"></div>`;
       }
-      inner += `<div class="verdict hidden"></div>`;
+      inner += `<div class="verdict hidden" role="status" aria-live="polite"></div>`;
       inner += `<div class="task-foot">`;
       if (t.hints && t.hints.length) {
         t.hints.forEach((h, i) => inner += `<button class="btn ghost small" data-hint="${i}">${ICON.bulb}Dica ${i + 1}</button>`);
@@ -42398,16 +42404,16 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
           verdict.classList.remove('hidden', 'ok', 'fail');
           if (res.ok) {
             verdict.classList.add('ok');
-            verdict.textContent = '✅ ' + (res.msg || 'Desafio concluído!');
+            verdict.innerHTML = '<strong>✓ Desafio concluído.</strong>' + (res.msg ? LX.feedbackHtml(res.msg) : '');
             this.completeTask(t, el);
           } else {
             verdict.classList.add('fail');
-            verdict.textContent = '❌ Ainda não. ' + (res.msg || 'Confira o enunciado e tente de novo.');
+            verdict.innerHTML = '<strong>× Ainda não.</strong>' + LX.feedbackHtml(res.msg || 'Confira o enunciado e tente de novo.');
           }
         } catch (e) {
           verdict.classList.remove('hidden', 'ok');
           verdict.classList.add('fail');
-          verdict.textContent = '❌ Não consegui verificar: ' + e.message;
+          verdict.textContent = 'Não consegui verificar: ' + e.message;
         }
         vb.disabled = false;
         vb.innerHTML = ICON.verify + 'Verificar desafio';
@@ -42675,6 +42681,21 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
   }
 
   LX.renderBlocks = renderBlocks;
+  // Verifier messages mix prose and code markup with values from the lab.
+  // Rebuild only formatting tags; never insert attributes or executable HTML.
+  LX.feedbackHtml = message => {
+    const template = document.createElement('template');
+    template.innerHTML = String(message);
+    const allowed = new Set(['CODE', 'STRONG', 'B', 'EM', 'I', 'BR', 'P', 'PRE', 'UL', 'OL', 'LI']);
+    const render = node => {
+      if (node.nodeType === 3) return esc(node.textContent);
+      if (node.nodeType !== 1) return '';
+      if (!allowed.has(node.tagName)) return esc(node.outerHTML);
+      const tag = node.tagName.toLowerCase();
+      return tag === 'br' ? '<br>' : `<${tag}>${Array.from(node.childNodes, render).join('')}</${tag}>`;
+    };
+    return Array.from(template.content.childNodes, render).join('');
+  };
   LX.highlightShell = highlightShell;
 })();
 

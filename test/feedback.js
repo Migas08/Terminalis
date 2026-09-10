@@ -48,6 +48,49 @@ const { chromium } = require('playwright');
       assert.deepEqual(result.failures, []);
       console.log(`${width}px: ${result.count} quizzes, correct and incorrect explanations passed.`);
     }
+    await page.evaluate(async () => {
+      __app.goLesson('l1-1');
+      await __app.term.runVisible('echo -n "" > ~/sistema.txt');
+    });
+    await page.locator('[data-task="t1-1-b"] [data-verify]').click();
+    const verdict = page.locator('[data-task="t1-1-b"] .verdict');
+    await page.waitForFunction(() => document.querySelector('[data-task="t1-1-b"] .verdict.fail'));
+    assert((await verdict.textContent()).includes('0 linha(s)'));
+    assert.deepEqual(await verdict.locator('code').allTextContents(), ['>', '>>']);
+    assert(!(await verdict.textContent()).includes('<code>'));
+    assert(!(await verdict.textContent()).includes('&gt;'));
+    assert.equal(await page.evaluate(() => !!LX.Progress.data.tasks['t1-1-b']), false);
+    await verdict.screenshot({ path: path.join(__dirname, '../work/feedback-error.png') });
+    await page.evaluate(async () => {
+      for (const cmd of ['uname -r > ~/sistema.txt', 'hostname >> ~/sistema.txt', 'cat /etc/os-release >> ~/sistema.txt']) await __app.term.runVisible(cmd);
+    });
+    await page.locator('[data-task="t1-1-b"] [data-verify]').click();
+    await page.waitForFunction(() => !!LX.Progress.data.tasks['t1-1-b']);
+    assert((await verdict.textContent()).includes('Desafio concluído'));
+    const audit = await page.evaluate(async () => {
+      __app.goHome();
+      __app.trilhaId = null;
+      const tasks = LX.COURSE.modules.flatMap(m => m.lessons).flatMap(l => l.tasks).filter(t => t.check || t.kind === 'fill');
+      const failures = [];
+      for (const task of tasks) {
+        const check = task.check;
+        try {
+          task.check = async () => ({ ok: false, msg: 'Use <code>&gt;&gt;</code> para <strong>acrescentar</strong>.' });
+          document.querySelector('#page').innerHTML = '<div class="doc">' + __app.renderTask(task) + '</div>';
+          const card = document.querySelector('.task');
+          __app.wireTask(card);
+          await card.querySelector('[data-verify]').onclick();
+          const message = card.querySelector('.verdict');
+          if (message.querySelector('code')?.textContent !== '>>' || message.textContent.includes('<code>')) failures.push(task.id);
+        } finally { task.check = check; }
+      }
+      const probe = document.createElement('div');
+      probe.innerHTML = LX.feedbackHtml('<img src=x onerror="window.feedbackInjection=1"><code onclick="window.feedbackInjection=1">&lt;script&gt;</code>');
+      if (probe.querySelector('img,script,[onclick],[onerror]') || probe.querySelector('code')?.textContent !== '<script>') failures.push('unsafe markup');
+      return { count: tasks.length, failures };
+    });
+    assert.deepEqual(audit.failures, []);
+    console.log(`${audit.count} practical feedback components passed; lesson 1.1 failure/success and safe markup passed.`);
     assert.deepEqual(errors, []);
   } finally {
     if (browser) await browser.close();

@@ -662,7 +662,7 @@
       if (t.hints && t.hints.length) {
         inner += `<div class="hints" id="hints-${t.id}"></div>`;
       }
-      inner += `<div class="verdict hidden"></div>`;
+      inner += `<div class="verdict hidden" role="status" aria-live="polite"></div>`;
       inner += `<div class="task-foot">`;
       if (t.hints && t.hints.length) {
         t.hints.forEach((h, i) => inner += `<button class="btn ghost small" data-hint="${i}">${ICON.bulb}Dica ${i + 1}</button>`);
@@ -734,16 +734,16 @@
           verdict.classList.remove('hidden', 'ok', 'fail');
           if (res.ok) {
             verdict.classList.add('ok');
-            verdict.textContent = '✅ ' + (res.msg || 'Desafio concluído!');
+            verdict.innerHTML = '<strong>✓ Desafio concluído.</strong>' + (res.msg ? LX.feedbackHtml(res.msg) : '');
             this.completeTask(t, el);
           } else {
             verdict.classList.add('fail');
-            verdict.textContent = '❌ Ainda não. ' + (res.msg || 'Confira o enunciado e tente de novo.');
+            verdict.innerHTML = '<strong>× Ainda não.</strong>' + LX.feedbackHtml(res.msg || 'Confira o enunciado e tente de novo.');
           }
         } catch (e) {
           verdict.classList.remove('hidden', 'ok');
           verdict.classList.add('fail');
-          verdict.textContent = '❌ Não consegui verificar: ' + e.message;
+          verdict.textContent = 'Não consegui verificar: ' + e.message;
         }
         vb.disabled = false;
         vb.innerHTML = ICON.verify + 'Verificar desafio';

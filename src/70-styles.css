@@ -525,7 +525,10 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
 .hint.solution .hl { color: var(--green); }
 .hint code { background: var(--surface-4); }
 
-.verdict { margin: 0 16px 15px; padding: 11px 14px; border-radius: 8px; font-family: var(--f-mono); font-size: 12.5px; line-height: 1.65; white-space: pre-wrap; }
+.verdict { margin: 0 16px 15px; padding: 14px 16px; border-radius: 8px; font-family: var(--f-ui); font-size: 14px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+.verdict > strong:first-child { display: block; margin-bottom: 5px; }
+.verdict code { white-space: normal; }
+.verdict pre { max-width: 100%; overflow-x: auto; }
 .verdict.ok   { background: var(--green-soft); color: var(--green); border: 1px solid var(--green-line); }
 .verdict.fail { background: var(--red-soft);   color: var(--red);   border: 1px solid rgba(137,137,137,.3); }
 
