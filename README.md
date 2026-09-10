@@ -186,6 +186,7 @@ Em 10 de setembro de 2026, com Node.js 24.19.0 e Edge/Playwright:
 - Vocabulário: soluções revisadas sem depender das dicas para apresentar comandos; auditoria adicional das operações e flags de Git.
 - Soluções: **449 verificações aprovadas, zero falhas, zero aprovações indevidas e zero exceções**; 202 tarefas sem verificador de estado, como quizzes, são contabilizadas separadamente.
 - Navegador: inicialização, autenticação e progresso, percurso do aluno, revisão visual de PR, preferências persistidas, menus por teclado e layouts de 320 a 1440 px.
+- Dependências: nenhuma dependência de execução; Playwright e seus dois pacotes transitivos são usados apenas nos testes. A consulta ao banco OSV não encontrou vulnerabilidades conhecidas nessas versões.
 
 Esses testes cobrem os comportamentos declarados, sem afirmar compatibilidade integral com Linux, Docker ou Git reais.
 
