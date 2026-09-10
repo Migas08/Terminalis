@@ -1,17 +1,18 @@
 /* Tira screenshots das telas do app para revisão visual.
    uso: node tools/shot.js <saida-dir> [rota1 rota2 ...]
    rotas: home | cursos | jornada | projetos | lesson:<id> | curso:<trilha> | progresso | ajuda */
-const path=require('path'), http=require('http'), fs=require('fs');
+const path=require('node:path'), http=require('node:http'), fs=require('node:fs');
 const { chromium } = require('playwright');
+const browserOptions = require('../test/browser-options');
 (async()=>{
-  const outDir = process.argv[2] || '/tmp/shots';
+  const outDir = path.resolve(process.argv[2] || path.join(__dirname, '..', 'work', 'screenshots'));
   const rotas = process.argv.slice(3); if(!rotas.length) rotas.push('home');
   fs.mkdirSync(outDir,{recursive:true});
   const html = fs.readFileSync(path.join(__dirname,'..','dist','terminalis.html'));
   const srv = http.createServer((q,r)=>{r.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});r.end(html);});
   await new Promise(res=>srv.listen(0,res));
   const alvo='http://127.0.0.1:'+srv.address().port+'/';
-  const browser = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args:['--disable-features=Autofill'] });
+  const browser = await chromium.launch({ ...browserOptions, args:['--disable-features=Autofill'] });
   const page = await browser.newPage({ viewport:{width:1440,height:900} });
   const errs=[]; page.on('pageerror',e=>errs.push('PAGEERROR: '+e.message)); page.on('console',m=>{if(m.type()==='error')errs.push('CONSOLE: '+m.text());});
   await page.goto(alvo);

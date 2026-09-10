@@ -7,7 +7,9 @@
 
 O corpo lido do stdin é inserido como um item novo da lista `tasks`.
 """
-import sys, re, io
+import os
+import re
+import sys
 
 def acha_tarefa(src, tid):
     """Devolve (inicio, fim) do objeto { id: 'tid', ... } incluindo a vírgula."""
@@ -77,7 +79,8 @@ def listar(arq):
         print(f"{linha:6d}  {m.group(2):9s} {m.group(1)}")
 
 def remover(arq, ids):
-    import subprocess, tempfile
+    import subprocess
+    import tempfile
     src = open(arq, encoding='utf-8').read()
     for tid in ids:
         r = acha_tarefa(src, tid)
