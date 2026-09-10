@@ -1127,7 +1127,10 @@ destino JÁ existe    →  põe origem DENTRO dele
           '<code>;</code> sempre · <code>&amp;&amp;</code> se deu certo · <code>||</code> se falhou.',
           '<code>echo $?</code> mostra o código de saída: 0 é sucesso.'
         ]
-      }
+      },
+      {"h2": "Registrar quando uma operação aconteceu"},
+      {"p": "<code>date</code>, sem opções, imprime a data, a hora e o fuso da máquina. <code>date &gt; ~/registro-data.txt</code> guarda essa saída num arquivo. Num encadeamento com &amp;&amp;, a gravação só ocorre se o passo anterior terminar com sucesso; com ||, você pode apresentar uma mensagem se a operação falhar."},
+      {"code": ["$ date"]},
     ],
     tasks: [
       {

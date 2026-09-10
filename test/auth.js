@@ -19,7 +19,7 @@ const T = (nome, cond, extra) => {
   const url = 'http://127.0.0.1:' + srv.address().port + '/';
 
   const browser = await chromium.launch({
-    executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+    ...require('./browser-options'),
     args: ['--disable-features=Autofill,AutofillServerCommunication,PasswordManagerEnableAccountStore,PasswordLeakDetection',
            '--disable-save-password-bubble', '--password-store=basic']
   });

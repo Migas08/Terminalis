@@ -6,3 +6,5 @@ test/screenshots/
 __pycache__/
 *.pyc
 work/
+
+test/shot-*.png

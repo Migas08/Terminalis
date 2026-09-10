@@ -148,13 +148,7 @@ for (const mod of LX.COURSE.modules) {
     /* o corpo da aula vem antes dos desafios dela */
     apresentadosPor(lesson.body, vocabulario);
     for (const t of (lesson.tasks || [])) {
-      /* o enunciado do desafio também pode apresentar um comando */
-      apresentadosPor(t.body, vocabulario);
-      for (const h of (t.hints || [])) {
-        const re = /<code>([\s\S]*?)<\/code>/g;
-        let m;
-        while ((m = re.exec(String(h)))) for (const c of comandosDe(stripHtml(m[1]))) vocabulario.add(c);
-      }
+      /* Somente o corpo da aula ensina: dicas não substituem explicação anterior. */
       if (!t.solution) continue;
       /* Desafio cujo OBJETIVO é praticar a descoberta com uma ferramenta já
          ensinada (man -k): o comando encontrado é o resultado, não o

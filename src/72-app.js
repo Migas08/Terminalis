@@ -227,7 +227,9 @@
 
     /* ----------------------------- chrome ----------------------------- */
     bindChrome() {
-      $('#rail-toggle').onclick = () => document.body.classList.toggle('rail-open');
+      $('#rail-toggle').onclick = () => { const open=document.body.classList.toggle('rail-open'); $('#rail-toggle').setAttribute('aria-expanded',String(open)); };
+      document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.body.classList.remove('rail-open');$('#rail-toggle').setAttribute('aria-expanded','false');}});
+      $('#btn-bell').onclick = () => this.goJornada();
       document.addEventListener('click', (e) => {
         if (document.body.classList.contains('rail-open') && !e.target.closest('#sidebar') && !e.target.closest('#rail-toggle'))
           document.body.classList.remove('rail-open');
@@ -238,11 +240,13 @@
         else if (n === 'cursos') this.goCursos();
         else if (n === 'jornada') this.goJornada();
         else if (n === 'projetos') this.goProjetos();
-        else if (n === 'config') this.goPage('ajuda');
+        else if (n === 'config') this.goPage('config');
       };
       $$('.sb-item[data-nav]').forEach(b => b.onclick = () => irNav(b.dataset.nav));
       $$('.mobile-tabs button[data-nav]').forEach(b => b.onclick = () => irNav(b.dataset.nav));
+      $$('.mobile-tabs [data-m]').forEach(b=>b.onclick=()=>{document.body.classList.toggle('show-term',b.dataset.m==='term');$$('.mobile-tabs [data-m]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));if(b.dataset.m==='term')this.switchTab('term');});
       $('#sb-brand').onclick = () => this.goHome();
+      $('#sb-brand').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.goHome();}};
       const tb = $('#topback'); if (tb) tb.onclick = () => this.voltar();
       $('#conta-chip').onclick = (e) => { e.stopPropagation(); this.alternarMenuConta(); };
       document.addEventListener('click', (e) => {
@@ -301,6 +305,7 @@
     toast(msg) {
       const t = document.createElement('div');
       t.className = 'toast';
+      t.setAttribute('role','status');
       t.innerHTML = `<span class="ic">${ICON.check}</span>${esc(msg)}`;
       document.body.appendChild(t);
       setTimeout(() => t.remove(), 2400);
@@ -309,7 +314,7 @@
     /* ----------------------------- barra lateral ----------------------------- */
     /* Os "cursos" de topo da barra lateral: as trilhas principais de estudo. */
     cursosPrincipais() {
-      return ['linux', 'docker', 'ops']
+      return ['linux', 'docker', 'git', 'ops']
         .map(id => LX.trilhaPorId(id))
         .filter(t => t && (t.mods || []).some(mid => {
           const m = this.course.modules.find(x => x.id === mid);
@@ -349,11 +354,13 @@
           </span>
         </button>`;
       }).join('');
+      if(this.route.view==='lesson'){const f=this.findLesson(this.route.lesson);if(f){const now=document.createElement('div');now.className='sb-current-lesson';now.setAttribute('aria-current','page');now.textContent='Aula atual · '+f.lesson.title;cont.appendChild(now);}}
       $$('.sb-curso', cont).forEach(b => b.onclick = () => { this.goCurso(b.dataset.curso); document.body.classList.remove('rail-open'); });
     }
 
     /* mostra/esconde o painel do terminal conforme a rota (só em aula/terminal) */
     aplicarChrome() {
+      if (LX.Settings) LX.Settings.apply();
       const emAula = this.route.view === 'lesson';
       document.body.classList.toggle('route-lesson', emAula);
       document.body.classList.toggle('route-page', !emAula);
@@ -512,7 +519,8 @@
       this.route = { view: 'page:' + name, mod: null, lesson: null };
       $('#modprog').style.visibility = 'hidden';
       $('#lesson-foot').classList.add('hidden');
-      if (name === 'ajuda') { this.setCrumbs('', 'Configurações'); this.renderHelp(); }
+      if (name === 'config') { this.setCrumbs('', 'Configurações'); LX.Settings.render(this); }
+      if (name === 'ajuda') { this.setCrumbs('', 'Guia do terminal'); this.renderHelp(); }
       this.aplicarChrome();
       $('#page').scrollTop = 0;
       this.renderRail();
@@ -522,10 +530,14 @@
       const found = this.findLesson(id);
       if (!found) return this.goRoadmap();
       const tr = LX.trilhaDe(found.mod.id);
+      if(tr){const st=LX.Progressao.status(tr.id,Progress.data),et=st.etapas.find(e=>e.modIds.includes(found.mod.id));if(!st.liberada||et?.estado==='aguardando'){this.goCurso(tr.id);this.toast(!st.liberada?'Conclua os pré-requisitos deste curso.':'Conclua as atividades da etapa anterior para avançar.');return;}}
       if (tr) { this.trilhaId = tr.id; try { localStorage.setItem(this.chaveTrilha(), tr.id); } catch (e) { } }
+      document.body.classList.remove('show-term');
+      $$('.mobile-tabs [data-m]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.m==='lesson')));
       this.route = { view: 'lesson', mod: found.mod.id, lesson: id };
       this.openMods.add(found.mod.id);
       Progress.data.lastLesson = id;
+      Progress.data.recentLessons = [id, ...(Progress.data.recentLessons || []).filter(x => x !== id)].slice(0, 8);
       Progress.save();
       this.setCrumbs(found.mod.title, found.lesson.n + ' ' + found.lesson.title);
       this.aplicarChrome();
@@ -538,6 +550,7 @@
       this.renderLesson(found.mod, found.lesson);
       this.renderRail();
       this.applyLessonSetup();
+      if (LX.GitVisual) LX.GitVisual.wire(this);
       $('#page').scrollTop = 0;
       if ($('.sp-tab[aria-selected="true"]').dataset.tab === 'notes') this.switchTab('notes');
     }
@@ -565,7 +578,7 @@
         <h1 class="title">${esc(lesson.title)}</h1>`;
       if (lesson.goal) html += `<p class="lede">${lesson.goal}</p>`;
       /* "O que você vai aprender" — a partir dos títulos de seção da aula */
-      const pontos = (lesson.body || []).filter(b => b && b.h2).map(b => String(b.h2).replace(/<[^>]+>/g, '').trim()).filter(Boolean).slice(0, 5);
+      const pontos = lesson.objectives || (lesson.body || []).filter(b => b && b.h2).map(b => String(b.h2).replace(/<[^>]+>/g, '').trim()).filter(Boolean).slice(0, 5);
       if (pontos.length >= 2) {
         html += `<div class="learn-box"><div class="learn-tt">${ICON.bulb} O que você vai aprender</div>
           <ul class="learn-list">${pontos.map(p => `<li>${ICON.check}<span>${esc(p)}</span></li>`).join('')}</ul></div>`;
@@ -585,19 +598,25 @@
          <button class="nav-btn next ready" id="nav-next" ${next ? '' : 'disabled'}><span>Próxima aula</span>${ICON.next}</button>`;
       $('#nav-prev').onclick = () => prev && this.goLesson(prev.lesson.id);
       $('#nav-next').onclick = () => {
-        if (!Progress.lessonDone(lesson.id)) { Progress.markLesson(lesson.id, true); this.avaliarProgressao(true); }
+        if (!Progress.lessonDone(lesson.id) && lesson.tasks.every(t => Progress.taskDone(t.id))) { Progress.markLesson(lesson.id, true); this.avaliarProgressao(true); }
         next && this.goLesson(next.lesson.id);
       };
       $('#nav-done').onclick = () => {
+        if (!Progress.lessonDone(lesson.id) && !lesson.tasks.every(t => Progress.taskDone(t.id))) return this.toast('Conclua as atividades para concluir esta aula.');
         Progress.markLesson(lesson.id, !Progress.lessonDone(lesson.id));
         this.avaliarProgressao(true);
         this.renderRail();
         this.goLesson(lesson.id);
       };
       const cl = $('#btn-copy-link');
-      if (cl) cl.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(`Terminalis — aula ${lesson.n}: ${lesson.title}`); this.toast('Referência copiada'); };
+      if (cl) cl.onclick = () => this.copyText(`Terminalis — aula ${lesson.n}: ${lesson.title}`);
 
       this.wireDoc();
+    }
+
+    async copyText(text) {
+      try { if(!navigator.clipboard)throw new Error('unavailable');await navigator.clipboard.writeText(text);this.toast('Copiado'); }
+      catch { this.toast('Não foi possível copiar. Selecione o texto e copie pelo navegador.'); }
     }
 
     wireDoc() {
@@ -611,8 +630,7 @@
       $$('.code-btn[data-copy]').forEach(b => b.onclick = () => {
         const pre = b.closest('.code').querySelector('pre');
         const text = Array.from(pre.querySelectorAll('.cmdline')).map(x => x.dataset.cmd).join('\n') || pre.textContent;
-        if (navigator.clipboard) navigator.clipboard.writeText(text);
-        this.toast('Copiado');
+        this.copyText(text);
       });
       $$('[data-task]').forEach(el => this.wireTask(el));
     }
@@ -765,6 +783,7 @@
     }
 
     onCommandRun() {
+      if (LX.GitVisual) LX.GitVisual.refresh(this);
       if ($('.sp-tab[aria-selected="true"]').dataset.tab === 'files') this.renderFiles();
     }
 
@@ -877,9 +896,9 @@
       $('#page').innerHTML = `<div class="doc">
         <div class="eyebrow">Guia rápido</div>
         <h1 class="title">Como usar esta plataforma</h1>
-        <p class="lede">O terminal à direita é um Linux de verdade rodando no seu navegador: sistema de arquivos, permissões, processos, serviços, rede e Docker. O que você cria, existe.</p>
+        <p class="lede">O terminal à direita é um simulador educacional de Linux no navegador: sistema de arquivos, permissões, processos, serviços, rede e Docker. Os comandos suportados modificam o estado do laboratório; não executam programas no seu computador.</p>
         <h2>O ciclo</h2>
-        <p>Cada aula segue o mesmo caminho: você <strong>lê</strong> a explicação, <strong>testa</strong> os exemplos no terminal, resolve o <strong>exercício guiado</strong> (que mostra o caminho), enfrenta o <strong>desafio</strong> (que não mostra) e, se quiser apertar, o <strong>desafio avançado</strong>.</p>
+        <p>Cada aula segue o mesmo caminho: você <strong>lê</strong> a explicação, <strong>testa</strong> os exemplos no terminal, resolve o <strong>exercício guiado</strong>, responde uma <strong>pergunta conceitual</strong> e resolve uma <strong>atividade prática</strong>.</p>
         <p>Quando você clica em <em>Verificar desafio</em>, a plataforma não olha o que você digitou: ela inspeciona o <strong>estado real da máquina</strong> — se o diretório existe, se a permissão está certa, se o serviço subiu. Existem muitos caminhos para o mesmo resultado, e todos valem.</p>
         <h2>Teclas do terminal</h2>
         <div class="cheat">

@@ -3,38 +3,16 @@
    ========================================================================= */
 'use strict';
 (function () {
-  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-  const SH_KEYWORDS = /\b(if|then|else|elif|fi|for|while|until|do|done|case|esac|in|function|return|local|export|source|echo|printf|read|exit|break|continue|declare|shift|set|trap|select)\b/g;
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
   function highlightShell(line) {
-    // linha de saída (sem prompt) fica esmaecida
-    let s = esc(line);
-    s = s.replace(/(#[^\n]*)$/g, '<span class="cmt">$1</span>');
-    s = s.replace(/('[^']*'|"[^"]*")/g, '<span class="str">$1</span>');
-    s = s.replace(/(^|\s)(--?[A-Za-z][\w-]*)/g, '$1<span class="flag">$2</span>');
-    s = s.replace(SH_KEYWORDS, '<span class="kw">$&</span>');
-    s = s.replace(/(^|[\s=(])(\d+)([\s);]|$)/g, '$1<span class="num">$2</span>$3');
-    return s;
+    return String(line).split(/('[^']*'|"[^"]*"|#[^\n]*|--?[A-Za-z][\w-]*)/g).map(token => {
+      const cls=/^['"]/.test(token)?'str':token.startsWith('#')?'cmt':/^--?\w/.test(token)?'flag':'';
+      return cls?'<span class="'+cls+'">'+esc(token)+'</span>':esc(token);
+    }).join('');
   }
-
-  function highlightDockerfile(line) {
-    let s = esc(line);
-    s = s.replace(/^(\s*)(FROM|RUN|CMD|ENTRYPOINT|COPY|ADD|WORKDIR|ENV|ARG|EXPOSE|USER|LABEL|SHELL|VOLUME|HEALTHCHECK|ONBUILD|STOPSIGNAL)\b/,
-      '$1<span class="kw">$2</span>');
-    s = s.replace(/(#[^\n]*)$/g, '<span class="cmt">$1</span>');
-    s = s.replace(/("[^"]*")/g, '<span class="str">$1</span>');
-    return s;
-  }
-
-  function highlightYaml(line) {
-    let s = esc(line);
-    s = s.replace(/(#[^\n]*)$/g, '<span class="cmt">$1</span>');
-    s = s.replace(/^(\s*)([\w.-]+)(:)/, '$1<span class="flag">$2</span>$3');
-    s = s.replace(/(^|\s)(-)(\s)/, '$1<span class="kw">$2</span>$3');
-    s = s.replace(/("[^"]*"|'[^']*')/g, '<span class="str">$1</span>');
-    return s;
-  }
+  const highlightDockerfile = highlightShell;
+  const highlightYaml = highlightShell;
 
   function renderCode(b) {
     const lines = Array.isArray(b.code) ? b.code : String(b.code).split('\n');
@@ -71,6 +49,7 @@
   }
 
   function renderBlock(b, app) {
+    if (b.gitVisual && LX.GitVisual) return LX.GitVisual.render(b.gitVisual, app);
     if (typeof b === 'string') return `<p>${b}</p>`;
     if (b.p) return `<p>${b.p}</p>`;
     if (b.h2) return `<h2>${b.h2}</h2>`;

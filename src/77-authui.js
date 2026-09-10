@@ -21,10 +21,10 @@
   };
 
   const FEATS = [
-    { ic: IC.term, t: 'Um Linux de verdade no navegador', s: 'Bash, permissões, systemd, redes e discos — o terminal executa mesmo, não finge.' },
+    { ic: IC.term, t: 'Um laboratório de terminal no navegador', s: 'Linux, Docker e Git simulados: comandos modificam arquivos e serviços do ambiente virtual.' },
     { ic: IC.check, t: 'Desafios verificados pelo estado da máquina', s: 'A plataforma inspeciona o sistema, não o que você digitou. Vários caminhos são aceitos.' },
     { ic: IC.bulb, t: 'Dica 1, dica 2, e só então a solução', s: 'Errar faz parte do método. Nada é revelado antes de você tentar.' },
-    { ic: IC.map, t: 'Trilhas que abrem em ordem', s: 'Linux, projeto final, Docker. Cada etapa libera a seguinte com o seu progresso.' }
+    { ic: IC.map, t: 'Trilhas que abrem em ordem', s: 'Linux, Docker e Git & GitHub, com projetos finais. Seu progresso libera as próximas etapas.' }
   ];
 
   const AuthUI = {

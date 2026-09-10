@@ -561,7 +561,11 @@
           ['cmd <<< "texto"', 'uma string pela entrada padrão'],
           ['cmd < entrada > saida', 'os dois lados no mesmo comando']
         ]
-      }
+      },
+      {"h2": "Entenda o pequeno script antes de executá-lo"},
+      {"p": "A primeira linha <code>#!/bin/bash</code> indica o interpretador. <code>ALVO=/tmp</code> e <code>DIAS=7</code> atribuem valores; $ALVO e $DIAS consultam esses valores durante a execução. Um delimitador de heredoc entre aspas preserva esses símbolos no arquivo, em vez de expandi-los enquanto você o cria."},
+      {"p": "<code>chmod +x ~/limpar.sh</code> adiciona permissão de execução. <code>~/limpar.sh</code> executa o arquivo pelo caminho completo a partir de sua pasta pessoal; <code>./limpar.sh</code> só funciona se você estiver nessa pasta. As permissões serão aprofundadas no próximo módulo."},
+      {"p": "A linha <code>find \"$ALVO\" -type f -mtime +$DIAS -delete</code> percorre a pasta indicada; -type f seleciona arquivos comuns, -mtime +7 seleciona arquivos cuja idade em dias completos é maior que sete e -delete remove os selecionados. Primeiro confira a seleção sem -delete. Nesta atividade, use somente /tmp na máquina simulada; não copie essa limpeza para um computador com dados importantes."},
     ],
     tasks: [
       {

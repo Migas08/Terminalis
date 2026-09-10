@@ -1,5 +1,10 @@
 {
   "dependencies": {
     "playwright": "^1.62.1"
+  },
+  "scripts": {
+    "build": "python build.py",
+    "test": "node test/run.js",
+    "test:browser": "node test/run-browser.js"
   }
 }

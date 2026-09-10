@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
   const alvo = 'http://127.0.0.1:' + srv.address().port + '/';
 
   const browser = await chromium.launch({
-    executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+    ...require('./browser-options'),
     args: ['--disable-features=Autofill,AutofillServerCommunication', '--disable-save-password-bubble', '--password-store=basic']
   });
   const page = await browser.newPage({ viewport: { width: 1536, height: 1000 } });

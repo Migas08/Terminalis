@@ -1,8 +1,13 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Terminalis</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;550;600;650;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style>__CSS__</style>
+</head>
+<body>
+<a class="skip-link" href="#page">Pular para o conteúdo</a>
 
 <div id="app">
 
@@ -45,9 +50,9 @@
       <span class="lb">Progresso do módulo</span>
       <span class="row"><span class="bar"><i id="modprog-bar" style="width:0%"></i></span><span class="pc" id="modprog-pct">0%</span></span>
     </div>
-    <button class="tb-icon" id="btn-bell" title="Notificações">__ICON_BELL__</button>
+    <button class="tb-icon" id="btn-bell" aria-label="Ver progresso" title="Ver progresso">__ICON_BELL__</button>
     <div class="conta-wrap">
-      <button class="tb-chip conta" id="conta-chip" title="Sua conta de estudo"></button>
+      <button class="tb-chip conta" id="conta-chip" aria-label="Sua conta de estudo" title="Sua conta de estudo"></button>
       <div class="conta-menu hidden" id="conta-menu"></div>
     </div>
   </header>
@@ -56,7 +61,7 @@
   <div id="body">
 
     <section id="lesson-panel">
-      <div id="page"></div>
+      <main id="page" tabindex="-1"></main>
       <footer id="lesson-foot" class="hidden"></footer>
     </section>
 
@@ -66,11 +71,11 @@
         <button class="sp-tab" data-tab="files" role="tab" aria-selected="false">__ICON_FILES__<span>Arquivos</span></button>
         <button class="sp-tab" data-tab="notes" role="tab" aria-selected="false">__ICON_NOTES__<span>Anotações</span></button>
         <div class="sp-tabs-spacer"></div>
-        <button class="mini-btn danger sp-reset" id="btn-reset-term" title="Recriar o ambiente">__ICON_RESET__<span>Reset</span></button>
+        <button class="mini-btn danger sp-reset" id="btn-reset-term" aria-label="Recriar o ambiente" title="Recriar o ambiente">__ICON_RESET__<span>Reset</span></button>
       </div>
 
       <div class="sp-actions" id="sp-term-actions">
-        <button class="mini-btn square" id="btn-new-term" title="Limpar terminal">__ICON_PLUS__</button>
+        <button class="mini-btn square" id="btn-new-term" aria-label="Limpar terminal" title="Limpar terminal">__ICON_PLUS__</button>
         <div class="spacer"></div>
         <span class="sp-hint">terminal interativo — resolva a atividade aqui</span>
       </div>
@@ -86,7 +91,7 @@
           <div id="term-out"></div>
           <textarea id="term-hidden" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" aria-label="Entrada do terminal"></textarea>
           <div class="term-mobile-input">
-            <input id="term-mobile-in" placeholder="digite um comando…" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false">
+            <input id="term-mobile-in" aria-label="Comando do terminal" placeholder="digite um comando…" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false">
             <button id="term-mobile-go">Enter</button>
           </div>
         </div>
@@ -115,7 +120,7 @@
       <!-- anotações -->
       <div class="sp-view" data-view="notes">
         <div class="notes-wrap">
-          <textarea id="notes-area" placeholder="Suas anotações desta aula…&#10;&#10;Ficam salvas no seu navegador." spellcheck="false"></textarea>
+          <textarea id="notes-area" aria-label="Anotações da aula" placeholder="Suas anotações desta aula…&#10;&#10;Ficam salvas no seu navegador." spellcheck="false"></textarea>
           <div class="notes-foot"><span id="notes-title">Anotações</span><span class="spacer" style="flex:1"></span><span id="notes-status">salvo automaticamente</span></div>
         </div>
       </div>
@@ -123,7 +128,9 @@
   </div>
 </div>
 
-<nav class="mobile-tabs">
+<nav class="mobile-tabs" aria-label="Navegação móvel">
+  <button data-m="lesson" aria-pressed="true">__ICON_BOOK__<span>Aula</span></button>
+  <button data-m="term" aria-pressed="false">__ICON_TERM__<span>Terminal</span></button>
   <button data-nav="home" aria-pressed="true">__ICON_HOME__<span>Início</span></button>
   <button data-nav="cursos" aria-pressed="false">__ICON_BOOK__<span>Cursos</span></button>
   <button data-nav="jornada" aria-pressed="false">__ICON_ROUTE__<span>Jornada</span></button>
@@ -157,3 +164,6 @@
     } catch (e) { falhar(e); }
   });
 </script>
+
+</body>
+</html>

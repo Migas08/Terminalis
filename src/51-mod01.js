@@ -402,7 +402,11 @@
           '<strong>Arquivos que começam com ponto são ocultos</strong> (<code>.bashrc</code>). Não é segurança, é só o <code>ls</code> escondendo; use <code>ls -a</code> para vê-los.',
           '<strong>Espaço no nome dá dor de cabeça.</strong> Prefira <code>meu-relatorio.txt</code> a <code>meu relatorio.txt</code>.'
         ]
-      }
+      },
+      {"h2": "Contar linhas e guardar uma investigação"},
+      {"p": "<code>wc -l</code> conta quebras de linha. Em /etc/passwd, cada conta ocupa uma linha. <code>wc -l /etc/passwd</code> mostra a quantidade e o nome do arquivo; <code>wc -l &lt; /etc/passwd</code> fornece o arquivo pela entrada padrão e imprime apenas a quantidade. O símbolo &lt; é um redirecionamento de entrada, não faz parte do nome do arquivo."},
+      {"p": "Para montar um relatório, <code>&gt;</code> grava a saída substituindo o destino; <code>&gt;&gt;</code> acrescenta ao fim. Use &gt; só na primeira linha e &gt;&gt; nas seguintes para preservar as respostas anteriores. Isso não altera os arquivos de sistema que você está lendo."},
+      {"code": ["$ wc -l /etc/passwd", "$ wc -l < /etc/passwd"]},
     ],
     tasks: [
       {
@@ -681,7 +685,11 @@
           ['/opt', 'software de terceiros em pacote próprio'],
           ['/tmp', 'descartável, some no boot']
         ]
-      }
+      },
+      {"h2": "Comparar tamanhos sem adivinhar"},
+      {"p": "Um pipe, escrito <code>|</code>, envia a saída de um comando para a entrada do seguinte. <code>ls /usr/bin | wc -l</code> lista as entradas e conta as linhas. Para ordenar tamanhos, <code>du -a /var/log</code> inclui arquivos, não somente diretórios; <code>sort -n</code> compara números em vez de ordenar como texto. <code>tail -3</code> mostra as três últimas linhas, que serão as maiores depois da ordenação crescente."},
+      {"p": "A saída de du inclui totais de diretórios: escolha a maior linha que representa um arquivo, sem confundir /var/log com um arquivo individual. <code>df -h</code> mostra espaço dos sistemas de arquivos em unidades legíveis. A coluna Use% responde se algum disco ultrapassou 80%; um arquivo grande e um disco cheio são observações diferentes."},
+      {"code": ["$ du -a /var/log | sort -n | tail -3", "$ df -h"]},
     ],
     tasks: [
       {

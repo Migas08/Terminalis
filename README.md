@@ -1,6 +1,6 @@
 # Terminalis
 
-Plataforma interativa em português para aprender **Linux, Bash, Docker e administração de servidores**, com aulas escritas e exercícios no próprio navegador.
+Plataforma interativa em português para aprender **Linux, Bash, Docker, Git & GitHub e administração de servidores**, com aulas escritas e exercícios no próprio navegador.
 
 A aplicação é distribuída em **um único arquivo HTML** (`dist/terminalis.html`). O motor e a interface usam JavaScript, HTML e CSS, sem bibliotecas externas necessárias para a simulação. Comandos alteram arquivos, permissões, processos e serviços do ambiente virtual em memória. O projeto não executa uma máquina Linux nem containers Docker reais.
 
@@ -11,12 +11,14 @@ A aplicação é distribuída em **um único arquivo HTML** (`dist/terminalis.ht
 - **Docker:** imagens, containers, volumes, redes, portas publicadas, logs, healthchecks e execução de comandos nos containers simulados.
 - **Dockerfile e Compose:** construção de imagens e operação de stacks, com variáveis, dependências, volumes e redes.
 - **Serviços:** Traefik, roteamento HTTP e bancos de dados simulados para os exercícios.
+- **Git & GitHub:** snapshots, staging, branches, merges e conflitos, remotos locais, PRs com revisão visual, Issues, tags, releases, stash, recuperação e CI educacional.
+- **Interface monocromática:** dashboard com progresso e acessos recentes, leitura ajustável, navegação móvel entre aula e terminal e foco de teclado.
 - **Interface:** terminal com histórico e autocompletar, editor, explorador de arquivos, anotações, dicas e soluções sob demanda.
 - **Progressão:** aulas, etapas, pré-requisitos entre trilhas e registro permanente de desbloqueios.
 
 ## Conteúdo atual
 
-Inventário conferido em **9 de setembro de 2026**: **43 módulos, 182 aulas, 546 tarefas e 231 comandos registrados** no motor.
+Inventário conferido em **10 de setembro de 2026**: **78 módulos, 217 aulas, 651 tarefas e 233 comandos registrados** no motor.
 
 | Trilha | Módulos no código | Situação |
 |---|---|---|
@@ -24,11 +26,13 @@ Inventário conferido em **9 de setembro de 2026**: **43 módulos, 182 aulas, 54
 | Projeto final de Linux | `mpf1` | Implementado; requer Linux |
 | Docker | `d01` a `d22` — 22 módulos | Implementado; requer projeto final de Linux |
 | Projeto final de Docker | `mpf2` | Implementado; requer Docker |
+| Git & GitHub | `g01` a `g34` — 34 capítulos | Implementado; requer Linux |
+| Projeto final de Git & GitHub | `gpf` | Implementado; requer Git & GitHub |
 | Operação integrada | `m25` e `m26` | Implementado; requer projeto final de Docker |
 
-A jornada segue **Linux → projeto final de Linux → Docker → projeto final de Docker → operação integrada**. Os identificadores dos módulos são internos; a numeração exibida é definida no mapa do curso.
+A jornada segue **Linux → projeto final de Linux → Docker → projeto final de Docker → operação integrada**. Git & GitHub abre após Linux e tem seu próprio projeto final. Os identificadores dos módulos são internos; a numeração exibida é definida no mapa do curso.
 
-Git, Python para automação, Redes, SQL e Kubernetes estão declarados como trilhas planejadas. As ferramentas de rede e SQL já presentes no simulador não significam que essas trilhas futuras estejam disponíveis.
+Python para automação, Redes, SQL e Kubernetes estão declarados como trilhas planejadas. As ferramentas de rede e SQL já presentes no simulador não significam que essas trilhas futuras estejam disponíveis.
 
 Cada aula possui três tarefas, nesta ordem:
 
@@ -53,6 +57,9 @@ src/
   32-admin.js               administração do sistema
   33-net.js                 comandos de rede
   34-manpages.js            manuais integrados
+  35-git-core.js           repositório Git e snapshots no sistema virtual
+  36-git-cli.js            comandos Git educacionais
+  37-github.js             repositórios remotos e colaboração simulada
   40-docker.js              motor Docker
   41-sql.js                 bancos de dados simulados
   42-imgbin.js              programas disponíveis nas imagens
@@ -129,6 +136,9 @@ node test/solutions.js
 | `estrutura.js` | Três tarefas por aula e sua ordem |
 | `vocabulario.js` | Comandos das soluções apresentados no conteúdo acumulado |
 | `solutions.js` | Soluções executadas no simulador e discriminação dos verificadores |
+| `git.js` | Semântica de snapshots, branches, integração e recuperação |
+| `git-vocabulary.js` | Operações e flags ensinadas antes dos exercícios de Git |
+| `interface.js` | Dashboard, PR visual, persistência e responsividade |
 | `ui.js` | Inicialização e interação com a interface no navegador |
 | `auth.js` | Login e progressão entre trilhas no navegador |
 | `aluno.js` | Percurso de um aluno pela interface |
@@ -147,26 +157,35 @@ npm ci
 npx playwright install chromium
 ```
 
-**Antes de executá-los**, ajuste o `executablePath` em `test/ui.js`, `test/auth.js` e `test/aluno.js`: atualmente ele aponta para `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`. Remova essa opção para usar o Chromium instalado pelo Playwright ou indique um executável válido no ambiente. Depois de gerar o HTML atualizado:
+Os testes usam Edge instalado no Windows e Chromium gerenciado pelo Playwright nos demais sistemas. Para outro navegador, defina `TERMINALIS_BROWSER` com o caminho do executável. Depois de gerar o HTML atualizado:
 
 ```sh
-node test/ui.js
-node test/auth.js
-node test/aluno.js
+npm test
+npm run test:browser
 ```
+
+`npm test` verifica a sintaxe de todos os arquivos JavaScript antes das suítes do motor e conteúdo. Não há TypeScript nem linter configurado.
 
 ### Última verificação local
 
-Em 9 de setembro de 2026, com Node.js 24.19.0:
+Em 10 de setembro de 2026, com Node.js 24.19.0 e Edge/Playwright:
 
-- Motor Linux: **163 passaram, 0 falharam**.
-- Docker: **160 passaram, 0 falharam**.
-- Estrutura: **182 aulas, nenhuma fora do padrão**.
-- Vocabulário: **nenhum comando não ensinado detectado**.
-- Auditoria de tarefas: **379 verificadores aprovados, 0 falhas, 0 fracos e 0 exceções**; 167 tarefas sem verificador foram contabilizadas separadamente pelo teste.
-- Testes de navegador: **pendentes**; Playwright não estava instalado no ambiente dessa verificação.
+- Linux e shell: **163 verificações aprovadas**; Docker: **160**; sem falhas.
+- Git: **24 verificações semânticas**, incluindo conflitos, proteção de alterações, reset, stash, clone e autenticação simulada.
+- Estrutura: **217 aulas** no padrão de três tarefas.
+- Vocabulário: soluções revisadas sem depender das dicas para apresentar comandos; auditoria adicional das operações e flags de Git.
+- Soluções: **449 verificações aprovadas, zero falhas, zero aprovações indevidas e zero exceções**; 202 tarefas sem verificador de estado, como quizzes, são contabilizadas separadamente.
+- Navegador: inicialização, autenticação e progresso, percurso do aluno, revisão visual de PR, preferências persistidas, menus por teclado e layouts de 320 a 1440 px.
 
-Esses resultados cobrem as verificações existentes e não representam compatibilidade integral com Linux, Bash ou Docker reais.
+Esses testes cobrem os comportamentos declarados, sem afirmar compatibilidade integral com Linux, Docker ou Git reais.
+
+## Limites do laboratório Git
+
+Nenhuma operação Git/GitHub deste curso acessa a internet ou usa credenciais reais. Os repositórios vivem na memória da aba; progresso e anotações são persistidos separadamente. Fechar a aba reinicia os arquivos de treino.
+
+O simulador cobre os comandos utilizados nas aulas, não toda a implementação de Git. Snapshots são de arquivos de texto; hashes são identificadores educacionais; o diff compara snapshots inteiros; a mesclagem de texto é conservadora. O rebase interativo tem uma prévia conceitual de pick/reword/squash/fixup. O terminal implementa rebase simples com continuação e cancelamento.
+
+A CI local interpreta workflows didáticos e verifica apenas `test -f README.md` e `test -f index.html`. Ela não baixa actions nem executa código externo. O exemplo de workflow pode ser estudado como YAML; o laboratório não substitui a execução do GitHub Actions real.
 
 ## Licença
 

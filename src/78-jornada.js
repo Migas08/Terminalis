@@ -100,70 +100,22 @@
   }
 
   function renderHome(app) {
-    const prog = LX.Progress.data;
-    const P = LX.Progressao;
-    const u = LX.Auth && LX.Auth.usuario;
-    const jornada = P.jornada(prog);
-    const reais = jornada.filter(s => !s.planejada);
-    const planejados = jornada.filter(s => s.planejada);
-
-    const atual = reais.find(s => s.liberada && !s.concluida && !s.proprio.vazia)
-      || reais.find(s => s.liberada && !s.concluida)
-      || reais.find(s => s.liberada) || reais[0];
-    const comecou = reais.reduce((a, s) => a + s.proprio.licoes.feitas, 0) > 0;
-
-    let html = `<div class="doc wide home">
-      <section class="hm-hero">
-        <div class="hm-hero-txt">
-          <div class="hm-hero-tag">${u ? 'Olá, ' + esc(u.nome || u.usuario) : 'Aprenda tecnologia na prática'}</div>
-          <h1 class="hm-wordmark">terminalis<span class="dot">.</span></h1>
-          <p class="hm-tagline">Aprenda tecnologia na prática.</p>
-          <p class="hm-sub">Do zero ao avançado, com foco em Linux, Docker e as habilidades reais que o mercado procura. Você lê uma explicação curta, executa no terminal de verdade e o próprio sistema confere o resultado.</p>
-          <div class="hm-cta"><button class="btn primary grande" id="hm-continuar">${comecou ? 'Continuar aprendendo' : 'Começar agora'} ${IC().next}</button></div>
-        </div>
-        <div class="hm-term">
-          <div class="bar"><i></i><i></i><i></i><span>aluno@srv-aula</span></div>
-          <pre><span class="c"># seu futuro começa aqui</span>
-<span class="p">$</span> sudo echo "Seu futuro
-      começa aqui."<span class="cur"></span></pre>
-        </div>
-      </section>
-
-      <div class="hm-jornada-tt">
-        <h2>Sua jornada</h2><span class="ln"></span>
-        <button class="lk" id="hm-ver-jornada">ver em detalhe ${IC().next}</button>
-      </div>
-      <div class="hm-cards">`;
-
-    const nodes = reais.slice();
-    for (let i = 0; i < nodes.length; i++) {
-      const st = nodes[i], t = st.trilha, e = estadoCard(st);
-      const clicavel = st.liberada && !(st.proprio && st.proprio.vazia);
-      html += `<button class="hm-card c-${t.cor} ${e.cls === 'lock' ? 'lock' : ''}" ${clicavel ? `data-curso="${t.id}"` : 'disabled'}>
-        ${clicavel ? `<span class="arrow">${IC().next}</span>` : ''}
-        <span class="ic">${e.cls === 'lock' ? IC().lock : t.icone}</span>
-        <span class="nm">${esc(t.nome)}</span>
-        <span class="rs">${esc(t.resumo)}</span>
-        <span class="st ${e.cls}">${e.ic}${e.txt}${e.cls === 'prog' && !st.proprio.vazia ? ' · ' + st.proprio.pct + '%' : ''}</span>
-      </button>`;
-      if (i < nodes.length - 1) html += `<span class="hm-conn">${IC().next}</span>`;
-    }
-    if (planejados.length) {
-      html += `<span class="hm-conn">${IC().next}</span>
-      <button class="hm-card c-violet lock" disabled>
-        <span class="ic">${IC().lock}</span>
-        <span class="nm">Próximos cursos</span>
-        <span class="rs">Redes, DevOps, Python e mais — a trilha continua.</span>
-        <span class="st lock">${IC().lock}Bloqueado</span>
-      </button>`;
-    }
-    html += `</div></div>`;
-
-    $('#page').innerHTML = html;
-    const c = $('#hm-continuar');
-    if (c) c.onclick = () => { if (atual) app.abrirTrilha(atual.id); };
-    const vj = $('#hm-ver-jornada'); if (vj) vj.onclick = () => app.goJornada();
-    $$('#page [data-curso]').forEach(el => el.onclick = () => (app.goCurso ? app.goCurso(el.dataset.curso) : app.abrirTrilha(el.dataset.curso)));
+    const prog=LX.Progress.data, states=LX.Progressao.jornada(prog).filter(s=>!s.planejada);
+    const total=states.reduce((v,s)=>v+s.proprio.licoes.total,0), done=states.reduce((v,s)=>v+s.proprio.licoes.feitas,0);
+    const current=states.find(s=>s.liberada&&!s.concluida&&!s.proprio.vazia)||states[0];
+    const recent=(prog.recentLessons||[]).map(id=>app.findLesson(id)).filter(Boolean).slice(0,4);
+    const resume=app.findLesson(prog.lastLesson);
+    $('#page').innerHTML=`<div class="doc wide home study-home">
+      <header class="study-hero"><div class="eyebrow">SEU ESPAÇO DE PRÁTICA / TERMINALIS</div><h1>Entenda o código.<br>Assuma o terminal.</h1><p>Linux, containers e controle de versão. Aprenda o conceito, experimente no laboratório e comprove o que sabe.</p></header>
+      <section class="study-resume"><div><div class="eyebrow">${resume?'CONTINUAR DE ONDE PAROU':'SEU PRIMEIRO PASSO'}</div><h2>${esc(resume?.lesson.title||current.trilha.nome)}</h2><p>${esc(resume?.mod.title||current.trilha.resumo)}</p></div><button class="btn primary" id="hm-continuar">${resume?'Retomar aula':'Começar a estudar'} ${IC().next}</button></section>
+      <section class="study-overview" aria-label="Progresso geral"><strong>${total?Math.round(done/total*100):0}<small>%</small></strong><div><span>Progresso geral</span>${barra(total?done/total*100:0)}<p>${done} de ${total} aulas concluídas · ${Object.values(prog.tasks||{}).filter(Boolean).length} atividades concluídas</p></div><button class="lk" id="hm-ver-jornada">Ver progresso ${IC().next}</button></section>
+      <div class="study-section-title"><h2>Suas ferramentas.</h2><span>Do fundamento à prática profissional</span></div><div class="study-courses">${states.filter(s=>['linux','docker','git'].includes(s.id)).map((s,i)=>`<button class="study-course" data-curso="${s.id}"><span class="study-course-num">0${i+1}</span><div><h3>${esc(s.trilha.nome)}</h3><p>${esc(s.trilha.resumo)}</p><span>${s.proprio.licoes.feitas}/${s.proprio.licoes.total} aulas · ${esc(LX.Progressao.rotulo(s.situacao))}</span>${barra(s.proprio.pct)}</div><strong>${s.proprio.pct}%</strong><span aria-hidden="true">↗</span></button>`).join('')}</div>
+      ${recent.length?`<section class="study-recent"><h2>Acessados recentemente</h2>${recent.map(f=>`<button class="study-recent-item" data-recent="${f.lesson.id}"><span>${esc(f.mod.title)}</span><strong>${esc(f.lesson.title)}</strong><span aria-hidden="true">→</span></button>`).join('')}</section>`:''}
+      <footer class="study-note">Um laboratório local para experimentar. Seu progresso é salvo automaticamente na sua conta de estudo.</footer></div>`;
+    $('#hm-continuar').onclick=()=>resume?app.goLesson(resume.lesson.id):app.abrirTrilha(current.id);
+    $('#hm-ver-jornada').onclick=()=>app.goJornada();
+    $$('[data-curso]').forEach(b=>b.onclick=()=>app.goCurso(b.dataset.curso));
+    $$('[data-recent]').forEach(b=>b.onclick=()=>app.goLesson(b.dataset.recent));
   }
 
   /* ============================== SUA JORNADA ============================== */
@@ -409,7 +361,7 @@
         const total = m.lessons.length;
         const feitas = m.lessons.filter(l => LX.Progress.lessonDone(l.id)).length;
         const est = estadoMod[m.id] || (feitas === total && total ? 'concluida' : 'disponivel');
-        const bloq = est === 'aguardando' && feitas < total;
+        const bloq = !jn.liberada || est === 'aguardando' && feitas < total;
         const cls = !total ? 'vazio' : (feitas === total ? 'feito' : (bloq ? 'bloq' : (feitas ? 'andando' : '')));
         const situ = !total ? 'em breve' : (feitas === total ? 'Concluído' : (bloq ? 'Bloqueado' : (feitas ? 'Em andamento' : 'A fazer')));
         return `<button class="cs-mod ${cls}" ${total && !bloq ? `data-mod="${m.id}"` : 'disabled'}>

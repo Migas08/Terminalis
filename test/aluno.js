@@ -20,7 +20,7 @@ const T = (nome, cond, extra) => {
   const url = 'http://127.0.0.1:' + srv.address().port + '/';
 
   const browser = await chromium.launch({
-    executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+    ...require('./browser-options'),
     args: ['--disable-features=Autofill,AutofillServerCommunication', '--disable-save-password-bubble', '--password-store=basic']
   });
   const ctx = await browser.newContext({ viewport: { width: 1500, height: 950 } });
@@ -50,9 +50,9 @@ const T = (nome, cond, extra) => {
 
   console.log('\n2. a tela inicial responde "onde estou / o que faço agora"');
   const inicio = await page.evaluate(() => document.querySelector('#page').innerText);
-  T('mostra a proposta e o wordmark', /terminalis/i.test(inicio) && /Aprenda tecnologia na prática/i.test(inicio));
+  T('mostra a proposta e o wordmark', /terminalis/i.test(inicio) && /Assuma o terminal/i.test(inicio));
   T('mostra a jornada em cursos', /Linux e o terminal/.test(inicio) && /Docker/.test(inicio));
-  T('o botão principal diz "Começar agora" para quem nunca fez nada', /Começar agora/.test(inicio));
+  T('o botão principal diz "Começar agora" para quem nunca fez nada', /Começar a estudar/.test(inicio));
   const cursoLinux = await page.evaluate(() => { window.__app.goCurso('linux'); return document.querySelector('#page').innerText; });
   T('a página do curso mostra a próxima aula', /Próximo conteúdo/i.test(cursoLinux) && /1\.1/.test(cursoLinux), cursoLinux.slice(0, 200));
   T('a página do curso lista os módulos', await page.evaluate(() => document.querySelectorAll('.cs-mod').length >= 5));
