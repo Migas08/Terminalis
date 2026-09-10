@@ -6,7 +6,7 @@
        salt aleatório de 16 bytes por usuário). A senha em texto puro nunca
        é gravada nem enviada a lugar nenhum.
      · emite um token de sessão de 32 bytes aleatórios; o navegador guarda
-       o token, o servidor guarda apenas o SHA-256 dele com validade.
+       o token, e o armazenamento de contas guarda apenas seu SHA-256.
      · mantém o progresso em um documento por usuário, isolado dos demais.
    Armazenamento: capability "db" do artifact quando disponível (permite
    entrar do celular e do computador com a mesma conta) e localStorage
@@ -251,7 +251,7 @@
       if (sess && sess.uid && sess.token) {
         const conta = await Store.get('contas', sess.uid);
         if (conta && conta.sessoes) {
-          delete conta.sessoes[await sha256Hex(sess.token)];   // invalida o token no servidor
+          delete conta.sessoes[await sha256Hex(sess.token)];   // invalida o token no armazenamento
           await Store.set('contas', conta.uid, conta);
         }
       }

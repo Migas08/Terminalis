@@ -44,8 +44,11 @@ Os guiados podem verificar o histórico de comandos; os desafios práticos verif
 
 ## Estrutura
 
+Uma descrição dos limites entre as camadas e do fluxo de carregamento está em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
+
 ```text
 src/
+  09-runtime.js             namespace LX e utilitários compartilhados
   10-vfs.js                 arquivos virtuais, inodes, links e permissões
   11-kernel.js              máquina, processos, serviços e rede
   12-catalog.js             catálogo de pacotes e recursos simulados
@@ -57,9 +60,10 @@ src/
   32-admin.js               administração do sistema
   33-net.js                 comandos de rede
   34-manpages.js            manuais integrados
-  35-git-core.js           repositório Git e snapshots no sistema virtual
-  36-git-cli.js            comandos Git educacionais
-  37-github.js             repositórios remotos e colaboração simulada
+  35-git-core.js            repositório Git e snapshots no sistema virtual
+  36-git-cli.js             comandos Git educacionais
+  37-github-service.js      remotos, colaboração e CI simulada
+  38-github-cli.js          interface educacional do comando gh
   40-docker.js              motor Docker
   41-sql.js                 bancos de dados simulados
   42-imgbin.js              programas disponíveis nas imagens
@@ -73,23 +77,29 @@ src/
   50-content-01-modules.js  mapa dos módulos
   50-content-02-trilhas.js  trilhas, etapas e pré-requisitos
   51-*.js a 68-*.js         aulas Linux e projeto final de Linux
-  70-styles.css            estilos e layout responsivo
-  71-terminal.js           terminal, editor e sessões
-  72-app.js                navegação, progresso e tarefas
-  73-render.js             renderização dos blocos das aulas
-  74-auth.js               contas, sessões e armazenamento
-  75-shell.html            estrutura HTML e inicialização
-  76-progressao.js         etapas, conclusões e desbloqueios
-  77-authui.js             interface de autenticação
-  78-jornada.js            páginas de cursos, jornada e projetos
-  79-docker-helpers.js     cenários e verificações Docker
-  80-d01.js a 80-d22.js    aulas Docker
-  81-mpf2.js               projeto final de Docker
-  82-m25.js e 83-m26.js    operação e projetos integrados
-test/                    testes do motor, conteúdo e navegador
-tools/                   ferramentas de edição e verificação
-build.py                 montagem do HTML único
-dist/terminalis.html      aplicação gerada
+  70-styles.css             estilos e layout responsivo
+  71-terminal.js            terminal, editor e sessões
+  72-app.js                 navegação e páginas principais
+  72-task-ui.js             atividades e verificações na interface
+  72-file-browser.js        navegador de arquivos virtuais
+  73-render.js              renderização dos blocos das aulas
+  74-auth.js                contas, sessões e armazenamento
+  75-shell.html             estrutura HTML e inicialização
+  76-progressao.js          etapas, conclusões e desbloqueios
+  77-authui.js              interface de autenticação
+  78-jornada.js             páginas de cursos, jornada e projetos
+  79-docker-helpers.js      cenários e verificações Docker
+  80-d01.js a 80-d22.js     aulas Docker
+  81-mpf2.js                projeto final de Docker
+  82-m25.js e 83-m26.js     operação e projetos integrados
+  84-*.js a 86-*.js         curso e projeto final de Git & GitHub
+  87-git-visual.js          diagramas de branches, PRs e commits
+  88-settings.js            preferências de leitura e terminal
+docs/                       arquitetura e pesquisa técnica preservada
+test/                       testes do motor, conteúdo e navegador
+tools/                      ferramentas de edição e verificação
+build.py                    montagem do HTML único
+dist/terminalis.html        aplicação gerada
 ```
 
 Os componentes compartilham o namespace `LX`. O build concatena os arquivos JavaScript em ordem alfabética, insere o CSS e substitui os ícones no HTML. A ordem dos nomes dos arquivos faz parte da organização das dependências.
