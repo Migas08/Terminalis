@@ -1,5 +1,4 @@
 node_modules/
-test/screenshots/
 *.log
 .DS_Store
 
@@ -7,4 +6,3 @@ __pycache__/
 *.pyc
 work/
 
-test/shot-*.png

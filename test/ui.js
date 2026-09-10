@@ -5,6 +5,8 @@ const fs = require('fs');
 const { chromium } = require('playwright');
 
 (async () => {
+  const shots = path.join(__dirname, '..', 'work');
+  fs.mkdirSync(shots, { recursive: true });
   /* servido por http para ter localStorage e WebCrypto como no artifact */
   const htmlBuf = fs.readFileSync(path.join(__dirname, '..', 'dist', 'terminalis.html'));
   const srv = http.createServer((q, r) => { r.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); r.end(htmlBuf); });
@@ -84,15 +86,15 @@ const { chromium } = require('playwright');
   console.log('arquivos:', JSON.stringify(files));
   await page.evaluate(() => window.__app.switchTab('term'));
 
-  await page.screenshot({ path: path.join(__dirname, 'shot-lesson.png') });
+  await page.screenshot({ path: path.join(shots, 'ui-lesson.png') });
   await page.evaluate(() => window.__app.goRoadmap());
   await page.waitForTimeout(300);
-  await page.screenshot({ path: path.join(__dirname, 'shot-roadmap.png') });
+  await page.screenshot({ path: path.join(shots, 'ui-roadmap.png') });
 
   await page.setViewportSize({ width: 420, height: 860 });
   await page.evaluate(() => window.__app.goLesson('l1-2'));
   await page.waitForTimeout(300);
-  await page.screenshot({ path: path.join(__dirname, 'shot-mobile.png') });
+  await page.screenshot({ path: path.join(shots, 'ui-mobile.png') });
 
 
   // conta autenticada
@@ -107,12 +109,12 @@ const { chromium } = require('playwright');
   await page.waitForTimeout(200);
   const menuLen = await page.evaluate(() => document.getElementById('conta-menu').innerHTML.length);
   console.log('menu de conta html:', menuLen);
-  await page.screenshot({ path: path.join(__dirname, 'shot-contas.png') });
+  await page.screenshot({ path: path.join(shots, 'ui-accounts.png') });
 
   // página inicial: a jornada em pé
   await page.evaluate(() => { document.body.click(); window.__app.goHome(); });
   await page.waitForTimeout(300);
-  await page.screenshot({ path: path.join(__dirname, 'shot-home.png'), fullPage: true });
+  await page.screenshot({ path: path.join(shots, 'ui-home.png'), fullPage: true });
 
   // página "Sua jornada", com algum progresso para não ficar tudo zerado
   await page.evaluate(() => {
@@ -126,21 +128,21 @@ const { chromium } = require('playwright');
     window.__app.goJornada();
   });
   await page.waitForTimeout(400);
-  await page.screenshot({ path: path.join(__dirname, 'shot-jornada.png'), fullPage: true });
+  await page.screenshot({ path: path.join(shots, 'ui-journey.png'), fullPage: true });
   await page.evaluate(() => window.__app.goHome());
   await page.waitForTimeout(300);
-  await page.screenshot({ path: path.join(__dirname, 'shot-home2.png'), fullPage: true });
+  await page.screenshot({ path: path.join(shots, 'ui-home-return.png'), fullPage: true });
 
   // tela de acesso
   await page.evaluate(() => { LX.AuthUI.mostrar('entrar'); });
   await page.waitForTimeout(300);
-  await page.screenshot({ path: path.join(__dirname, 'shot-login.png') });
+  await page.screenshot({ path: path.join(shots, 'ui-login.png') });
   await page.evaluate(() => { LX.AuthUI.trocarAba('criar'); });
   await page.waitForTimeout(250);
-  await page.screenshot({ path: path.join(__dirname, 'shot-cadastro.png') });
+  await page.screenshot({ path: path.join(shots, 'ui-signup.png') });
   await page.setViewportSize({ width: 420, height: 860 });
   await page.waitForTimeout(250);
-  await page.screenshot({ path: path.join(__dirname, 'shot-login-mobile.png') });
+  await page.screenshot({ path: path.join(shots, 'ui-login-mobile.png') });
   await page.setViewportSize({ width: 1536, height: 1000 });
 
   console.log('\nerros:', errors.length);

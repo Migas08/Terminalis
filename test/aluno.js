@@ -14,6 +14,8 @@ const T = (nome, cond, extra) => {
 };
 
 (async () => {
+  const shots = path.join(__dirname, '..', 'work');
+  fs.mkdirSync(shots, { recursive: true });
   const html = fs.readFileSync(ARQ);
   const srv = http.createServer((q, r) => { r.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); r.end(html); });
   await new Promise(res => srv.listen(0, res));
@@ -183,13 +185,13 @@ const T = (nome, cond, extra) => {
   console.log('\n10. nada quebrado na interface');
   await page.evaluate(() => window.__app.goHome());
   await page.waitForTimeout(400);
-  await page.screenshot({ path: path.join(__dirname, 'shot-aluno-home.png'), fullPage: true });
+  await page.screenshot({ path: path.join(shots, 'student-home.png'), fullPage: true });
   await page.evaluate(() => window.__app.goJornada());
   await page.waitForTimeout(400);
-  await page.screenshot({ path: path.join(__dirname, 'shot-aluno-jornada.png'), fullPage: true });
+  await page.screenshot({ path: path.join(shots, 'student-journey.png'), fullPage: true });
   await page.evaluate(() => window.__app.goLesson('l17-2'));
   await page.waitForTimeout(500);
-  await page.screenshot({ path: path.join(__dirname, 'shot-aluno-aula.png'), fullPage: true });
+  await page.screenshot({ path: path.join(shots, 'student-lesson.png'), fullPage: true });
   T('uma aula de troubleshooting renderiza',
     await page.evaluate(() => /chamado/i.test(document.querySelector('#page').innerText)
       && /5120/.test(document.querySelector('#page').innerText)));
