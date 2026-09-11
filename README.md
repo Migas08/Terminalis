@@ -123,6 +123,17 @@ Em ambientes que usam `python3`, substitua `python` por `python3`. Abra [http://
 
 Servir por localhost oferece uma origem adequada para armazenamento local e WebCrypto, usados pelas contas. Não é necessário instalar Docker para utilizar o simulador.
 
+## Publicar na web
+
+O workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) gera o bundle e publica o site automaticamente a cada push na branch `main`.
+
+1. No GitHub, abra **Settings → Pages** e selecione **Source: GitHub Actions**.
+2. Aguarde a execução **Publicar Terminalis** terminar em **Actions**.
+3. Acesse [https://migas08.github.io/Terminalis/](https://migas08.github.io/Terminalis/).
+4. No Supabase, em **Authentication → URL Configuration**, use essa URL em **Site URL** e adicione `https://migas08.github.io/Terminalis/**` em **Redirect URLs**.
+
+O repositório pode continuar privado quando o plano da conta oferecer GitHub Pages para repositórios privados. Em contas gratuitas, o GitHub exige que o repositório seja público para usar Pages; não altere a visibilidade sem avaliar essa decisão.
+
 ## Contas e persistência
 
 A interface solicita uma conta. O código usa WebCrypto para derivar senhas com PBKDF2-SHA256, salt aleatório e 150 mil iterações. As sessões possuem token aleatório e validade de 30 dias.
