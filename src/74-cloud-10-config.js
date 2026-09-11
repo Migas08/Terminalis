@@ -24,8 +24,8 @@
     /* Preencha para ligar a sincronização em nuvem. Deixe vazio para
        rodar 100% local (localStorage), como sempre funcionou. */
     supabase: {
-      url: '',
-      anonKey: ''
+      url: 'https://ndfgsnzxhxxijrxlztoi.supabase.co',
+      anonKey: 'sb_publishable_Wx_oxGjxT97T8hoj7sMY1w_ddrVqQaG'
     },
 
     /* Ajustes finos da sincronização automática. */
