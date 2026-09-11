@@ -1662,3 +1662,8 @@ Depois do addendum anterior, foram publicados mais dois commits incrementais:
 - `59354c4` — estado visual dedicado para conflito na barra de sincronização.
 
 A assinatura usada para decidir se um workspace está sujo ignora somente metadados voláteis (`updatedAt`, `atime` e histórico), mas esses dados continuam no snapshot persistido. Assim, leituras não disparam upload sem necessidade, enquanto uma mutação posterior ainda salva o histórico completo.
+
+
+# 72. Correção de overflow responsivo
+
+O CI encontrou overflow horizontal de 5 px na rota `course` em viewport Chromium de 1024 px. A causa foi a coluna central do cabeçalho do curso sem `min-width: 0`; a correção foi publicada no commit `9b0c83f` e a suíte `test/interface.js` local passou.
