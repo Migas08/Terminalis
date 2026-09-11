@@ -164,6 +164,10 @@
       if (!tab) return false;
       try {
         if (col === 'progresso') {
+          /* Mescla fatos locais com o documento remoto antes do upsert para
+             que abas diferentes não apaguem aulas, tarefas ou anotações. */
+          const remoto = await this.get(col, id);
+          if (remoto && LX.ProgressMerge) dados = LX.ProgressMerge.merge(remoto, dados);
           const { error } = await c.from(tab).upsert(
             { user_id: id, data: dados, updated_at: new Date().toISOString() },
             { onConflict: 'user_id' });
@@ -255,3 +259,4 @@
   LX.SupabaseStore = SupabaseStore;
   LX.Cloud = Cloud;
 })();
+

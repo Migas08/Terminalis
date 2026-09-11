@@ -64,6 +64,18 @@ function appReal() {
   assert.equal((await LX.Storage.getNotes('aluno1')).l1, 'minha anotação');
   assert.equal(Object.keys((await LX.Storage.getProgress('aluno1')).lessons).length, 2, 'salvar notas não apaga aulas');
 
+  /* progresso de duas sessões deve ser mesclado de forma determinística */
+  const mesclado = LX.ProgressMerge.merge(
+    { lessons: { l1: 10 }, tasks: { t1: 10 }, notes: { l1: 'A' }, streakDays: ['2026-09-01'], seconds: 20, atualizadoEm: 10 },
+    { lessons: { l2: 20 }, tasks: { t2: 20 }, notes: { geral: 'B' }, streakDays: ['2026-09-02'], seconds: 10, atualizadoEm: 20 }
+  );
+  assert.deepEqual(Object.keys(mesclado.lessons).sort(), ['l1', 'l2'], 'merge preserva aulas concluídas em abas diferentes');
+  assert.deepEqual(Object.keys(mesclado.tasks).sort(), ['t1', 't2'], 'merge preserva desafios concluídos em abas diferentes');
+  assert.deepEqual(mesclado.streakDays, ['2026-09-01', '2026-09-02'], 'merge une dias de sequência');
+  assert.equal(mesclado.notes.l1, 'A');
+  assert.equal(mesclado.notes.geral, 'B');
+  assert.equal(LX.ProgressMerge.merge({ notes: { l1: 'antiga' }, atualizadoEm: 1 }, { notes: { l1: 'nova' }, atualizadoEm: 2 }).notes.l1, 'nova', 'conflito da mesma nota usa a versão mais recente');
+
   /* ---------- B. conflito por revisão não sobrescreve o mais novo ---------- */
   limpar();
   const snap = { version: 1, filesystem: {}, nada: 'x' };

@@ -72,6 +72,51 @@
     return ok ? { ok: true, revision: nova } : { ok: false, erro: 'falha ao gravar' };
   };
 
+  /* ------------------------ merge determinístico ------------------------
+     Progresso é um conjunto de fatos monotônicos na maior parte dos campos:
+     duas abas podem concluir aulas diferentes e ambas devem sobreviver. Para
+     notas/preferências, preservamos chaves distintas e escolhemos o documento
+     mais recente (com desempate estável) quando a mesma chave diverge. */
+  function copia(v) { try { return JSON.parse(JSON.stringify(v)); } catch (e) { return v; } }
+  function unirMapas(a, b) {
+    const out = Object.assign({}, a || {});
+    for (const k of Object.keys(b || {})) {
+      const av = out[k], bv = b[k];
+      if (av === undefined || (typeof bv === 'number' && Number(bv) > Number(av))) out[k] = bv;
+    }
+    return out;
+  }
+  function unirCampos(a, b, ta, tb) {
+    const out = {};
+    for (const k of new Set([...Object.keys(a || {}), ...Object.keys(b || {})]))
+      out[k] = escolherCampo(a && a[k], b && b[k], ta, tb);
+    return out;
+  }
+  function textoCanonico(v) { try { return JSON.stringify(v, Object.keys(v || {}).sort()); } catch (e) { return String(v); } }
+  function escolherCampo(a, b, ta, tb) {
+    if (a === undefined) return copia(b);
+    if (b === undefined) return copia(a);
+    if (ta !== tb) return copia(ta > tb ? a : b);
+    return copia(textoCanonico(a) >= textoCanonico(b) ? a : b);
+  }
+  const ProgressMerge = {
+    merge(base, incoming) {
+      const a = base || {}, b = incoming || {};
+      const ta = Number(a.atualizadoEm || 0), tb = Number(b.atualizadoEm || 0);
+      const out = Object.assign({}, copia(a), copia(b));
+      for (const campo of ['lessons', 'tasks', 'projetos', 'desbloqueios', 'conclusoes', 'etapasFeitas'])
+        out[campo] = unirMapas(a[campo], b[campo]);
+      out.notes = unirCampos(a.notes, b.notes, ta, tb);
+      out.settings = unirCampos(a.settings, b.settings, ta, tb);
+      out.streakDays = Array.from(new Set([...(a.streakDays || []), ...(b.streakDays || [])])).sort();
+      out.seconds = Math.max(Number(a.seconds || 0), Number(b.seconds || 0));
+      out.lastLesson = escolherCampo(a.lastLesson, b.lastLesson, ta, tb);
+      out.atualizadoEm = Math.max(ta, tb);
+      return out;
+    }
+  };
+  LX.ProgressMerge = ProgressMerge;
+
   /* ============================ LX.Storage ============================
      Interface de domínio, estável e independente de onde os dados vivem.
      Notas e preferências vivem dentro do documento de progresso (um único
@@ -102,3 +147,4 @@
 
   LX.Storage = Storage;
 })();
+
