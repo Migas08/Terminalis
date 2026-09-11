@@ -277,6 +277,7 @@ button { font-family: inherit; }
 
 /* ---- página do curso ---- */
 .cs-head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; margin-bottom: 18px; }
+.cs-head-body { min-width: 0; }
 .cs-ic { width: 54px; height: 54px; border-radius: 13px; background: var(--surface-3); display: grid; place-items: center; color: var(--acc, var(--green)); }
 .cs-head.c-amber { --acc: var(--amber); } .cs-head.c-blue { --acc: var(--blue); } .cs-head.c-red { --acc: var(--red); } .cs-head.c-green { --acc: var(--green); } .cs-head.c-violet { --acc: var(--violet); }
 .cs-ic svg { width: 28px; height: 28px; }
