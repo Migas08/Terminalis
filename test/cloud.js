@@ -158,6 +158,33 @@ function appReal() {
   assert.equal(repo.d.index['index.html'], 'Olá Terminalis\n', 'o staging (git add sem commit) é restaurado');
   assert.equal(destino._restaurado.shell.cwd, '/home/aluno/proj', 'o diretório atual do terminal volta');
 
+  /* ---------- G. duas instâncias independentes (PC A → PC B → conflito) ---------- */
+  limpar();
+  const prov6 = providerFalso();
+  LX.Store.provider = prov6; LX.Store.modo = 'supabase';
+  LX.Auth.usuario = { uid: 'u6' };
+  const pcA = appReal();
+  LX.Sync.iniciar(pcA);
+  await pcA.sessao.run('mkdir -p /home/aluno/projeto; echo "PC1" > /home/aluno/projeto/index.html');
+  LX.Sync._sujo = true;
+  await LX.Sync.flushWorkspace();
+  assert.equal(prov6.mem.workspaces.u6.revision, 1, 'PC A grava a revisão 1');
+  const pcB = appReal();
+  LX.Sync.app = pcB; LX.Sync._revisao = 0;
+  assert.ok(await LX.Sync.restaurar('u6'), 'PC B baixa a revisão 1');
+  pcB.machine = pcB._restaurado.machine; pcB.term = pcB._restaurado.shell;
+  pcB.machine.fs.appendFile('/home/aluno/projeto/index.html', 'PC2\n');
+  LX.Sync._sujo = true;
+  await LX.Sync.flushWorkspace();
+  assert.equal(prov6.mem.workspaces.u6.revision, 2, 'PC B grava a revisão 2');
+  LX.Sync.app = pcA; LX.Sync._revisao = 1; LX.Sync._assinatura = null; LX.Sync._pausado = false;
+  await pcA.sessao.run('echo "PC1 atrasado" >> /home/aluno/projeto/index.html');
+  LX.Sync._sujo = true;
+  await LX.Sync.flushWorkspace();
+  assert.equal(LX.Sync._pausado, true, 'PC A detecta conflito com a revisão 2');
+  const remoto6 = LX.Workspace.importState(prov6.mem.workspaces.u6.snapshot);
+  assert.match(remoto6.machine.fs.readFile('/home/aluno/projeto/index.html'), /PC2/, 'o trabalho do PC B não é apagado pelo PC A');
+
   /* ---------- F. migração de dados locais na primeira entrada em nuvem ---------- */
   limpar();
   const prov5 = providerFalso();
