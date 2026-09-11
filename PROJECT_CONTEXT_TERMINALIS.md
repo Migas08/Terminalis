@@ -1632,3 +1632,23 @@ Antes de editar o Terminalis:
 > Rode os testes existentes.
 > Gere novamente o `dist/terminalis.html`.
 > Não declare a tarefa concluída sem revisar o diff e verificar regressões.
+
+
+---
+
+# 70. Estado publicado em 11 de setembro de 2026
+
+A base mais nova do projeto integrou o conteúdo de `Terminalis.rar` sem descartar a refatoração anterior. O repositório agora contém:
+
+- `src/49-workspace-00-codec.js` e `src/49-workspace-10-domains.js` para snapshots versionados e restauração do laboratório completo;
+- `src/74-cloud-10-config.js` a `src/74-cloud-40-sync.js` para configuração, Auth, Storage, cache offline, revisão otimista e sincronização Supabase;
+- `docs/SUPABASE_SCHEMA.sql` com tabelas canônicas (`profiles`, `user_progress`, `workspaces`), migração, trigger seguro de perfil e RLS por `auth.uid()`;
+- `config.example.js` para deploy e `.gitignore` protegendo `config.local.js`;
+- `.github/workflows/ci.yml` com build, testes Node e Playwright Chromium;
+- `test/workspace.js` e `test/cloud.js`, incluindo restauração, offline, conflito, merge e isolamento.
+
+O modo Supabase é ativado quando `window.TERMINALIS_CONFIG.supabase.url` e `anonKey` estão preenchidos e o SDK CDN está disponível. A chave `service_role` nunca deve ir para o frontend. O workspace é salvo como dados explícitos, com revisão otimista. Em conflito, a sincronização pausa, mantém backup local e exige escolher a versão remota ou local. O progresso usa merge determinístico para não perder conclusões feitas em dispositivos diferentes.
+
+Commits incrementais publicados em `main`: `42f1b93`, `ad9c36a`, `4e70b65`, `0dd7dad`, `eb8bd98`, `af6a41a`, `d12b52f`, `f92edb4`, `979bbef` e `9d6f10c`. Não houve force push, reset destrutivo ou squash.
+
+Última validação: build com 96 arquivos JS; testes de domínio com Linux 163, Docker 160, Git 24, estrutura 217, soluções 449, Workspace e Cloud aprovados; navegador com Auth 48, aluno 28, interface, feedback desktop/mobile e 449 componentes práticos aprovados.
