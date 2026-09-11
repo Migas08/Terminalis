@@ -1474,4 +1474,17 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
 #restore-overlay.hidden { display: none; }
 #restore-overlay .ro-card { display: flex; align-items: center; gap: 12px; padding: 16px 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--tx-2); font-size: 14px; }
 #restore-overlay .ro-spin { width: 15px; height: 15px; border-radius: 99px; border: 2px solid var(--line); border-top-color: var(--tx); animation: ro-rot .8s linear infinite; }
+
+/* conflito de workspace: a sincronização fica pausada até uma escolha */
+#sync-conflict { position: fixed; inset: 0; z-index: 9100; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(9,9,9,.84); backdrop-filter: blur(2px); }
+#sync-conflict.on { display: flex; }
+#sync-conflict .sc-card { width: min(480px, 100%); padding: 24px; border: 1px solid var(--line-strong); border-radius: 14px; background: var(--surface); color: var(--tx); box-shadow: 0 18px 70px rgba(0,0,0,.4); }
+#sync-conflict .sc-kicker { margin-bottom: 8px; color: var(--amber); font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+#sync-conflict h2 { margin: 0 0 10px; font-size: 20px; }
+#sync-conflict p { margin: 0; color: var(--tx-2); line-height: 1.55; }
+#sync-conflict .sc-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+#sync-conflict button { border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px 13px; background: var(--surface-2); color: var(--tx); cursor: pointer; font: inherit; }
+#sync-conflict button:first-child { background: var(--tx); color: var(--bg); }
+#sync-conflict button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 @keyframes ro-rot { to { transform: rotate(360deg); } }
+

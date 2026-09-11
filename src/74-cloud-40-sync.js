@@ -39,6 +39,8 @@
     _pendente: false,     // há algo à espera de rede
     _flushing: false,
     _reflush: false,
+    _pausado: false,          // conflito pendente: só o aluno pode retomar
+    _conflito: null,
     _timer: null,
     _timerProg: null,
     _estado: 'local',
@@ -109,6 +111,7 @@
     async flushWorkspace() {
       const uid = this._uid();
       if (!uid || !this.app || !this.app.machine) return;
+      if (this._pausado) return;
       if (!this._temNuvem()) { this._sujo = false; this.status('local'); return; }
       if (this._flushing) { this._reflush = true; return; }
       this._flushing = true;
@@ -147,15 +150,71 @@
        trabalho local desaparece sem aviso. */
     _resolverConflito(atual) {
       this._revisao = (atual && atual.revision) || this._revisao;
+      let localSnapshot = null;
       try {
         const snap = this.exportarSnapshot();
+        localSnapshot = snap;
         if (snap) localStorage.setItem(BACKUP_WS + this._uid() + '.' + Date.now(),
           JSON.stringify({ version: snap.version, updatedAt: Date.now(), snapshot: snap }));
       } catch (e) { }
+      this._conflito = { atual: atual || null, localSnapshot };
+      this._pausado = true;
       this._pendente = false; this._sujo = false;
       this.status('erro');
-      if (this.app && this.app.toast)
-        this.app.toast('Seu ambiente foi atualizado em outro dispositivo. Uma cópia do estado atual foi guardada localmente.');
+      this._mostrarConflito();
+    },
+
+    /* O remoto nunca é aplicado e o local nunca é reenviado automaticamente:
+       o aluno precisa escolher explicitamente um dos dois ambientes. */
+    _mostrarConflito() {
+      if (!temDoc || !this._conflito) return;
+      let el = document.getElementById('sync-conflict');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'sync-conflict';
+        el.innerHTML = '<div class="sc-card" role="dialog" aria-modal="true" aria-labelledby="sc-title">' +
+          '<div class="sc-kicker">sincronização pausada</div>' +
+          '<h2 id="sc-title">Este ambiente mudou em outro dispositivo</h2>' +
+          '<p>Escolha qual versão deve continuar. Sua versão local já foi guardada em um backup neste navegador.</p>' +
+          '<div class="sc-actions"><button type="button" data-sc="remoto">Usar ambiente remoto</button>' +
+          '<button type="button" data-sc="local">Manter meu ambiente local</button></div></div>';
+        document.body.appendChild(el);
+        el.querySelectorAll('[data-sc]').forEach(btn => {
+          btn.addEventListener('click', () => this.resolverConflitoEscolha(btn.dataset.sc));
+        });
+      }
+      el.classList.add('on');
+      const first = el.querySelector('[data-sc]');
+      if (first) first.focus();
+    },
+
+    async resolverConflitoEscolha(escolha) {
+      const conflito = this._conflito;
+      if (!conflito || (escolha !== 'local' && escolha !== 'remoto')) return false;
+      const uid = this._uid();
+      this._conflito = null;
+      this._pausado = false;
+      const el = temDoc && document.getElementById('sync-conflict');
+      if (el) el.classList.remove('on');
+      if (escolha === 'remoto') {
+        try {
+          if (conflito.atual && conflito.atual.snapshot && this.app && this.app.aplicarWorkspaceRestaurado) {
+            this.app.aplicarWorkspaceRestaurado(LX.Workspace.importState(conflito.atual.snapshot));
+          }
+          this._revisao = Number(conflito.atual && conflito.atual.revision || this._revisao);
+          this._sujo = false; this._pendente = false; this.status('salvo');
+          return true;
+        } catch (e) {
+          this.status('erro');
+          return false;
+        }
+      }
+      /* Reaplica o snapshot local que o aluno escolheu, agora sobre a revisão
+         remota mais nova. O controle otimista continua protegendo a gravação. */
+      this._revisao = Number(conflito.atual && conflito.atual.revision || this._revisao);
+      this._sujo = true;
+      if (uid) await this.flushWorkspace();
+      return !this._sujo && !this._pendente;
     },
 
     /* ------------------------------ restaurar ------------------------------
@@ -290,3 +349,4 @@
 
   LX.Sync = Sync;
 })();
+

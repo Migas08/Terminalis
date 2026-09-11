@@ -106,13 +106,19 @@ function appReal() {
   await app3.sessao.run('echo local > /home/aluno/local.txt');
   LX.Sync.iniciar(app3);
   LX.Sync._revisao = 1;                         // achávamos que a base era 1; a nuvem já está em 5
+  /* o snapshot remoto precisa ser válido para testar também a escolha explícita */
+  prov2.mem.workspaces['u3'].snapshot = LX.Workspace.exportState(app3.machine, app3.term);
+  prov2.mem.workspaces['u3'].snapshot.remoto = true;
   await LX.Sync.flushWorkspace();
   assert.equal(prov2.mem.workspaces['u3'].snapshot.remoto, true, 'o estado remoto mais novo é preservado');
   assert.equal(LX.Sync._revisao, 5, 'adotamos a revisão da nuvem como nova base');
+  assert.equal(LX.Sync._pausado, true, 'conflito pausa o sync até uma escolha explícita');
   const temBackup = Object.keys(localStorage).some ?
     Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)).some(k => k.indexOf('terminalis.backup.workspace/u3') === 0) :
     false;
   assert.ok(temBackup, 'o estado local vira um backup — nada é perdido em silêncio');
+  assert.ok(await LX.Sync.resolverConflitoEscolha('remoto'), 'escolher o remoto retoma o laboratório');
+  assert.equal(LX.Sync._pausado, false, 'a escolha explícita libera a sincronização');
 
   /* ---------- E. restauração reconstrói o ambiente noutra máquina ---------- */
   limpar();
@@ -150,3 +156,4 @@ function appReal() {
 
   console.log('Cloud: progresso, conflito por revisão, offline→online, restauração de ambiente e migração passaram.');
 })().catch(e => { console.error(e); process.exitCode = 1; });
+
