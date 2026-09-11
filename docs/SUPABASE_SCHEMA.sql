@@ -97,6 +97,14 @@ BEGIN
   ALTER TABLE public.workspaces ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 1;
   ALTER TABLE public.workspaces ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
   ALTER TABLE public.workspaces ADD COLUMN IF NOT EXISTS device TEXT;
+  UPDATE public.workspaces SET data = '{}'::jsonb WHERE data IS NULL;
+  ALTER TABLE public.workspaces ALTER COLUMN data SET NOT NULL;
+  UPDATE public.workspaces SET snapshot_version = 1 WHERE snapshot_version IS NULL;
+  ALTER TABLE public.workspaces ALTER COLUMN snapshot_version SET DEFAULT 1;
+  ALTER TABLE public.workspaces ALTER COLUMN snapshot_version SET NOT NULL;
+  UPDATE public.workspaces SET revision = 1 WHERE revision IS NULL OR revision < 1;
+  ALTER TABLE public.workspaces ALTER COLUMN revision SET DEFAULT 1;
+  ALTER TABLE public.workspaces ALTER COLUMN revision SET NOT NULL;
   ALTER TABLE public.workspaces DROP COLUMN IF EXISTS baserevision;
 END
 $$;
@@ -113,6 +121,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+REVOKE EXECUTE ON FUNCTION public.set_updated_at() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS profiles_updated_at ON public.profiles;
 CREATE TRIGGER profiles_updated_at BEFORE UPDATE ON public.profiles
