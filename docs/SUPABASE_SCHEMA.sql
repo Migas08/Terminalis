@@ -1,275 +1,185 @@
 /* =========================================================================
-   TERMINALIS — Schema SQL para Supabase
+   TERMINALIS — schema Supabase para autenticação e sincronização
    =========================================================================
-   Cria tabelas e políticas de Row Level Security para sincronização em nuvem.
-   Execute este script no SQL Editor do Supabase após criar o projeto.
+   O cliente usa estes nomes diretamente:
+     profiles:      id, username, name
+     user_progress: user_id, data, updated_at
+     workspaces:    user_id, snapshot_version, data, revision, updated_at, device
+
+   Execute este arquivo em um projeto Supabase novo ou existente. O bloco de
+   migração converte a nomenclatura da primeira versão sem apagar os dados.
+   A autorização vem das políticas RLS; o navegador nunca envia um user_id
+   para decidir de quem são os dados.
    ========================================================================= */
 
--- 1. Tabela de perfis de usuário (extensão de auth.users)
+-- Estrutura canônica
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  nome TEXT,
-  email TEXT UNIQUE,
-  criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  username TEXT,
+  name TEXT,
+  email TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Índice para busca rápida por email
-CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
-
--- 2. Tabela de progresso (aulas concluídas, notas, preferências)
 CREATE TABLE IF NOT EXISTS public.user_progress (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
-
-  -- Dados de progresso (JSON)
-  lessons JSONB DEFAULT '{}',
-  tasks JSONB DEFAULT '{}',
-  notes JSONB DEFAULT '{}',
-  settings JSONB DEFAULT '{}',
-
-  -- Auditoria
-  criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  atualizado_por_dispositivo TEXT
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Índice para acesso rápido por user_id
-CREATE INDEX IF NOT EXISTS idx_user_progress_user_id ON public.user_progress(user_id);
-
--- Trigger para atualizar atualizado_em automaticamente
-CREATE OR REPLACE FUNCTION update_user_progress_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.atualizado_em = CURRENT_TIMESTAMP;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS user_progress_update_timestamp ON public.user_progress;
-CREATE TRIGGER user_progress_update_timestamp
-  BEFORE UPDATE ON public.user_progress
-  FOR EACH ROW
-  EXECUTE FUNCTION update_user_progress_timestamp();
-
--- 3. Tabela de snapshots do workspace (ambiente do laboratório)
 CREATE TABLE IF NOT EXISTS public.workspaces (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-
-  -- Versão do schema (para migração futura)
-  version INTEGER DEFAULT 1,
-
-  -- Estado completo do workspace (VFS, Git, Docker, Shell)
-  snapshot JSONB NOT NULL,
-
-  -- Controle de revisão para evitar conflitos entre dispositivos
-  revision INTEGER DEFAULT 1,
-  baseRevision INTEGER DEFAULT 0,
-
-  -- Qual dispositivo salvou por último
-  device TEXT,
-
-  -- Auditoria
-  criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  snapshot_version INTEGER NOT NULL DEFAULT 1,
+  data JSONB NOT NULL,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  device TEXT
 );
 
--- Índice para acesso rápido por user_id (um workspace por usuário)
-CREATE INDEX IF NOT EXISTS idx_workspaces_user_id ON public.workspaces(user_id);
-
--- Trigger para atualizar atualizado_em
-CREATE OR REPLACE FUNCTION update_workspaces_timestamp()
-RETURNS TRIGGER AS $$
+-- Migração da nomenclatura da primeira versão
+DO $$
 BEGIN
-  NEW.atualizado_em = CURRENT_TIMESTAMP;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'nome')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'name') THEN
+    ALTER TABLE public.profiles RENAME COLUMN nome TO name;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'criado_em')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'created_at') THEN
+    ALTER TABLE public.profiles RENAME COLUMN criado_em TO created_at;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'atualizado_em')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'updated_at') THEN
+    ALTER TABLE public.profiles RENAME COLUMN atualizado_em TO updated_at;
+  END IF;
+  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS username TEXT;
+  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS name TEXT;
+  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email TEXT;
+  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'user_progress' AND column_name = 'data') THEN
+    ALTER TABLE public.user_progress ADD COLUMN data JSONB NOT NULL DEFAULT '{}'::jsonb;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'user_progress' AND column_name = 'lessons') THEN
+      UPDATE public.user_progress
+      SET data = jsonb_build_object(
+        'lessons', COALESCE(lessons, '{}'::jsonb),
+        'tasks', COALESCE(tasks, '{}'::jsonb),
+        'notes', COALESCE(notes, '{}'::jsonb),
+        'settings', COALESCE(settings, '{}'::jsonb)
+      );
+      ALTER TABLE public.user_progress DROP COLUMN IF EXISTS lessons;
+      ALTER TABLE public.user_progress DROP COLUMN IF EXISTS tasks;
+      ALTER TABLE public.user_progress DROP COLUMN IF EXISTS notes;
+      ALTER TABLE public.user_progress DROP COLUMN IF EXISTS settings;
+    END IF;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'user_progress' AND column_name = 'atualizado_em')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'user_progress' AND column_name = 'updated_at') THEN
+    ALTER TABLE public.user_progress RENAME COLUMN atualizado_em TO updated_at;
+  END IF;
+  ALTER TABLE public.user_progress ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'workspaces' AND column_name = 'version')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'workspaces' AND column_name = 'snapshot_version') THEN
+    ALTER TABLE public.workspaces RENAME COLUMN version TO snapshot_version;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'workspaces' AND column_name = 'snapshot')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'workspaces' AND column_name = 'data') THEN
+    ALTER TABLE public.workspaces RENAME COLUMN snapshot TO data;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'workspaces' AND column_name = 'atualizado_em')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'workspaces' AND column_name = 'updated_at') THEN
+    ALTER TABLE public.workspaces RENAME COLUMN atualizado_em TO updated_at;
+  END IF;
+  ALTER TABLE public.workspaces ADD COLUMN IF NOT EXISTS snapshot_version INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE public.workspaces ADD COLUMN IF NOT EXISTS data JSONB;
+  ALTER TABLE public.workspaces ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE public.workspaces ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+  ALTER TABLE public.workspaces ADD COLUMN IF NOT EXISTS device TEXT;
+  ALTER TABLE public.workspaces DROP COLUMN IF EXISTS baserevision;
+END
+$$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS profiles_username_key ON public.profiles(username) WHERE username IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS user_progress_user_id_key ON public.user_progress(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS workspaces_user_id_key ON public.workspaces(user_id);
+
+-- Timestamps e perfil criado pelo evento de autenticação
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
-DROP TRIGGER IF EXISTS workspaces_update_timestamp ON public.workspaces;
-CREATE TRIGGER workspaces_update_timestamp
-  BEFORE UPDATE ON public.workspaces
-  FOR EACH ROW
-  EXECUTE FUNCTION update_workspaces_timestamp();
+DROP TRIGGER IF EXISTS profiles_updated_at ON public.profiles;
+CREATE TRIGGER profiles_updated_at BEFORE UPDATE ON public.profiles
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+DROP TRIGGER IF EXISTS user_progress_updated_at ON public.user_progress;
+CREATE TRIGGER user_progress_updated_at BEFORE UPDATE ON public.user_progress
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+DROP TRIGGER IF EXISTS workspaces_updated_at ON public.workspaces;
+CREATE TRIGGER workspaces_updated_at BEFORE UPDATE ON public.workspaces
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- =========================================================================
--- POLÍTICAS DE ROW LEVEL SECURITY (RLS)
--- =========================================================================
--- Habilita RLS em todas as tabelas
+/* Esta é a única função SECURITY DEFINER: o trigger precisa criar o perfil
+   durante auth.signUp, antes de existir uma sessão authenticated. Ela não
+   recebe user_id do cliente, fixa search_path e só usa NEW.id do auth.users. */
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, username, name, email)
+  VALUES (
+    NEW.id,
+    NULLIF(LOWER(LEFT(COALESCE(NEW.raw_user_meta_data->>'username', SPLIT_PART(NEW.email, '@', 1)), 24)), ''),
+    COALESCE(NEW.raw_user_meta_data->>'name', SPLIT_PART(NEW.email, '@', 1)),
+    NEW.email
+  )
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+
+-- RLS: cada linha só pertence ao auth.uid() da sessão
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.workspaces ENABLE ROW LEVEL SECURITY;
 
--- PROFILES: usuários só veem seu próprio perfil
-DROP POLICY IF EXISTS "Usuários veem seu perfil" ON public.profiles;
-CREATE POLICY "Usuários veem seu perfil"
-  ON public.profiles
-  FOR SELECT
-  TO authenticated
-  USING (id = auth.uid());
+DROP POLICY IF EXISTS profiles_select_own ON public.profiles;
+CREATE POLICY profiles_select_own ON public.profiles FOR SELECT TO authenticated USING (id = auth.uid());
+DROP POLICY IF EXISTS profiles_insert_own ON public.profiles;
+CREATE POLICY profiles_insert_own ON public.profiles FOR INSERT TO authenticated WITH CHECK (id = auth.uid());
+DROP POLICY IF EXISTS profiles_update_own ON public.profiles;
+CREATE POLICY profiles_update_own ON public.profiles FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+DROP POLICY IF EXISTS profiles_delete_own ON public.profiles;
+CREATE POLICY profiles_delete_own ON public.profiles FOR DELETE TO authenticated USING (id = auth.uid());
 
-DROP POLICY IF EXISTS "Usuários atualizam seu perfil" ON public.profiles;
-CREATE POLICY "Usuários atualizam seu perfil"
-  ON public.profiles
-  FOR UPDATE
-  TO authenticated
-  USING (id = auth.uid());
+DROP POLICY IF EXISTS user_progress_select_own ON public.user_progress;
+CREATE POLICY user_progress_select_own ON public.user_progress FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS user_progress_insert_own ON public.user_progress;
+CREATE POLICY user_progress_insert_own ON public.user_progress FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS user_progress_update_own ON public.user_progress;
+CREATE POLICY user_progress_update_own ON public.user_progress FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS user_progress_delete_own ON public.user_progress;
+CREATE POLICY user_progress_delete_own ON public.user_progress FOR DELETE TO authenticated USING (user_id = auth.uid());
 
-DROP POLICY IF EXISTS "Usuários criam seu perfil" ON public.profiles;
-CREATE POLICY "Usuários criam seu perfil"
-  ON public.profiles
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (id = auth.uid());
+DROP POLICY IF EXISTS workspaces_select_own ON public.workspaces;
+CREATE POLICY workspaces_select_own ON public.workspaces FOR SELECT TO authenticated USING (user_id = auth.uid());
+DROP POLICY IF EXISTS workspaces_insert_own ON public.workspaces;
+CREATE POLICY workspaces_insert_own ON public.workspaces FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS workspaces_update_own ON public.workspaces;
+CREATE POLICY workspaces_update_own ON public.workspaces FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS workspaces_delete_own ON public.workspaces;
+CREATE POLICY workspaces_delete_own ON public.workspaces FOR DELETE TO authenticated USING (user_id = auth.uid());
 
--- USER_PROGRESS: usuários só acessam seu próprio progresso
-DROP POLICY IF EXISTS "Usuários veem seu progresso" ON public.user_progress;
-CREATE POLICY "Usuários veem seu progresso"
-  ON public.user_progress
-  FOR SELECT
-  TO authenticated
-  USING (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Usuários atualizam seu progresso" ON public.user_progress;
-CREATE POLICY "Usuários atualizam seu progresso"
-  ON public.user_progress
-  FOR UPDATE
-  TO authenticated
-  USING (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Usuários criam seu progresso" ON public.user_progress;
-CREATE POLICY "Usuários criam seu progresso"
-  ON public.user_progress
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (user_id = auth.uid());
-
--- WORKSPACES: usuários só acessam seu próprio workspace
-DROP POLICY IF EXISTS "Usuários veem seu workspace" ON public.workspaces;
-CREATE POLICY "Usuários veem seu workspace"
-  ON public.workspaces
-  FOR SELECT
-  TO authenticated
-  USING (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Usuários atualizam seu workspace" ON public.workspaces;
-CREATE POLICY "Usuários atualizam seu workspace"
-  ON public.workspaces
-  FOR UPDATE
-  TO authenticated
-  USING (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "Usuários criam seu workspace" ON public.workspaces;
-CREATE POLICY "Usuários criam seu workspace"
-  ON public.workspaces
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (user_id = auth.uid());
-
--- =========================================================================
--- FUNCTIONS AUXILIARES (opcional, para performance e segurança)
--- =========================================================================
-
--- Função para obter ou criar workspace do usuário
-CREATE OR REPLACE FUNCTION get_or_create_workspace(user_id UUID)
-RETURNS TABLE (
-  id UUID,
-  version INTEGER,
-  snapshot JSONB,
-  revision INTEGER,
-  baseRevision INTEGER,
-  device TEXT,
-  criado_em TIMESTAMP WITH TIME ZONE,
-  atualizado_em TIMESTAMP WITH TIME ZONE
-) AS $$
-BEGIN
-  RETURN QUERY
-  SELECT w.id, w.version, w.snapshot, w.revision, w.baseRevision, w.device, w.criado_em, w.atualizado_em
-  FROM public.workspaces w
-  WHERE w.user_id = user_id
-  LIMIT 1;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Função para salvar workspace com revisão (impede conflitos)
-CREATE OR REPLACE FUNCTION save_workspace_with_revision(
-  user_id UUID,
-  p_version INTEGER,
-  p_snapshot JSONB,
-  p_baseRevision INTEGER,
-  p_device TEXT
-)
-RETURNS TABLE (
-  ok BOOLEAN,
-  conflito BOOLEAN,
-  revision INTEGER,
-  atual JSONB
-) AS $$
-DECLARE
-  v_current_revision INTEGER;
-  v_new_revision INTEGER;
-  v_current JSONB;
-BEGIN
-  -- Obtém revisão atual
-  SELECT w.revision, w.snapshot INTO v_current_revision, v_current
-  FROM public.workspaces w
-  WHERE w.user_id = save_workspace_with_revision.user_id;
-
-  -- Se não existe, cria novo
-  IF v_current_revision IS NULL THEN
-    INSERT INTO public.workspaces (user_id, version, snapshot, revision, baseRevision, device)
-    VALUES (user_id, p_version, p_snapshot, 1, 0, p_device);
-    RETURN QUERY SELECT true, false, 1::INTEGER, p_snapshot;
-    RETURN;
-  END IF;
-
-  -- Verifica conflito: baseRevision deve corresponder à revisão atual
-  IF p_baseRevision != v_current_revision THEN
-    -- Conflito! Retorna estado atual sem sobrescrever
-    RETURN QUERY SELECT false, true, v_current_revision, v_current;
-    RETURN;
-  END IF;
-
-  -- Sem conflito: atualiza com nova revisão
-  v_new_revision := v_current_revision + 1;
-  UPDATE public.workspaces
-  SET version = p_version,
-      snapshot = p_snapshot,
-      revision = v_new_revision,
-      baseRevision = p_baseRevision,
-      device = p_device
-  WHERE user_id = save_workspace_with_revision.user_id;
-
-  RETURN QUERY SELECT true, false, v_new_revision, p_snapshot;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- =========================================================================
--- DADOS INICIAIS (OPCIONAL)
--- =========================================================================
--- Se quiser criar usuários de teste para desenvolvimento, descomente:
-/*
-INSERT INTO auth.users (email, email_confirmed_at, encrypted_password, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, last_sign_in_at, role)
-VALUES (
-  'teste@exemplo.com',
-  CURRENT_TIMESTAMP,
-  crypt('senha123', gen_salt('bf')),  -- Supabase faz isto automaticamente
-  '{"provider":"email","providers":["email"]}',
-  '{}',
-  CURRENT_TIMESTAMP,
-  CURRENT_TIMESTAMP,
-  NULL,
-  'authenticated'
-) ON CONFLICT DO NOTHING;
-*/
-
--- =========================================================================
--- VERIFICAÇÃO FINAL
--- =========================================================================
--- Listar todas as políticas criadas:
--- SELECT * FROM pg_policies WHERE tablename IN ('profiles', 'user_progress', 'workspaces');
-
--- Listar tamanho das tabelas:
--- SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename))
--- FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('profiles', 'user_progress', 'workspaces');
