@@ -1474,6 +1474,13 @@ button:disabled { cursor:not-allowed; }
 .mobile-tabs [data-m]{display:none;}
 @media(max-width:860px){body.route-lesson .mobile-tabs [data-m]{display:flex;}body.route-lesson .mobile-tabs [data-nav="cursos"],body.route-lesson .mobile-tabs [data-nav="projetos"]{display:none;}body.route-lesson #side-panel{display:none;}body.route-lesson.show-term #side-panel{display:flex;}body.route-lesson.show-term #lesson-panel{display:none;}body.route-lesson #body{grid-template-rows:minmax(0,1fr);}body.route-lesson #side-panel,body.route-lesson #lesson-panel{grid-row:1;min-height:0;}.term-mobile-input{display:flex;}}
 input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
+
+/* ---- overlay de restauração do ambiente (sincronização em nuvem) ---- */
+#restore-overlay { position: fixed; inset: 0; z-index: 9000; display: flex; align-items: center; justify-content: center; background: rgba(9,9,9,.82); backdrop-filter: blur(2px); }
+#restore-overlay.hidden { display: none; }
+#restore-overlay .ro-card { display: flex; align-items: center; gap: 12px; padding: 16px 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--tx-2); font-size: 14px; }
+#restore-overlay .ro-spin { width: 15px; height: 15px; border-radius: 99px; border: 2px solid var(--line); border-top-color: var(--tx); animation: ro-rot .8s linear infinite; }
+@keyframes ro-rot { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -1607,6 +1614,10 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
   <button data-nav="projetos" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 21 7v10l-9 4.5L3 17V7z"/><path d="M3 7l9 4.5L21 7M12 11.5V21.5"/></svg><span>Projetos</span></button>
 </nav>
 
+<!-- SDK do Supabase (opcional). Se não carregar — offline, sem configuração,
+     ou CDN bloqueada — o Terminalis inicia em modo local normalmente.
+     Só a chave pública (anon) é usada; a segurança real é o RLS no banco. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" crossorigin="anonymous" onerror="window.__supabaseIndisponivel=true"></script>
 <script>/* ==== 09-runtime.js ==== */
 'use strict';
 
@@ -1708,6 +1719,7 @@ const TYPE_BITS = { dir: S_IFDIR, file: S_IFREG, link: S_IFLNK, chr: S_IFCHR, bl
 const TYPE_CHAR = { dir: 'd', file: '-', link: 'l', chr: 'c', blk: 'b', fifo: 'p', sock: 's' };
 
 let INO_SEQ = 1;
+LX.reserveInodes = next => { INO_SEQ = Math.max(INO_SEQ, next); };
 
 class Inode {
   constructor(type, mode, uid = 0, gid = 0) {
@@ -22685,6 +22697,321 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
 })();
 
 ;
+/* ==== 49-workspace-00-codec.js ==== */
+/* Versioned, data-only laboratory snapshots. No persistence or DOM dependencies. */
+'use strict';
+(function () {
+  const VERSION = 1;
+  const MAX_BYTES = 8 * 1024 * 1024;
+  const forbidden = new Set(['__proto__', 'prototype', 'constructor']);
+
+  function data(value, depth = 0) {
+    if (depth > 100) throw new Error('Estado excede a profundidade permitida.');
+    if (value === null || ['string', 'boolean'].includes(typeof value)) return value;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (Array.isArray(value)) return value.map(v => data(v, depth + 1));
+    if (value instanceof Map) return { $map: Array.from(value, ([k, v]) => [data(k, depth + 1), data(v, depth + 1)]) };
+    if (value instanceof Set) return { $set: Array.from(value, v => data(v, depth + 1)) };
+    if (value && typeof value === 'object' && Object.prototype.toString.call(value) === '[object Object]' && (!value.constructor || value.constructor.name === 'Object')) {
+      const out = {};
+      for (const [key, v] of Object.entries(value)) {
+        if (forbidden.has(key)) throw new Error('Chave inválida no estado.');
+        if (v !== undefined) out[key] = data(v, depth + 1);
+      }
+      return out;
+    }
+    throw new Error('Estado não serializável.');
+  }
+
+  function hydrate(value) {
+    if (!value || typeof value !== 'object') return value;
+    if (Array.isArray(value)) return value.map(hydrate);
+    if (Object.keys(value).length === 1 && Array.isArray(value.$map)) return new Map(value.$map.map(([k, v]) => [hydrate(k), hydrate(v)]));
+    if (Object.keys(value).length === 1 && Array.isArray(value.$set)) return new Set(value.$set.map(hydrate));
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (forbidden.has(k)) throw new Error('Chave inválida no snapshot.');
+      out[k] = hydrate(v);
+    }
+    return out;
+  }
+  const fields = (object, names) => {
+    const out = {};
+    for (const key of names.split(' ')) if (object[key] !== undefined) out[key] = data(object[key]);
+    return out;
+  };
+
+  const inodeFields = 'ino type mode uid gid atime mtime ctime btime nlink blocks content target major minor immutable acl aclGroupObj defaultAcl tamanhoComprimido';
+  LX.FileSystem.prototype.exportState = function () {
+    const seen = new Map(), nodes = [];
+    const visit = (node, path) => {
+      if (seen.has(node)) return seen.get(node);
+      const id = nodes.length;
+      seen.set(node, id);
+      const row = { data: fields(node, inodeFields), path };
+      nodes.push(row);
+      // Runtime /proc entries are regenerated by the fresh kernel.
+      if (node.type === 'dir') row.children = Array.from(node.children)
+        .filter(([name]) => !(path === '/proc' && /^\d+$/.test(name)))
+        .map(([name, child]) => [name, visit(child, (path === '/' ? '' : path) + '/' + name)]);
+      if (node.dynamic) { row.dynamic = true; delete row.data.content; }
+      return id;
+    };
+    return { root: visit(this.root, '/'), nodes, metadata: fields(this, 'mounts totalBlocks usedBlocks somenteLeitura tmpfs') };
+  };
+
+  LX.FileSystem.prototype.importState = function (snapshot) {
+    if (!snapshot || !Array.isArray(snapshot.nodes) || !snapshot.nodes.length || snapshot.nodes.length > 100000) throw new Error('Sistema de arquivos inválido.');
+    const runtime = new Map();
+    const collect = (node, path) => {
+      if (node.dynamic || node.dynDir) runtime.set(path, node);
+      if (node.type === 'dir') for (const [name, child] of node.children) collect(child, (path === '/' ? '' : path) + '/' + name);
+    };
+    collect(this.root, '/');
+    const nodes = snapshot.nodes.map(row => {
+      if (!row.data || !['dir', 'file', 'link', 'chr', 'blk', 'fifo', 'sock'].includes(row.data.type)) throw new Error('Inode inválido.');
+      const base = runtime.get(row.path);
+      // Keep the actual /proc inode: kernel closures hold this reference.
+      const node = base || new LX.Inode(row.data.type, row.data.mode);
+      Object.assign(node, hydrate(fields(row.data, inodeFields)));
+      if (row.dynamic && !base?.dynamic) throw new Error('Arquivo dinâmico desconhecido.');
+      if (node.type === 'dir') node.children = new Map();
+      node.parent = null;
+      delete node.aliases;
+      return node;
+    });
+    const attached = new Set();
+    snapshot.nodes.forEach((row, i) => {
+      if (row.data.type !== 'dir') return;
+      if (!Array.isArray(row.children)) throw new Error('Diretório inválido.');
+      for (const [name, id] of row.children) {
+        if (typeof name !== 'string' || !name || /[/\0]/.test(name) || name === '.' || name === '..' || !Number.isInteger(id) || !nodes[id]) throw new Error('Entrada de diretório inválida.');
+        const child = nodes[id];
+        if (nodes[i].children.has(name) || (child.type === 'dir' && attached.has(id))) throw new Error('Referência duplicada.');
+        nodes[i].children.set(name, child);
+        if (child.parent) (child.aliases ||= []).push({ parent: nodes[i], name });
+        else { child.parent = nodes[i]; child.name = name; }
+        attached.add(id);
+      }
+    });
+    const root = nodes[snapshot.root];
+    if (!root || root.type !== 'dir' || root.parent) throw new Error('Raiz inválida.');
+    const visited = new Set();
+    const walk = (node, depth = 0) => {
+      if (depth > 100) throw new Error('Árvore inválida.');
+      if (visited.has(node)) return;
+      visited.add(node);
+      if (node.type === 'dir') for (const child of node.children.values()) walk(child, depth + 1);
+    };
+    walk(root);
+    if (visited.size !== nodes.length) throw new Error('Inodes desconectados.');
+    this.root = root;
+    root.name = '';
+    Object.assign(this, hydrate(snapshot.metadata));
+    // Inodes created after restore must not reuse a persisted number.
+    LX.reserveInodes(Math.max(...nodes.map(n => n.ino)) + 1);
+    return this;
+  };
+
+  const shellFields = 'vars arrays funcs aliases cwd uid gid user umask lastStatus pipestatus opts shopts history dirstack positional scriptName nomeShell traps pid lastBgPid container remote';
+  LX.Shell.prototype.exportState = function () { return fields(this, shellFields); };
+  LX.Shell.prototype.importState = function (snapshot) {
+    Object.assign(this, hydrate(fields(snapshot, shellFields)));
+    if (typeof this.cwd !== 'string' || !this.m.fs.exists(this.cwd)) throw new Error('Diretório do shell indisponível.');
+    this.jobs = []; // JavaScript jobs cannot be resumed across browser processes.
+    return this;
+  };
+
+  // Git's canonical state is already a VFS file, including index and stash.
+  LX.Git.exportState = () => ({ format: 'vfs', repositoryFile: '.git/terminalis.json' });
+  LX.Git.importState = state => {
+    if (state?.format !== 'vfs' || state.repositoryFile !== '.git/terminalis.json') throw new Error('Formato Git não suportado.');
+  };
+  LX.Github.exportState = machine => data(machine.gitHub || { repos: {}, auth: null });
+  LX.Github.importState = (machine, snapshot) => { machine.gitHub = hydrate(snapshot); };
+
+  LX.Workspace = { VERSION, MAX_BYTES, data, hydrate, fields };
+})();
+
+;
+/* ==== 49-workspace-10-domains.js ==== */
+'use strict';
+(function () {
+  const W = LX.Workspace;
+  const { fields, hydrate, data } = W;
+  const machineFields = 'hostname bootTime packages dns interfaces routes arp sshKeysAuthorized crontabs mem cpuCount loadavg diskUsedKb diskTotalKb firewall nextPid container devSizes blockDevices aptUpdated pacotesSegurados locateDb sshAgent';
+  const processFields = 'pid ppid uid gid user cmd comm state cpu mem rss vsz tty start nice threads unit container unkillable ignoresTerm cwd';
+  const unitFields = 'name description type state sub enabled execStart mainPid ports after wants restart user configFiles broken workingDirectory environment execStartPre restartSec wantedBy serviceType fromFile unitFile restartCount';
+  const listenerFields = 'addr port proto pid process container';
+  const imageFields = 'id tags digest criadaEm camadas os arch autor base local config encerraSozinha tamanhoExtra _defChave arvore';
+  const containerFields = 'id nome imagemId imagemRef cmd entrypoint env labels portas portasPedidas publicarTudo expostas montagensPedidas montagens redesPedidas hostname usuario workdir somenteLeitura tty interativo autoRemover recursos restart saudeConfig capAdd capDrop securityOpt privilegiado projeto servico dependeDe stopSignal criadoEm iniciadoEm terminadoEm estado saida erro oom logs reinicios redes saude inventarioBase perfilCarga bancoIniciado redis registroPrivado capacidades envDeArquivo efemera';
+  const engineFields = 'volumes networks eventos projetos login versao _nomeSeq _subrede buildCacheItens buildCacheTam';
+  const databaseFields = 'motor versao bancos usuarios atual';
+
+  LX.Machine.prototype.exportState = function () {
+    return {
+      environment: fields(this, machineFields),
+      filesystem: this.fs.exportState(),
+      processes: Array.from(this.processes, ([id, p]) => [id, fields(p, processFields)]),
+      units: Array.from(this.units, ([name, u]) => [name, fields(u, unitFields)]),
+      journal: data(this.journal),
+      listeners: this.listeners.map(l => fields(l, listenerFields)),
+      github: LX.Github.exportState(this)
+    };
+  };
+
+  LX.Machine.prototype.importState = function (state) {
+    Object.assign(this, hydrate(fields(state.environment, machineFields)));
+    this.fs.importState(state.filesystem);
+    this.processes = new Map(state.processes.map(([id, p]) => [id, Object.assign(new LX.Process({ pid: id }), hydrate(fields(p, processFields)))]));
+    const base = this.units;
+    this.units = new Map(state.units.map(([name, u]) => [name, Object.assign(base.get(name) || new LX.Unit({ name }), hydrate(fields(u, unitFields)))]));
+    this.journal = hydrate(state.journal);
+    this.listeners = hydrate(state.listeners);
+    LX.Github.importState(this, state.github);
+    return this;
+  };
+
+  LX.DockerEngine.prototype.exportState = function (machineId) {
+    return {
+      metadata: fields(this, engineFields),
+      images: Array.from(this.imagens, ([id, image]) => {
+        const callback = Array.from(LX.HUB).find(([, spec]) => spec.aoIniciar && spec.aoIniciar === image.aoIniciar)?.[0] || null;
+        return [id, { data: fields(image, imageFields), callback }];
+      }),
+      containers: Array.from(this.containers, ([id, c]) => [id, {
+        data: fields(c, containerFields), machine: c.maquina ? machineId(c.maquina) : null,
+        pid: c.pid1?.pid || null, listeners: c.escutas.map(l => fields(l, listenerFields)),
+        database: c.banco ? fields(c.banco, databaseFields) : null,
+        registry: c.registroBlobs ? Array.from(c.registroBlobs, ([tag, image]) => [tag, image.id]) : null
+      }])
+    };
+  };
+
+  LX.DockerEngine.prototype.importState = function (state, machines) {
+    Object.assign(this, hydrate(state.metadata));
+    this.imagens = new Map(state.images.map(([id, row]) => {
+      const d = hydrate(row.data);
+      const spec = LX.HUB.get(d._defChave) || {};
+      const image = Object.assign(new LX.ImagemDocker({ id }), d);
+      image._semear = d.arvore ? cm => LX.aplicarArvore(cm.fs, cm.ctxRoot(), image.arvore) : spec.semear || null;
+      image.aoIniciar = row.callback ? LX.HUB.get(row.callback)?.aoIniciar : null;
+      if (row.callback && !image.aoIniciar) throw new Error('Imagem incompatível com esta versão.');
+      return [id, image];
+    }));
+    this.containers = new Map(state.containers.map(([id, row]) => {
+      const c = Object.assign(new LX.ContainerDocker({ id }), hydrate(row.data));
+      c.maquina = row.machine === null ? null : machines[row.machine];
+      if (row.machine !== null && !c.maquina) throw new Error('Máquina de container ausente.');
+      if (c.maquina) { c.maquina._container = c; c.maquina._host = this.m; }
+      c.pid1 = c.maquina?.processes.get(row.pid) || null;
+      c.escutas = [];
+      c._savedWorkspace = row;
+      return [id, c];
+    }));
+  };
+
+  W.exportState = function (machine, terminal = null, environment = {}) {
+    const machines = [], ids = new Map();
+    const machineId = m => {
+      if (ids.has(m)) return ids.get(m);
+      if (machines.length >= 64) throw new Error('Muitas máquinas no laboratório.');
+      const id = machines.length;
+      ids.set(m, id);
+      const row = m.exportState();
+      machines.push(row);
+      row.remotes = Array.from(m.remotes || [], ([host, remote]) => [host, machineId(remote)]);
+      row.docker = m.docker ? m.docker.exportState(machineId) : null;
+      row.grafts = (m.fs.grafts || []).map(g => {
+        const source = Array.from(ids.keys()).find(other => other.fs === g.fs);
+        if (!source) throw new Error('Montagem sem máquina de origem.');
+        return { source: machineId(source), data: fields(g, 'prefix target ro tipo origem arquivo nome') };
+      });
+      return id;
+    };
+    machineId(machine);
+    const session = sh => ({ machine: machineId(sh.m), data: sh.exportState() });
+    const shell = terminal instanceof LX.Shell ? terminal : terminal?.sh;
+    const snapshot = {
+      version: W.VERSION, updatedAt: new Date().toISOString(), machines,
+      git: LX.Git.exportState(),
+      shell: shell ? session(shell) : null,
+      stack: (terminal?.stack || []).map(item => ({ ...session(item.sh), label: item.label || null })),
+      label: terminal?.label || null, history: data(terminal?.history || shell?.history || []),
+      environment: data(environment)
+    };
+    if (new TextEncoder().encode(JSON.stringify(snapshot)).length > W.MAX_BYTES) throw new Error('Ambiente excede o limite de 8 MB. Exporte uma cópia antes de remover arquivos.');
+    return snapshot;
+  };
+
+  W.validate = function (snapshot) {
+    if (!snapshot || snapshot.version !== W.VERSION) throw new Error('Versão de ambiente não suportada. Os dados foram preservados.');
+    if (new TextEncoder().encode(JSON.stringify(snapshot)).length > W.MAX_BYTES) throw new Error('Snapshot excede o limite de tamanho.');
+    data(snapshot); // rejects executable values and prototype pollution keys
+    if (!Array.isArray(snapshot.machines) || !snapshot.machines.length || snapshot.machines.length > 64) throw new Error('Snapshot de máquinas inválido.');
+    LX.Git.importState(snapshot.git);
+    return snapshot;
+  };
+
+  W.importState = function (snapshot) {
+    W.validate(snapshot);
+    // Construct independently: a failed import never replaces the live workspace.
+    const machines = snapshot.machines.map(row => {
+      const m = new LX.Machine({ container: !!row.environment.container });
+      LX.installBinaries(m);
+      return m;
+    });
+    snapshot.machines.forEach((row, id) => {
+      const m = machines[id];
+      if (row.docker) m.docker = new LX.DockerEngine(m);
+      m.importState(row);
+    });
+    snapshot.machines.forEach((row, id) => {
+      const m = machines[id];
+      m.remotes = new Map(row.remotes.map(([host, ref]) => {
+        if (!machines[ref]) throw new Error('Host remoto ausente.');
+        return [host, machines[ref]];
+      }));
+      if (row.docker) m.docker.importState(row.docker, machines);
+      m.fs.grafts = row.grafts.map(g => {
+        if (!machines[g.source]) throw new Error('Origem da montagem ausente.');
+        return { ...hydrate(g.data), fs: machines[g.source].fs };
+      });
+    });
+    for (const m of machines) if (m.docker) for (const c of m.docker.containers.values()) {
+      const row = c._savedWorkspace;
+      const image = m.docker.imagens.get(c.imagemId);
+      if (!image) throw new Error('Imagem do container ausente.');
+      if (row.listeners.length && image.aoIniciar) {
+        c.maquina.listeners = [];
+        image.aoIniciar(c, m.docker, c.entrypoint.concat(c.cmd));
+      }
+      if (row.database) {
+        if (!c.banco) throw new Error('Banco do container não pôde ser restaurado.');
+        Object.assign(c.banco, hydrate(row.database));
+      }
+      if (row.registry) c.registroBlobs = new Map(row.registry.map(([tag, id]) => [tag, m.docker.imagens.get(id)]));
+      Object.assign(c, hydrate(row.data));
+      delete c._savedWorkspace;
+    }
+    // Service constructors may initialize files/logs. Restore persisted bytes last.
+    snapshot.machines.forEach((row, id) => {
+      machines[id].fs.importState(row.filesystem);
+      machines[id].journal = hydrate(row.journal);
+    });
+    const shell = row => {
+      if (!machines[row.machine]) throw new Error('Sessão sem máquina.');
+      return new LX.Shell(machines[row.machine]).importState(row.data);
+    };
+    return {
+      machine: machines[0], shell: snapshot.shell ? shell(snapshot.shell) : new LX.Shell(machines[0]),
+      stack: snapshot.stack.map(row => ({ sh: shell(row), label: row.label })),
+      label: snapshot.label, history: hydrate(snapshot.history), environment: hydrate(snapshot.environment)
+    };
+  };
+})();
+
+;
 /* ==== 50-content-00-core.js ==== */
 /* =========================================================================
    TERMINALIS — estrutura do curso e utilitários de conteúdo
@@ -42130,6 +42457,22 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       this.syncBar();
     }
 
+    /* Instala um laboratório reconstruído pelo LX.Workspace/LX.Sync: máquina,
+       shell (com cwd, variáveis e estado), pilha de sessões e histórico. */
+    bootRestored(restaurado) {
+      if (!restaurado || !restaurado.machine || !restaurado.shell) return;
+      this.machine = restaurado.machine;
+      this.sh = restaurado.shell;
+      this.history = Array.isArray(restaurado.history) ? restaurado.history.slice() : [];
+      this.sh.history = this.history;
+      this.stack = Array.isArray(restaurado.stack) ? restaurado.stack : [];
+      this.label = restaurado.label || null;
+      this.clear();
+      this.motd();
+      this.prompt();
+      this.syncBar();
+    }
+
     motd() {
       const m = this.machine;
       this.write(`\x1b[2mUbuntu 26.04.1 LTS (GNU/Linux 6.14.0-27-generic x86_64)\x1b[0m\n\n`);
@@ -42838,6 +43181,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       this.term.boot(this.machine);
       this.pintarConta();
       this.renderRail();
+      await this.iniciarNuvem();
       const last = Progress.data.lastLesson;
       if (last && this.findLesson(last)) this.goLesson(last); else this.goHome();
       this.term.focus();
@@ -42845,6 +43189,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 
     async sair() {
       if (!confirm('Sair da conta? Seu progresso já está salvo e volta quando você entrar de novo.')) return;
+      if (LX.Sync) await LX.Sync.capturarAgora();
       await LX.Auth.gravarAgora(Progress.data);
       await LX.Auth.sair();
       Progress.replace(null);
@@ -43353,6 +43698,42 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     onCommandRun() {
       if (LX.GitVisual) LX.GitVisual.refresh(this);
       if ($('.sp-tab[aria-selected="true"]').dataset.tab === 'files') this.renderFiles();
+      if (LX.Sync) LX.Sync.marcarSujo('workspace');
+    }
+
+    aplicarWorkspaceRestaurado(restaurado) {
+      if (!restaurado || !restaurado.machine) return;
+      this.machine = restaurado.machine;
+      if (restaurado.environment && restaurado.environment.trilhaId) this.trilhaId = restaurado.environment.trilhaId;
+      if (this.term && this.term.bootRestored) this.term.bootRestored(restaurado);
+      if (this.route && this.route.view === 'files') this.renderFiles();
+    }
+
+    async iniciarNuvem() {
+      if (!LX.Sync) return;
+      LX.Sync.iniciar(this);
+      if (LX.Auth?.backend !== 'supabase' && LX.Store?.modo !== 'supabase') return;
+      const uid = LX.Auth && LX.Auth.usuario ? LX.Auth.usuario.uid : null;
+      if (!uid) return;
+      this.overlayRestauracao(true);
+      try {
+        await LX.Sync.migrarLocais(uid);
+        await LX.Sync.restaurar(uid);
+      } catch (e) { console.warn('nuvem:', e); }
+      this.overlayRestauracao(false);
+    }
+
+    overlayRestauracao(mostrar) {
+      let el = document.getElementById('restore-overlay');
+      if (mostrar) {
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'restore-overlay';
+          el.innerHTML = '<div class="ro-card"><span class="ro-spin"></span><span>Restaurando seu ambiente…</span></div>';
+          document.body.appendChild(el);
+        }
+        el.classList.remove('hidden');
+      } else if (el) el.classList.add('hidden');
     }
 
     /* ----------------------------- roadmap ----------------------------- */
@@ -43913,17 +44294,33 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     usuario: null,          // { uid, usuario, email, nome } — nunca contém hash
     progresso: PROGRESSO_VAZIO(),
     modo: 'local',
+    backend: 'local',       // 'local' (PBKDF2 neste navegador) | 'supabase' (nuvem)
     _envio: null,
     _pendente: null,
 
-    /* ---------- ciclo de vida ---------- */
+    /* ---------- ciclo de vida ----------
+       Escolhe o backend uma única vez: Supabase quando configurado e com o
+       SDK carregado; caso contrário, o backend local de sempre. */
     async iniciar() {
+      if (LX.Cloud && await LX.Cloud.ativar()) {
+        this.backend = 'supabase';
+        this.modo = LX.Store.usarSupabase(true);
+        return await this.restaurarSessao();
+      }
+      this.backend = 'local';
       this.modo = await Store.iniciar();
       return await this.restaurarSessao();
     },
 
     /* Retoma a sessão salva: valida o token contra o hash guardado na conta. */
     async restaurarSessao() {
+      if (this.backend === 'supabase') {
+        const u = await LX.CloudAuth.restaurarSessao();
+        if (!u) return null;
+        this.usuario = u;
+        this.progresso = await this.lerProgresso(u.uid);
+        return u;
+      }
       let sess = null;
       try { const raw = localStorage.getItem(LS_SESSAO); if (raw) sess = JSON.parse(raw); } catch (e) { }
       if (!sess || !sess.uid || !sess.token) return null;
@@ -43953,6 +44350,12 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 
     /* ---------- criação de conta ---------- */
     async criar({ usuario, email, senha, nome }) {
+      if (this.backend === 'supabase') {
+        const user = await LX.CloudAuth.criar({ usuario, email, senha, nome });
+        this.usuario = user;
+        this.progresso = await this.lerProgresso(user.uid);
+        return user;
+      }
       const u = normUsuario(usuario);
       const e = normEmail(email);
 
@@ -43983,6 +44386,12 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 
     /* ---------- login ---------- */
     async entrar({ login, senha, lembrar }) {
+      if (this.backend === 'supabase') {
+        const user = await LX.CloudAuth.entrar({ login, senha });
+        this.usuario = user;
+        this.progresso = await this.lerProgresso(user.uid);
+        return user;
+      }
       const bruto = String(login || '').trim();
       if (!bruto) throw new ErroAuth('login', 'Informe seu usuário ou e-mail.');
       if (!String(senha || '')) throw new ErroAuth('senha', 'Informe sua senha.');
@@ -44026,6 +44435,12 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 
     /* ---------- logout ---------- */
     async sair() {
+      if (this.backend === 'supabase') {
+        await LX.CloudAuth.sair();
+        this.usuario = null;
+        this.progresso = PROGRESSO_VAZIO();
+        return;
+      }
       let sess = null;
       try { const raw = localStorage.getItem(LS_SESSAO); if (raw) sess = JSON.parse(raw); } catch (e) { }
       if (sess && sess.uid && sess.token) {
@@ -44064,8 +44479,15 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       return await Store.set('progresso', this.usuario.uid, dados);
     },
 
+    /* ---------- recuperação de senha (nuvem) ---------- */
+    async recuperarSenha(email) {
+      if (this.backend === 'supabase') return await LX.CloudAuth.recuperarSenha(email);
+      throw new ErroAuth('email', 'A recuperação por e-mail está disponível apenas no modo nuvem.');
+    },
+
     /* ---------- troca de senha ---------- */
     async trocarSenha(senhaAtual, senhaNova) {
+      if (this.backend === 'supabase') return await LX.CloudAuth.trocarSenha(senhaAtual, senhaNova);
       if (!this.usuario) throw new ErroAuth('login', 'Você precisa estar logado.');
       const conta = await Store.get('contas', this.usuario.uid);
       const teste = await derivar(senhaAtual, conta.salt, conta.iteracoes);
@@ -44089,6 +44511,752 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
   LX.ErroAuth = ErroAuth;
   LX.Store = Store;
   LX.PROGRESSO_VAZIO = PROGRESSO_VAZIO;
+})();
+
+;
+/* ==== 74-cloud-10-config.js ==== */
+/* =========================================================================
+   TERMINALIS — configuração central da nuvem (Supabase)
+   ---------------------------------------------------------------------
+   Único lugar onde vivem a URL e a chave pública do projeto Supabase.
+   Nada de segredo entra aqui: a `anonKey` é a chave "anon/public" que o
+   próprio Supabase projeta para o navegador. Toda a proteção real é feita
+   por Row Level Security no banco (auth.uid() = user_id). NUNCA coloque
+   aqui a `service_role` nem qualquer segredo administrativo.
+
+   Como configurar (qualquer uma das formas):
+
+     1. Editar os campos abaixo em `supabase`; ou
+     2. Definir `window.TERMINALIS_CONFIG` numa tag script antes do bundle:
+          window.TERMINALIS_CONFIG = {
+            supabase: { url: 'https://xxxx.supabase.co', anonKey: 'eyJ...' }
+          };
+
+   Se nada for configurado, o Terminalis inicia em modo LOCAL/OFFLINE
+   normalmente — a nuvem é totalmente opcional.
+   ========================================================================= */
+'use strict';
+(function () {
+  const Config = {
+    /* Preencha para ligar a sincronização em nuvem. Deixe vazio para
+       rodar 100% local (localStorage), como sempre funcionou. */
+    supabase: {
+      url: '',
+      anonKey: ''
+    },
+
+    /* Ajustes finos da sincronização automática. */
+    sync: {
+      workspaceDebounceMs: 1500,   // espera após a última alteração do laboratório
+      progressoDebounceMs: 700,    // espera após a última alteração de progresso
+      maxSnapshotBytes: 8 * 1024 * 1024,
+      dispositivoId: null          // preenchido em runtime (identifica esta aba/máquina)
+    }
+  };
+
+  /* Permite sobrescrever por window.TERMINALIS_CONFIG sem editar o bundle. */
+  try {
+    const ext = (typeof window !== 'undefined' && window.TERMINALIS_CONFIG) ||
+                (typeof globalThis !== 'undefined' && globalThis.TERMINALIS_CONFIG) || null;
+    if (ext && typeof ext === 'object') {
+      if (ext.supabase) Object.assign(Config.supabase, ext.supabase);
+      if (ext.sync) Object.assign(Config.sync, ext.sync);
+    }
+  } catch (e) { /* sem window: contexto de teste em Node */ }
+
+  /* Um identificador estável por navegador, só para marcar qual dispositivo
+     gravou por último (ajuda a explicar conflitos ao aluno). Não é segredo. */
+  Config.dispositivoId = function () {
+    if (this.sync.dispositivoId) return this.sync.dispositivoId;
+    let id = null;
+    try { id = localStorage.getItem('terminalis.dispositivo'); } catch (e) { }
+    if (!id) {
+      const rnd = (typeof crypto !== 'undefined' && crypto.getRandomValues)
+        ? Array.from(crypto.getRandomValues(new Uint8Array(6)), b => b.toString(16).padStart(2, '0')).join('')
+        : Math.random().toString(16).slice(2, 14);
+      id = 'dev-' + rnd;
+      try { localStorage.setItem('terminalis.dispositivo', id); } catch (e) { }
+    }
+    this.sync.dispositivoId = id;
+    return id;
+  };
+
+  /* A configuração existe (url + chave pública preenchidas)? */
+  Config.supabaseConfigurado = function () {
+    return !!(this.supabase.url && this.supabase.anonKey);
+  };
+
+  /* Além de configurado, o SDK do Supabase foi carregado no navegador? */
+  Config.supabaseDisponivel = function () {
+    return this.supabaseConfigurado() &&
+      typeof globalThis !== 'undefined' &&
+      globalThis.supabase &&
+      typeof globalThis.supabase.createClient === 'function';
+  };
+
+  LX.Config = Config;
+})();
+
+;
+/* ==== 74-cloud-20-supabase.js ==== */
+/* =========================================================================
+   TERMINALIS — backend Supabase (Auth + PostgreSQL)
+   ---------------------------------------------------------------------
+   Este arquivo isola TODA a conversa com o Supabase. O resto do Terminalis
+   nunca importa o SDK diretamente: fala com `LX.CloudAuth` (contas) e com
+   `LX.SupabaseStore` (dados), que têm exatamente a mesma interface do
+   backend local. Assim, trocar local <-> nuvem não vaza para a aplicação.
+
+   Segurança:
+     · usamos apenas a chave pública (anon). RLS no banco garante que cada
+       usuário só enxergue linhas com user_id = auth.uid().
+     · a senha é responsabilidade exclusiva do Supabase Auth — nunca é
+       derivada, guardada ou trafegada por nós.
+   ========================================================================= */
+'use strict';
+(function () {
+
+  /* ------------------------- cliente compartilhado ------------------------- */
+  let _cliente = null;
+  function cliente() {
+    if (_cliente) return _cliente;
+    if (!LX.Config.supabaseDisponivel()) return null;
+    _cliente = globalThis.supabase.createClient(
+      LX.Config.supabase.url,
+      LX.Config.supabase.anonKey,
+      { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
+    );
+    return _cliente;
+  }
+
+  const publico = (user, perfil) => ({
+    uid: user.id,
+    usuario: (perfil && perfil.username) || (user.email || '').split('@')[0],
+    email: user.email || '',
+    nome: (perfil && perfil.name) || (user.user_metadata && user.user_metadata.name) || (user.email || '').split('@')[0],
+    criadoEm: user.created_at ? Date.parse(user.created_at) : Date.now()
+  });
+
+  function erro(campo, msg) { const e = new (LX.ErroAuth || Error)(campo, msg); if (!e.campo) e.campo = campo; return e; }
+
+  /* Traduz mensagens do Supabase para algo legível em português. */
+  function traduzir(m) {
+    const t = String(m || '').toLowerCase();
+    if (t.includes('invalid login')) return 'Usuário ou senha incorretos.';
+    if (t.includes('already registered') || t.includes('already exists')) return 'Esse e-mail já tem uma conta. Tente entrar.';
+    if (t.includes('email not confirmed')) return 'Confirme seu e-mail antes de entrar (verifique sua caixa de entrada).';
+    if (t.includes('password')) return 'A senha precisa de pelo menos 8 caracteres.';
+    if (t.includes('rate limit')) return 'Muitas tentativas. Aguarde um instante e tente de novo.';
+    return m || 'Não foi possível concluir. Tente de novo.';
+  }
+
+  /* ============================ Auth em nuvem ============================ */
+  const CloudAuth = {
+    async perfil(uid) {
+      const c = cliente(); if (!c) return null;
+      const { data } = await c.from('profiles').select('username,name').eq('id', uid).maybeSingle();
+      return data || null;
+    },
+
+    async garantirPerfil(user, usuario, nome) {
+      const c = cliente(); if (!c) return null;
+      const linha = {
+        id: user.id,
+        username: (usuario || (user.email || '').split('@')[0] || '').toLowerCase().slice(0, 24),
+        name: nome || usuario || (user.email || '').split('@')[0]
+      };
+      await c.from('profiles').upsert(linha, { onConflict: 'id' });
+      return linha;
+    },
+
+    /* Retoma a sessão persistida pelo SDK (entrar de outro aparelho). */
+    async restaurarSessao() {
+      const c = cliente(); if (!c) return null;
+      const { data } = await c.auth.getSession();
+      const sess = data && data.session;
+      if (!sess || !sess.user) return null;
+      const perfil = await this.perfil(sess.user.id);
+      return publico(sess.user, perfil);
+    },
+
+    async criar({ usuario, email, senha, nome }) {
+      const c = cliente(); if (!c) throw erro('email', 'Nuvem indisponível.');
+      if (String(senha || '').length < 8) throw erro('senha', 'A senha precisa de pelo menos 8 caracteres.');
+      const { data, error } = await c.auth.signUp({
+        email: String(email || '').trim().toLowerCase(),
+        password: senha,
+        options: { data: { name: nome || usuario, username: (usuario || '').toLowerCase() } }
+      });
+      if (error) throw erro('email', traduzir(error.message));
+      if (!data.user) throw erro('email', 'Não foi possível criar a conta.');
+      const perfil = await this.garantirPerfil(data.user, usuario, nome);
+      /* Sem sessão => o projeto exige confirmação de e-mail. */
+      if (!data.session) {
+        const e = erro('email', 'Conta criada. Confirme o e-mail enviado para poder entrar.');
+        e.precisaConfirmar = true;
+        throw e;
+      }
+      return publico(data.user, perfil);
+    },
+
+    async entrar({ login, senha }) {
+      const c = cliente(); if (!c) throw erro('login', 'Nuvem indisponível.');
+      const email = String(login || '').trim().toLowerCase();
+      if (!email.includes('@')) throw erro('login', 'No modo nuvem, entre com o seu e-mail.');
+      const { data, error } = await c.auth.signInWithPassword({ email, password: senha });
+      if (error) throw erro('senha', traduzir(error.message));
+      const perfil = await this.perfil(data.user.id);
+      return publico(data.user, perfil);
+    },
+
+    async sair() {
+      const c = cliente(); if (!c) return;
+      try { await c.auth.signOut(); } catch (e) { /* offline: a sessão local será descartada */ }
+    },
+
+    async trocarSenha(_senhaAtual, senhaNova) {
+      const c = cliente(); if (!c) throw erro('senha', 'Nuvem indisponível.');
+      if (String(senhaNova || '').length < 8) throw erro('nova', 'A nova senha precisa de pelo menos 8 caracteres.');
+      const { error } = await c.auth.updateUser({ password: senhaNova });
+      if (error) throw erro('senha', traduzir(error.message));
+      return true;
+    },
+
+    /* Recuperação de senha por e-mail (opcional). */
+    async recuperarSenha(email) {
+      const c = cliente(); if (!c) throw erro('email', 'Nuvem indisponível.');
+      const { error } = await c.auth.resetPasswordForEmail(String(email || '').trim().toLowerCase());
+      if (error) throw erro('email', traduzir(error.message));
+      return true;
+    }
+  };
+
+  /* ===================== Store em nuvem (PostgreSQL) =====================
+     Mesma interface do LX.Store local: get/set por coleção+id, mais os
+     atalhos de workspace com controle de revisão (optimistic locking).
+     ===================================================================== */
+  const SupabaseStore = {
+    modo: 'supabase',
+
+    _tabela(col) {
+      return ({ progresso: 'user_progress', workspaces: 'workspaces', profiles: 'profiles' })[col] || null;
+    },
+
+    async get(col, id) {
+      const c = cliente(); if (!c) return null;
+      const tab = this._tabela(col);
+      if (!tab) return null;
+      try {
+        if (col === 'progresso') {
+          const { data } = await c.from(tab).select('data').eq('user_id', id).maybeSingle();
+          return data ? data.data : null;
+        }
+        if (col === 'profiles') {
+          const { data } = await c.from(tab).select('*').eq('id', id).maybeSingle();
+          return data || null;
+        }
+        return null;
+      } catch (e) { return null; }
+    },
+
+    async set(col, id, dados) {
+      const c = cliente(); if (!c) return false;
+      const tab = this._tabela(col);
+      if (!tab) return false;
+      try {
+        if (col === 'progresso') {
+          const { error } = await c.from(tab).upsert(
+            { user_id: id, data: dados, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id' });
+          return !error;
+        }
+        if (col === 'profiles') {
+          const { error } = await c.from(tab).upsert(Object.assign({ id }, dados), { onConflict: 'id' });
+          return !error;
+        }
+        return false;
+      } catch (e) { return false; }
+    },
+
+    /* -------- workspace com revisão (detecção de conflito real) -------- */
+    async getWorkspace(uid) {
+      const c = cliente(); if (!c) return null;
+      try {
+        const { data } = await c.from('workspaces')
+          .select('snapshot_version,data,revision,updated_at,device')
+          .eq('user_id', uid).maybeSingle();
+        if (!data) return null;
+        return {
+          version: data.snapshot_version,
+          revision: data.revision || 0,
+          updatedAt: data.updated_at ? Date.parse(data.updated_at) : 0,
+          device: data.device || null,
+          snapshot: data.data
+        };
+      } catch (e) { return null; }
+    },
+
+    /* Grava só se a revisão base ainda for a atual. Devolve:
+         { ok:true, revision }               em caso de sucesso
+         { ok:false, conflito:true, atual }  se outro dispositivo passou à frente
+         { ok:false, erro }                  em falha de rede */
+    async saveWorkspace(uid, doc) {
+      const c = cliente(); if (!c) return { ok: false, erro: 'sem cliente' };
+      const base = Number(doc.baseRevision || 0);
+      const nova = base + 1;
+      const linha = {
+        user_id: uid,
+        snapshot_version: doc.version,
+        data: doc.snapshot,
+        revision: nova,
+        device: doc.device || null,
+        updated_at: new Date().toISOString()
+      };
+      try {
+        if (base === 0) {
+          /* Primeira gravação: insert. Se já existir, é conflito. */
+          const { error } = await c.from('workspaces').insert(linha);
+          if (error) {
+            const atual = await this.getWorkspace(uid);
+            if (atual) return { ok: false, conflito: true, atual };
+            return { ok: false, erro: error.message };
+          }
+          return { ok: true, revision: nova };
+        }
+        /* Update condicionado à revisão base — o coração do optimistic lock. */
+        const { data, error } = await c.from('workspaces')
+          .update(linha).eq('user_id', uid).eq('revision', base).select('revision');
+        if (error) return { ok: false, erro: error.message };
+        if (!data || !data.length) {
+          const atual = await this.getWorkspace(uid);
+          return { ok: false, conflito: true, atual };
+        }
+        return { ok: true, revision: nova };
+      } catch (e) {
+        return { ok: false, erro: String(e && e.message || e) };
+      }
+    }
+  };
+
+  /* Ativa o backend em nuvem se estiver configurado e disponível. */
+  const Cloud = {
+    async ativar() {
+      if (!LX.Config.supabaseDisponivel()) return false;
+      return !!cliente();
+    },
+    cliente,
+    onAuthChange(cb) {
+      const c = cliente(); if (!c) return () => { };
+      const { data } = c.auth.onAuthStateChange((ev, sess) => cb(ev, sess));
+      return () => { try { data.subscription.unsubscribe(); } catch (e) { } };
+    }
+  };
+
+  LX.CloudAuth = CloudAuth;
+  LX.SupabaseStore = SupabaseStore;
+  LX.Cloud = Cloud;
+})();
+
+;
+/* ==== 74-cloud-30-storage.js ==== */
+/* =========================================================================
+   TERMINALIS — LX.Storage: abstração única de armazenamento
+   ---------------------------------------------------------------------
+   A aplicação NUNCA fala com localStorage, com claude.use('db') ou com o
+   Supabase diretamente. Ela fala com LX.Storage, e o provider ativo decide
+   onde os bytes moram:
+
+              aplicação  ->  LX.Storage
+                              /       \
+                    LocalStorage     Supabase (nuvem, sincronizado)
+                     (cache/offline)
+
+   Providers disponíveis:
+     · local  — localStorage (cache, offline, fallback);
+     · nuvem  — claude.use('db'), quando presente;
+     · supabase — PostgreSQL do Supabase com RLS.
+
+   Todos expõem a MESMA interface: get/set por coleção+id e os atalhos de
+   workspace com revisão. Trocar de provider não muda uma linha da aplicação.
+   ========================================================================= */
+'use strict';
+(function () {
+  const Store = LX.Store;
+
+  /* Guarda as implementações originais (local / claude db) antes de estender. */
+  const baseGet = Store.get.bind(Store);
+  const baseSet = Store.set.bind(Store);
+
+  Store.provider = null;   // quando definido (SupabaseStore), tem prioridade
+
+  /* Liga/desliga o provider Supabase. Chamado por LX.Auth ao autenticar. */
+  Store.usarSupabase = function (ligar) {
+    this.provider = ligar ? LX.SupabaseStore : null;
+    this.modo = ligar ? 'supabase' : this.modo;
+    return this.modo;
+  };
+
+  /* get/set: coleções mapeadas pelo provider (progresso, workspaces,
+     profiles) vão para a nuvem; o resto (contas, índice de e-mail, só
+     usados no modo local) permanece local. */
+  Store.get = async function (col, id) {
+    if (this.provider && this.provider._tabela && this.provider._tabela(col)) return this.provider.get(col, id);
+    return baseGet(col, id);
+  };
+  Store.set = async function (col, id, dados) {
+    if (this.provider && this.provider._tabela && this.provider._tabela(col)) return this.provider.set(col, id, dados);
+    return baseSet(col, id, dados);
+  };
+
+  /* -------- workspace: leitura e gravação com controle de revisão --------
+     Documento gravado: { version, revision, updatedAt, device, snapshot }. */
+  Store.getWorkspace = async function (uid) {
+    if (this.provider && this.provider.getWorkspace) return this.provider.getWorkspace(uid);
+    const doc = await baseGet('workspaces', uid);
+    return doc || null;
+  };
+
+  /* Optimistic locking genérico (local / claude db): grava só se a revisão
+     que lemos ainda for a atual. Impede que um dispositivo apague em
+     silêncio o trabalho mais novo feito em outro. */
+  Store.saveWorkspace = async function (uid, doc) {
+    if (this.provider && this.provider.saveWorkspace) return this.provider.saveWorkspace(uid, doc);
+    const base = Number(doc.baseRevision || 0);
+    const atual = await baseGet('workspaces', uid);
+    if (atual && Number(atual.revision || 0) !== base) return { ok: false, conflito: true, atual };
+    const nova = base + 1;
+    const gravar = {
+      version: doc.version, revision: nova, updatedAt: Date.now(),
+      device: doc.device || null, snapshot: doc.snapshot
+    };
+    const ok = await baseSet('workspaces', uid, gravar);
+    return ok ? { ok: true, revision: nova } : { ok: false, erro: 'falha ao gravar' };
+  };
+
+  /* ============================ LX.Storage ============================
+     Interface de domínio, estável e independente de onde os dados vivem.
+     Notas e preferências vivem dentro do documento de progresso (um único
+     registro por usuário), então são lidas/escritas a partir dele. */
+  const Storage = {
+    get modo() { return Store.modo; },
+
+    getUser() { return LX.Auth ? LX.Auth.usuario : null; },
+
+    async getProgress(uid) { return await Store.get('progresso', uid); },
+    async saveProgress(uid, dados) { return await Store.set('progresso', uid, dados); },
+
+    async getNotes(uid) { const p = await this.getProgress(uid); return (p && p.notes) || {}; },
+    async saveNotes(uid, notes) {
+      const p = (await this.getProgress(uid)) || (LX.PROGRESSO_VAZIO ? LX.PROGRESSO_VAZIO() : {});
+      p.notes = notes; return await this.saveProgress(uid, p);
+    },
+
+    async getSettings(uid) { const p = await this.getProgress(uid); return (p && p.settings) || {}; },
+    async saveSettings(uid, settings) {
+      const p = (await this.getProgress(uid)) || (LX.PROGRESSO_VAZIO ? LX.PROGRESSO_VAZIO() : {});
+      p.settings = settings; return await this.saveProgress(uid, p);
+    },
+
+    async getWorkspace(uid) { return await Store.getWorkspace(uid); },
+    async saveWorkspace(uid, doc) { return await Store.saveWorkspace(uid, doc); }
+  };
+
+  LX.Storage = Storage;
+})();
+
+;
+/* ==== 74-cloud-40-sync.js ==== */
+/* =========================================================================
+   TERMINALIS — LX.Sync: sincronização automática do laboratório
+   ---------------------------------------------------------------------
+   Liga a máquina virtual (VFS, shell, Git, Docker) à nuvem sem que o aluno
+   precise apertar "salvar" nem dar `git commit`. O ciclo é:
+
+       alteração  ->  marca "sujo"  ->  debounce  ->  snapshot
+                  ->  cache local   ->  envia à nuvem (com revisão)
+
+   Responsabilidades:
+     · detectar alterações de estado de forma CENTRALIZADA (todo comando do
+       terminal marca o workspace como sujo — cobre criar arquivo, git add,
+       mkdir, chmod, commit, docker, etc. sem interceptar comando a comando);
+     · exportar o estado com LX.Workspace.exportState (nunca JSON.stringify da
+       máquina viva);
+     · gravar localmente sempre (offline-first) e na nuvem quando houver rede;
+     · proteger contra conflito entre dispositivos por revisão (optimistic
+       locking): nunca sobrescreve em silêncio um estado mais novo;
+     · restaurar o ambiente ao entrar em outro computador;
+     · migrar dados locais existentes na primeira entrada em nuvem;
+     · refletir o estado no indicador discreto da barra do terminal.
+
+   O módulo é defensivo: funciona sem DOM e sem `window` (para os testes em
+   Node), e degrada para "só cache local" quando não há nuvem.
+   ========================================================================= */
+'use strict';
+(function () {
+  const temWindow = typeof window !== 'undefined';
+  const temDoc = typeof document !== 'undefined';
+  const CACHE_WS = 'terminalis.cache.workspace/';
+  const CACHE_PROG = 'terminalis.cache.progresso/';
+  const BACKUP_WS = 'terminalis.backup.workspace/';
+  const MIGRADO = 'terminalis.migrado/';
+
+  const Sync = {
+    app: null,
+    _revisao: 0,          // última revisão conhecida do workspace na nuvem
+    _sujo: false,
+    _pendente: false,     // há algo à espera de rede
+    _flushing: false,
+    _reflush: false,
+    _timer: null,
+    _timerProg: null,
+    _estado: 'local',
+
+    /* --------------------------- ciclo de vida --------------------------- */
+    iniciar(app) {
+      this.app = app || this.app;
+      if (temWindow && !this._ligado) {
+        window.addEventListener('online', () => this._voltouOnline());
+        window.addEventListener('offline', () => this.status('offline'));
+        window.addEventListener('beforeunload', () => { try { this._cacheProgresso(); } catch (e) { } });
+        this._ligado = true;
+      }
+      this.status(this._temNuvem() ? 'salvo' : 'local');
+      return this;
+    },
+
+    _temNuvem() {
+      return !!(LX.Auth && LX.Auth.usuario) && (Store().modo === 'supabase' || Store().modo === 'nuvem');
+    },
+    _offline() { return temWindow && 'onLine' in navigator && navigator.onLine === false; },
+    _uid() { return LX.Auth && LX.Auth.usuario ? LX.Auth.usuario.uid : null; },
+
+    /* --------------------------- marcar alteração --------------------------- */
+    /* dominio: 'workspace' (laboratório) ou 'progresso' (aulas/notas). */
+    marcarSujo(dominio) {
+      if (!this._uid()) return;
+      if (dominio === 'progresso') {
+        this._cacheProgresso();
+        return; // o progresso é gravado pelo LX.Auth (debounce próprio); aqui só cacheamos
+      }
+      this._sujo = true;
+      this._cacheWorkspace();          // cache local imediato (offline-first)
+      const ms = (LX.Config.sync && LX.Config.sync.workspaceDebounceMs) || 1500;
+      if (this._timer) clearTimeout(this._timer);
+      this._timer = setTimeout(() => { this._timer = null; this.flushWorkspace(); }, ms);
+    },
+
+    /* --------------------------- exportar snapshot --------------------------- */
+    exportarSnapshot() {
+      if (!this.app || !this.app.machine) return null;
+      return LX.Workspace.exportState(this.app.machine, this.app.term || null,
+        { trilhaId: this.app.trilhaId || null });
+    },
+
+    _docLocal() {
+      let raw = null;
+      try { raw = localStorage.getItem(CACHE_WS + this._uid()); } catch (e) { }
+      if (!raw) return null;
+      try { return JSON.parse(raw); } catch (e) { return null; }
+    },
+    _cacheWorkspace() {
+      try {
+        const snap = this.exportarSnapshot();
+        if (!snap) return;
+        localStorage.setItem(CACHE_WS + this._uid(), JSON.stringify(
+          { version: snap.version, revision: this._revisao, updatedAt: Date.now(), snapshot: snap }));
+      } catch (e) { /* cota cheia ou snapshot inválido: ignora o cache */ }
+    },
+    _cacheProgresso() {
+      try {
+        if (LX.Progress && LX.Progress.data)
+          localStorage.setItem(CACHE_PROG + this._uid(), JSON.stringify(LX.Progress.data));
+      } catch (e) { }
+    },
+
+    /* ------------------------------ enviar ------------------------------ */
+    async flushWorkspace() {
+      const uid = this._uid();
+      if (!uid || !this.app || !this.app.machine) return;
+      if (!this._temNuvem()) { this._sujo = false; this.status('local'); return; }
+      if (this._flushing) { this._reflush = true; return; }
+      this._flushing = true;
+      this.status('salvando');
+      try {
+        const snap = this.exportarSnapshot();
+        if (!snap) { this.status('salvo'); return; }
+        const doc = { version: snap.version, snapshot: snap, device: LX.Config.dispositivoId(), baseRevision: this._revisao };
+        this._cacheWorkspace();          // offline-first: garante uma cópia local antes da rede
+        if (this._offline()) { this._pendente = true; this.status('offline'); return; }
+        const r = await LX.Storage.saveWorkspace(uid, doc);
+        if (r.ok) { this._revisao = r.revision; this._pendente = false; this._sujo = false; this.status('salvo'); }
+        else if (r.conflito) { this._resolverConflito(r.atual); }
+        else { this._pendente = true; this.status('erro'); }
+      } catch (e) {
+        this._pendente = true; this.status('erro');
+        if (typeof console !== 'undefined') console.warn('Sync workspace falhou:', e);
+      } finally {
+        this._flushing = false;
+        if (this._reflush) { this._reflush = false; this.marcarSujo('workspace'); }
+      }
+    },
+
+    /* Grava agora, sem esperar o debounce (logout, troca de conta). */
+    async capturarAgora() {
+      if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+      this._cacheProgresso();
+      if (this._sujo || this._pendente) await this.flushWorkspace();
+    },
+
+    /* --------------------------- conflito entre dispositivos ---------------------------
+       Estratégia v1 ("latest version + revision"): quem chega com a revisão
+       velha NÃO sobrescreve a mais nova. Guardamos o estado local num backup
+       (nada é perdido em silêncio), adotamos a revisão da nuvem como base e
+       avisamos o aluno. Assim, nem o remoto mais novo é destruído, nem o
+       trabalho local desaparece sem aviso. */
+    _resolverConflito(atual) {
+      this._revisao = (atual && atual.revision) || this._revisao;
+      try {
+        const snap = this.exportarSnapshot();
+        if (snap) localStorage.setItem(BACKUP_WS + this._uid() + '.' + Date.now(),
+          JSON.stringify({ version: snap.version, updatedAt: Date.now(), snapshot: snap }));
+      } catch (e) { }
+      this._pendente = false; this._sujo = false;
+      this.status('erro');
+      if (this.app && this.app.toast)
+        this.app.toast('Seu ambiente foi atualizado em outro dispositivo. Uma cópia do estado atual foi guardada localmente.');
+    },
+
+    /* ------------------------------ restaurar ------------------------------
+       Chamado ao entrar (inclusive de outro computador). Lê o snapshot mais
+       recente, valida a versão e reconstrói o laboratório. */
+    async restaurar(uid) {
+      uid = uid || this._uid();
+      if (!uid) return false;
+      this.status('restaurando');
+      let doc = null;
+      try { doc = await LX.Storage.getWorkspace(uid); } catch (e) { doc = null; }
+      /* Sem nuvem ou sem snapshot na nuvem: tenta o cache local desta máquina. */
+      if (!doc || !doc.snapshot) doc = this._melhorLocal(uid, doc);
+      if (!doc || !doc.snapshot) { this._revisao = doc ? (doc.revision || 0) : 0; this.status(this._temNuvem() ? 'salvo' : 'local'); return false; }
+      try {
+        const restaurado = LX.Workspace.importState(doc.snapshot);
+        this._revisao = doc.revision || 0;
+        if (this.app && this.app.aplicarWorkspaceRestaurado) this.app.aplicarWorkspaceRestaurado(restaurado);
+        this.status(this._temNuvem() ? 'salvo' : 'local');
+        return true;
+      } catch (e) {
+        if (typeof console !== 'undefined') console.warn('Restauração falhou:', e);
+        this.status(this._temNuvem() ? 'salvo' : 'local');
+        return false;
+      }
+    },
+
+    /* Escolhe entre o doc da nuvem e o cache local o mais recente. */
+    _melhorLocal(uid, docNuvem) {
+      const local = (() => { try { const r = localStorage.getItem(CACHE_WS + uid); return r ? JSON.parse(r) : null; } catch (e) { return null; } })();
+      if (!local || !local.snapshot) return docNuvem || null;
+      if (!docNuvem || !docNuvem.snapshot) return local;
+      return (local.updatedAt || 0) > (docNuvem.updatedAt || 0) ? local : docNuvem;
+    },
+
+    /* ------------------------------ migração ------------------------------
+       Primeira entrada em nuvem: se a conta ainda não tem progresso/ambiente
+       salvos, aproveita o que já existia neste navegador (modo local). */
+    async migrarLocais(uid) {
+      uid = uid || this._uid();
+      if (!uid) return false;
+      let jaFez = false;
+      try { jaFez = !!localStorage.getItem(MIGRADO + uid); } catch (e) { }
+      if (jaFez) return false;
+
+      let migrou = false;
+      /* Progresso: só migra se a nuvem estiver vazia e houver progresso local. */
+      try {
+        const nuvem = await LX.Storage.getProgress(uid);
+        const temNuvem = nuvem && Object.keys(nuvem.lessons || {}).length;
+        if (!temNuvem) {
+          const localProg = this._melhorProgressoLocal();
+          if (localProg && Object.keys(localProg.lessons || {}).length) {
+            await LX.Storage.saveProgress(uid, localProg);
+            if (LX.Auth) LX.Auth.progresso = localProg;
+            if (LX.Progress) LX.Progress.replace(localProg);
+            migrou = true;
+          }
+        }
+      } catch (e) { }
+
+      /* Workspace: idem, migra o cache local se a nuvem não tiver nada. */
+      try {
+        const wsNuvem = await LX.Storage.getWorkspace(uid);
+        if (!wsNuvem || !wsNuvem.snapshot) {
+          const local = this._docLocal();
+          if (local && local.snapshot) {
+            const r = await LX.Storage.saveWorkspace(uid, { version: local.version, snapshot: local.snapshot, device: LX.Config.dispositivoId(), baseRevision: 0 });
+            if (r.ok) { this._revisao = r.revision; migrou = true; }
+          }
+        }
+      } catch (e) { }
+
+      try { localStorage.setItem(MIGRADO + uid, String(Date.now())); } catch (e) { }
+      return migrou;
+    },
+
+    /* Varre o localStorage por documentos de progresso locais e devolve o
+       mais completo (mais aulas concluídas). */
+    _melhorProgressoLocal() {
+      let melhor = null, max = -1;
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k || k.indexOf('terminalis.dados.v1/progresso/') !== 0 && k.indexOf(CACHE_PROG) !== 0) continue;
+          let d = null; try { d = JSON.parse(localStorage.getItem(k)); } catch (e) { continue; }
+          const n = d && d.lessons ? Object.keys(d.lessons).length : 0;
+          if (n > max) { max = n; melhor = d; }
+        }
+      } catch (e) { }
+      return melhor;
+    },
+
+    /* ------------------------------ reconexão ------------------------------ */
+    async _voltouOnline() {
+      if (!this._temNuvem()) { this.status('local'); return; }
+      if (this._pendente || this._sujo) await this.flushWorkspace();
+      else this.status('salvo');
+      /* Reenvia progresso em cache, caso uma gravação tenha falhado offline. */
+      try {
+        const uid = this._uid();
+        const raw = localStorage.getItem(CACHE_PROG + uid);
+        if (raw && LX.Auth && LX.Auth.gravarAgora) await LX.Auth.gravarAgora(JSON.parse(raw));
+      } catch (e) { }
+    },
+
+    /* ------------------------------- status ------------------------------- */
+    status(estado) {
+      this._estado = estado;
+      if (!temDoc) return estado;
+      const el = document.getElementById('sync-state');
+      if (!el) return estado;
+      const mapa = {
+        salvando: ['dot-sync', 'salvando…'],
+        salvo: ['dot-ok', 'salvo'],
+        offline: ['dot-local', 'offline'],
+        erro: ['dot-err', 'erro ao sincronizar'],
+        restaurando: ['dot-sync', 'restaurando ambiente…'],
+        local: ['dot-local', 'local']
+      };
+      const [cls, txt] = mapa[estado] || mapa.local;
+      el.classList.remove('dot-ok', 'dot-sync', 'dot-err', 'dot-local');
+      el.classList.add(cls);
+      const span = el.querySelector('span');
+      if (span) span.textContent = txt;
+      el.setAttribute('title', 'Sincronização: ' + txt);
+      return estado;
+    }
+  };
+
+  function Store() { return LX.Store; }
+
+  LX.Sync = Sync;
 })();
 
 ;
@@ -44603,11 +45771,14 @@ drwxrws--- 4 root dados 4096 /srv/projeto
     pintarModo() {
       const el = $('#auth-modo', this.el);
       if (!el) return;
-      const nuvem = LX.Store.modo === 'nuvem';
+      const modo = LX.Store.modo;
+      const nuvem = modo === 'nuvem' || modo === 'supabase';
       el.classList.toggle('nuvem', nuvem);
-      $('span', el).textContent = nuvem
-        ? 'contas guardadas na nuvem da plataforma — dá para entrar de outro aparelho'
-        : 'contas guardadas neste navegador';
+      $('span', el).textContent = modo === 'supabase'
+        ? 'conta na nuvem (Supabase) — seu progresso e ambiente sincronizam entre computadores'
+        : nuvem
+          ? 'contas guardadas na nuvem da plataforma — dá para entrar de outro aparelho'
+          : 'contas guardadas neste navegador';
     },
 
     /* ---------- envio ---------- */
@@ -57679,13 +58850,13 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
       const usuario = await LX.Auth.iniciar();
       LX.AuthUI.montar();
       LX.AuthUI.aoEntrar = async function () {
-        if (!window.__app) { window.__app = new LX.App(); window.__app.start(); }
+        if (!window.__app) { window.__app = new LX.App(); await window.__app.start(); }
         else { await window.__app.entrarComUsuario(); }
       };
       if (usuario) {
         LX.AuthUI.esconder();
         window.__app = new LX.App();
-        window.__app.start();
+        await window.__app.start();
       } else {
         LX.AuthUI.mostrar('entrar');
       }

@@ -16,7 +16,9 @@ function loadEngine(extra = []) {
       getItem: (k) => (memoria.has(k) ? memoria.get(k) : null),
       setItem: (k, v) => { memoria.set(k, String(v)); },
       removeItem: (k) => { memoria.delete(k); },
-      clear: () => memoria.clear()
+      clear: () => memoria.clear(),
+      key: (i) => { const arr = Array.from(memoria.keys()); return i >= 0 && i < arr.length ? arr[i] : null; },
+      get length() { return memoria.size; }
     },
     document: undefined, window: undefined
   };
@@ -28,6 +30,7 @@ function loadEngine(extra = []) {
     try { vm.runInContext(code, ctx, { filename: f }); }
     catch (e) { console.error(`\n!! Erro carregando ${f}: ${e.message}\n${e.stack.split('\n').slice(0, 4).join('\n')}`); throw e; }
   }
+  ctx.LX.__localStorage = ctx.localStorage;   // exposto para os testes de nuvem
   return ctx.LX;
 }
 

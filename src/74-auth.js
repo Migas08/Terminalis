@@ -133,17 +133,33 @@
     usuario: null,          // { uid, usuario, email, nome } — nunca contém hash
     progresso: PROGRESSO_VAZIO(),
     modo: 'local',
+    backend: 'local',       // 'local' (PBKDF2 neste navegador) | 'supabase' (nuvem)
     _envio: null,
     _pendente: null,
 
-    /* ---------- ciclo de vida ---------- */
+    /* ---------- ciclo de vida ----------
+       Escolhe o backend uma única vez: Supabase quando configurado e com o
+       SDK carregado; caso contrário, o backend local de sempre. */
     async iniciar() {
+      if (LX.Cloud && await LX.Cloud.ativar()) {
+        this.backend = 'supabase';
+        this.modo = LX.Store.usarSupabase(true);
+        return await this.restaurarSessao();
+      }
+      this.backend = 'local';
       this.modo = await Store.iniciar();
       return await this.restaurarSessao();
     },
 
     /* Retoma a sessão salva: valida o token contra o hash guardado na conta. */
     async restaurarSessao() {
+      if (this.backend === 'supabase') {
+        const u = await LX.CloudAuth.restaurarSessao();
+        if (!u) return null;
+        this.usuario = u;
+        this.progresso = await this.lerProgresso(u.uid);
+        return u;
+      }
       let sess = null;
       try { const raw = localStorage.getItem(LS_SESSAO); if (raw) sess = JSON.parse(raw); } catch (e) { }
       if (!sess || !sess.uid || !sess.token) return null;
@@ -173,6 +189,12 @@
 
     /* ---------- criação de conta ---------- */
     async criar({ usuario, email, senha, nome }) {
+      if (this.backend === 'supabase') {
+        const user = await LX.CloudAuth.criar({ usuario, email, senha, nome });
+        this.usuario = user;
+        this.progresso = await this.lerProgresso(user.uid);
+        return user;
+      }
       const u = normUsuario(usuario);
       const e = normEmail(email);
 
@@ -203,6 +225,12 @@
 
     /* ---------- login ---------- */
     async entrar({ login, senha, lembrar }) {
+      if (this.backend === 'supabase') {
+        const user = await LX.CloudAuth.entrar({ login, senha });
+        this.usuario = user;
+        this.progresso = await this.lerProgresso(user.uid);
+        return user;
+      }
       const bruto = String(login || '').trim();
       if (!bruto) throw new ErroAuth('login', 'Informe seu usuário ou e-mail.');
       if (!String(senha || '')) throw new ErroAuth('senha', 'Informe sua senha.');
@@ -246,6 +274,12 @@
 
     /* ---------- logout ---------- */
     async sair() {
+      if (this.backend === 'supabase') {
+        await LX.CloudAuth.sair();
+        this.usuario = null;
+        this.progresso = PROGRESSO_VAZIO();
+        return;
+      }
       let sess = null;
       try { const raw = localStorage.getItem(LS_SESSAO); if (raw) sess = JSON.parse(raw); } catch (e) { }
       if (sess && sess.uid && sess.token) {
@@ -284,8 +318,15 @@
       return await Store.set('progresso', this.usuario.uid, dados);
     },
 
+    /* ---------- recuperação de senha (nuvem) ---------- */
+    async recuperarSenha(email) {
+      if (this.backend === 'supabase') return await LX.CloudAuth.recuperarSenha(email);
+      throw new ErroAuth('email', 'A recuperação por e-mail está disponível apenas no modo nuvem.');
+    },
+
     /* ---------- troca de senha ---------- */
     async trocarSenha(senhaAtual, senhaNova) {
+      if (this.backend === 'supabase') return await LX.CloudAuth.trocarSenha(senhaAtual, senhaNova);
       if (!this.usuario) throw new ErroAuth('login', 'Você precisa estar logado.');
       const conta = await Store.get('contas', this.usuario.uid);
       const teste = await derivar(senhaAtual, conta.salt, conta.iteracoes);

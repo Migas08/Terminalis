@@ -182,11 +182,14 @@ drwxrws--- 4 root dados 4096 /srv/projeto
     pintarModo() {
       const el = $('#auth-modo', this.el);
       if (!el) return;
-      const nuvem = LX.Store.modo === 'nuvem';
+      const modo = LX.Store.modo;
+      const nuvem = modo === 'nuvem' || modo === 'supabase';
       el.classList.toggle('nuvem', nuvem);
-      $('span', el).textContent = nuvem
-        ? 'contas guardadas na nuvem da plataforma — dá para entrar de outro aparelho'
-        : 'contas guardadas neste navegador';
+      $('span', el).textContent = modo === 'supabase'
+        ? 'conta na nuvem (Supabase) — seu progresso e ambiente sincronizam entre computadores'
+        : nuvem
+          ? 'contas guardadas na nuvem da plataforma — dá para entrar de outro aparelho'
+          : 'contas guardadas neste navegador';
     },
 
     /* ---------- envio ---------- */

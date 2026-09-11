@@ -137,6 +137,10 @@
   <button data-nav="projetos" aria-pressed="false">__ICON_CUBE__<span>Projetos</span></button>
 </nav>
 
+<!-- SDK do Supabase (opcional). Se não carregar — offline, sem configuração,
+     ou CDN bloqueada — o Terminalis inicia em modo local normalmente.
+     Só a chave pública (anon) é usada; a segurança real é o RLS no banco. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" crossorigin="anonymous" onerror="window.__supabaseIndisponivel=true"></script>
 <script>__JS__</script>
 <script>
   window.addEventListener('DOMContentLoaded', async function () {
@@ -151,13 +155,13 @@
       const usuario = await LX.Auth.iniciar();
       LX.AuthUI.montar();
       LX.AuthUI.aoEntrar = async function () {
-        if (!window.__app) { window.__app = new LX.App(); window.__app.start(); }
+        if (!window.__app) { window.__app = new LX.App(); await window.__app.start(); }
         else { await window.__app.entrarComUsuario(); }
       };
       if (usuario) {
         LX.AuthUI.esconder();
         window.__app = new LX.App();
-        window.__app.start();
+        await window.__app.start();
       } else {
         LX.AuthUI.mostrar('entrar');
       }

@@ -1,0 +1,42 @@
+const assert = require('node:assert/strict');
+const { loadEngine, makeSession } = require('./harness');
+
+(async () => {
+  const LX = loadEngine();
+  const first = makeSession(LX);
+  await first.run('mkdir projeto; cd projeto; git init; echo teste > arquivo.txt; git add arquivo.txt; echo depois >> arquivo.txt');
+  await first.run('ln arquivo.txt alias.txt; ln -s arquivo.txt simbolico; chmod 640 arquivo.txt; export EXEMPLO=valor');
+  const before = LX.Git.Repo.find(first.sh).status();
+  const snapshot = LX.Workspace.exportState(first.m, first.sh);
+  const second = LX.Workspace.importState(JSON.parse(JSON.stringify(snapshot)));
+  assert.equal(second.shell.cwd, '/home/aluno/projeto');
+  assert.equal(second.shell.getVar('EXEMPLO'), 'valor');
+  assert.equal(second.machine.fs.readFile('/home/aluno/projeto/arquivo.txt'), 'teste\ndepois\n');
+  assert.equal(second.machine.fs.stat('/home/aluno/projeto/arquivo.txt').mode, 0o640);
+  assert.equal(second.machine.fs.stat('/home/aluno/projeto/arquivo.txt'), second.machine.fs.stat('/home/aluno/projeto/alias.txt'));
+  assert.equal(second.machine.fs.lstat('/home/aluno/projeto/simbolico').type, 'link');
+  assert.deepEqual(LX.Git.Repo.find(second.shell).status(), before);
+  assert.equal(LX.Git.Repo.find(second.shell).d.index['arquivo.txt'], 'teste\n');
+  assert.match(second.machine.fs.readFile('/proc/uptime'), /^\d/);
+  const old = second.machine.fs.stat('/home/aluno/projeto/arquivo.txt').ino;
+  assert.ok(second.machine.fs.create('/home/aluno/novo').ino > old);
+  assert.throws(() => LX.Workspace.importState({ ...snapshot, version: 999 }), /Versão/);
+  const invalid = JSON.parse(JSON.stringify(snapshot));
+  invalid.machines[0].filesystem.nodes[0].children.push(['quebrado', 999999]);
+  assert.throws(() => LX.Workspace.importState(invalid), /inválida/);
+  assert.equal(first.m.fs.readFile('/home/aluno/projeto/arquivo.txt'), 'teste\ndepois\n');
+
+  await first.run('docker run -d --name web -v conteudo:/usr/share/nginx/html -p 8088:80 nginx:alpine');
+  const container = first.m.docker.achar('web');
+  assert.ok(container, 'container created');
+  container.maquina.fs.writeFile('/usr/share/nginx/html/index.html', 'persistido');
+  const docker = LX.Workspace.importState(JSON.parse(JSON.stringify(LX.Workspace.exportState(first.m, first.sh))));
+  const restored = docker.machine.docker.achar('web');
+  assert.equal(restored.maquina.fs.readFile('/usr/share/nginx/html/index.html'), 'persistido');
+  restored.maquina.fs.writeFile('/usr/share/nginx/html/index.html', 'compartilhado');
+  const volume = docker.machine.docker.volumes.get('conteudo');
+  assert.equal(docker.machine.fs.readFile(volume.montagem + '/index.html'), 'compartilhado');
+  assert.equal(restored.estado, container.estado);
+  assert.ok(restored.escutas.length);
+  console.log('Workspace: VFS, hard links, shell, staged/uncommitted Git, Docker volumes, runtime files and invalid snapshots passed.');
+})().catch(error => { console.error(error); process.exitCode = 1; });

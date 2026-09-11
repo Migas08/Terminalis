@@ -56,6 +56,7 @@ const TYPE_BITS = { dir: S_IFDIR, file: S_IFREG, link: S_IFLNK, chr: S_IFCHR, bl
 const TYPE_CHAR = { dir: 'd', file: '-', link: 'l', chr: 'c', blk: 'b', fifo: 'p', sock: 's' };
 
 let INO_SEQ = 1;
+LX.reserveInodes = next => { INO_SEQ = Math.max(INO_SEQ, next); };
 
 class Inode {
   constructor(type, mode, uid = 0, gid = 0) {

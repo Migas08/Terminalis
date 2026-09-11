@@ -81,6 +81,22 @@
       this.syncBar();
     }
 
+    /* Instala um laboratório reconstruído pelo LX.Workspace/LX.Sync: máquina,
+       shell (com cwd, variáveis e estado), pilha de sessões e histórico. */
+    bootRestored(restaurado) {
+      if (!restaurado || !restaurado.machine || !restaurado.shell) return;
+      this.machine = restaurado.machine;
+      this.sh = restaurado.shell;
+      this.history = Array.isArray(restaurado.history) ? restaurado.history.slice() : [];
+      this.sh.history = this.history;
+      this.stack = Array.isArray(restaurado.stack) ? restaurado.stack : [];
+      this.label = restaurado.label || null;
+      this.clear();
+      this.motd();
+      this.prompt();
+      this.syncBar();
+    }
+
     motd() {
       const m = this.machine;
       this.write(`\x1b[2mUbuntu 26.04.1 LTS (GNU/Linux 6.14.0-27-generic x86_64)\x1b[0m\n\n`);

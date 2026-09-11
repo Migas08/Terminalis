@@ -121,6 +121,7 @@
       this.term.boot(this.machine);
       this.pintarConta();
       this.renderRail();
+      await this.iniciarNuvem();
       const last = Progress.data.lastLesson;
       if (last && this.findLesson(last)) this.goLesson(last); else this.goHome();
       this.term.focus();
@@ -128,6 +129,7 @@
 
     async sair() {
       if (!confirm('Sair da conta? Seu progresso já está salvo e volta quando você entrar de novo.')) return;
+      if (LX.Sync) await LX.Sync.capturarAgora();
       await LX.Auth.gravarAgora(Progress.data);
       await LX.Auth.sair();
       Progress.replace(null);
@@ -636,6 +638,42 @@
     onCommandRun() {
       if (LX.GitVisual) LX.GitVisual.refresh(this);
       if ($('.sp-tab[aria-selected="true"]').dataset.tab === 'files') this.renderFiles();
+      if (LX.Sync) LX.Sync.marcarSujo('workspace');
+    }
+
+    aplicarWorkspaceRestaurado(restaurado) {
+      if (!restaurado || !restaurado.machine) return;
+      this.machine = restaurado.machine;
+      if (restaurado.environment && restaurado.environment.trilhaId) this.trilhaId = restaurado.environment.trilhaId;
+      if (this.term && this.term.bootRestored) this.term.bootRestored(restaurado);
+      if (this.route && this.route.view === 'files') this.renderFiles();
+    }
+
+    async iniciarNuvem() {
+      if (!LX.Sync) return;
+      LX.Sync.iniciar(this);
+      if (LX.Auth?.backend !== 'supabase' && LX.Store?.modo !== 'supabase') return;
+      const uid = LX.Auth && LX.Auth.usuario ? LX.Auth.usuario.uid : null;
+      if (!uid) return;
+      this.overlayRestauracao(true);
+      try {
+        await LX.Sync.migrarLocais(uid);
+        await LX.Sync.restaurar(uid);
+      } catch (e) { console.warn('nuvem:', e); }
+      this.overlayRestauracao(false);
+    }
+
+    overlayRestauracao(mostrar) {
+      let el = document.getElementById('restore-overlay');
+      if (mostrar) {
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'restore-overlay';
+          el.innerHTML = '<div class="ro-card"><span class="ro-spin"></span><span>Restaurando seu ambiente…</span></div>';
+          document.body.appendChild(el);
+        }
+        el.classList.remove('hidden');
+      } else if (el) el.classList.add('hidden');
     }
 
     /* ----------------------------- roadmap ----------------------------- */
