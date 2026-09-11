@@ -1652,3 +1652,13 @@ O modo Supabase é ativado quando `window.TERMINALIS_CONFIG.supabase.url` e `ano
 Commits incrementais publicados em `main`: `42f1b93`, `ad9c36a`, `4e70b65`, `0dd7dad`, `eb8bd98`, `af6a41a`, `d12b52f`, `f92edb4`, `979bbef` e `9d6f10c`. Não houve force push, reset destrutivo ou squash.
 
 Última validação: build com 96 arquivos JS; testes de domínio com Linux 163, Docker 160, Git 24, estrutura 217, soluções 449, Workspace e Cloud aprovados; navegador com Auth 48, aluno 28, interface, feedback desktop/mobile e 449 componentes práticos aprovados.
+
+
+# 71. Ajustes posteriores
+
+Depois do addendum anterior, foram publicados mais dois commits incrementais:
+
+- `b683597` — teste de sincronização entre dois dispositivos (PC A, PC B e conflito);
+- `59354c4` — estado visual dedicado para conflito na barra de sincronização.
+
+A assinatura usada para decidir se um workspace está sujo ignora somente metadados voláteis (`updatedAt`, `atime` e histórico), mas esses dados continuam no snapshot persistido. Assim, leituras não disparam upload sem necessidade, enquanto uma mutação posterior ainda salva o histórico completo.
