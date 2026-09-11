@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 913271)
-... 2604507 bytes omitted ...
+Warning: truncated output (original token count: 943257)
+... 2724450 bytes omitted ...
 
 <!doctype html>
 <html lang="pt-BR">
@@ -3412,7 +3412,7 @@ LX.FileSystem = FileSystem;
         ['containerd.io', '1.7.28-1', 'An open and reliable container runtime'],
         ['nano', '8.4-1', 'small, friendly text editor'],
         ['less', '668-1', 'pager program similar to more'],
-        […162152 tokens truncated… restauração do banco',
+        […162152 tokens truncated…
     goal: 'Provar que a loja tem uma rede de segurança: gerar um dump do banco, perder dados e trazê-los de volta a partir do arquivo.',
     setup: (m) => {
       if (!m.docker) return;
@@ -4741,7 +4741,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
     apply(){const s=LX.Progress.data.settings||{};document.documentElement.style.setProperty('--reading-size',(s.readingSize||16)+'px');document.documentElement.classList.toggle('reduce-motion',!!s.reduceMotion);},
     render(app){
       const s=LX.Progress.data.settings||{};
-      document.querySelector('#page').innerHTML=`<div class="doc"><div class="eyebrow">Seu espaço de estudo</div><h1 class="title">Configurações</h1><p class="lede">Ajuste a leitura e consulte como seu trabalho é salvo.</p><label class="settings-row"><span>Tamanho do texto</span><select id="reading-size"><option value="16">Padrão — 16 px</option><option value="18">Grande — 18 px</option><option value="20">Maior — 20 px</option></select></label><label class="settings-row"><span>Reduzir animações</span><input type="checkbox" id="reduce-motion"></label><p role="status" id="settings-feedback"></p><h2>Progresso e laboratório</h2><p>Aulas, atividades, anotações e preferências são salvas na sua conta de estudo. No modo local, esses dados ficam neste navegador. Apagar os dados do navegador também apaga as contas locais.</p><p>Os arquivos, commits e repositórios do terminal vivem na memória da aba. Recarregar a página ou recriar o ambiente reinicia os laboratórios, preservando o progresso salvo.</p><button class="btn" id="settings-help">Abrir guia do terminal</button></div>`;
+      document.querySelector('#page').innerHTML=`<div class="doc"><div class="eyebrow">Seu espaço de estudo</div><h1 class="title">Configurações</h1><p class="lede">Ajuste a leitura e consulte como seu trabalho é salvo.</p><label class="settings-row"><span>Tamanho do texto</span><select id="reading-size"><option value="16">Padrão — 16 px</option><option value="18">Grande — 18 px</option><option value="20">Maior — 20 px</option></select></label><label class="settings-row"><span>Reduzir animações</span><input type="checkbox" id="reduce-motion"></label><p role="status" id="settings-feedback"></p><h2>Progresso e laboratório</h2><p>Aulas, atividades, anotações e preferências são salvas na sua conta de estudo. No modo local, esses dados ficam neste navegador; no modo Supabase, sincronizam entre computadores.</p><p>Com uma conta local, o laboratório é reiniciado ao recarregar a página. Com o Supabase configurado, arquivos, commits, staging, Docker e o diretório atual são restaurados automaticamente quando você entra.</p><button class="btn" id="settings-help">Abrir guia do terminal</button></div>`;
       const size=document.querySelector('#reading-size'),motion=document.querySelector('#reduce-motion');size.value=String(s.readingSize||16);motion.checked=!!s.reduceMotion;
       const save=()=>{LX.Progress.data.settings={readingSize:Number(size.value),reduceMotion:motion.checked};LX.Progress.save();this.apply();document.querySelector('#settings-feedback').textContent='Preferências salvas.';};size.onchange=save;motion.onchange=save;
       document.querySelector('#settings-help').onclick=()=>app.goPage('ajuda');
