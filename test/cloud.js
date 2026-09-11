@@ -19,6 +19,9 @@ function limpar() {
   LX.Sync._sujo = false;
   LX.Sync._pendente = false;
   LX.Sync._flushing = false;
+  LX.Sync._assinatura = null;
+  LX.Sync._pausado = false;
+  LX.Sync._conflito = null;
 }
 
 /* Provider de nuvem falso, com a mesma interface do SupabaseStore. */
@@ -106,6 +109,8 @@ function appReal() {
   await LX.Sync._voltouOnline();
   assert.ok(prov.mem.workspaces['u2'], 'ao voltar a rede, o ambiente é enviado');
   assert.ok(!LX.Sync._pendente, 'e deixa de estar pendente');
+  LX.Sync._sujo = false;
+  assert.equal(LX.Sync.marcarSujo('workspace'), false, 'comando somente de leitura não agenda novo snapshot');
   LX.Sync._offline = antesOffline;
 
   /* ---------- D. conflito via Sync guarda backup e não destrói ---------- */

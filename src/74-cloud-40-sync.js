@@ -41,6 +41,7 @@
     _reflush: false,
     _pausado: false,          // conflito pendente: só o aluno pode retomar
     _conflito: null,
+    _assinatura: null,        // JSON do último snapshot conhecido
     _timer: null,
     _timerProg: null,
     _estado: 'local',
@@ -67,16 +68,23 @@
     /* --------------------------- marcar alteração --------------------------- */
     /* dominio: 'workspace' (laboratório) ou 'progresso' (aulas/notas). */
     marcarSujo(dominio) {
-      if (!this._uid()) return;
+      if (!this._uid()) return false;
       if (dominio === 'progresso') {
         this._cacheProgresso();
-        return; // o progresso é gravado pelo LX.Auth (debounce próprio); aqui só cacheamos
+        return true; // o progresso é gravado pelo LX.Auth (debounce próprio); aqui só cacheamos
       }
+      /* O gancho é chamado após qualquer comando, inclusive ls/pwd/cat. A
+         assinatura evita agendar upload quando o domínio não mudou. */
+      const atual = this.exportarSnapshot();
+      const assinatura = atual ? this.assinarSnapshot(atual) : null;
+      if (assinatura && assinatura === this._assinatura) return false;
+      this._assinatura = assinatura || this._assinatura;
       this._sujo = true;
       this._cacheWorkspace();          // cache local imediato (offline-first)
       const ms = (LX.Config.sync && LX.Config.sync.workspaceDebounceMs) || 1500;
       if (this._timer) clearTimeout(this._timer);
       this._timer = setTimeout(() => { this._timer = null; this.flushWorkspace(); }, ms);
+      return true;
     },
 
     /* --------------------------- exportar snapshot --------------------------- */
@@ -84,6 +92,22 @@
       if (!this.app || !this.app.machine) return null;
       return LX.Workspace.exportState(this.app.machine, this.app.term || null,
         { trilhaId: this.app.trilhaId || null });
+    },
+
+    /* Campos voláteis ficam no snapshot persistido, mas não decidem se houve
+       trabalho novo: cada export recebe updatedAt novo, leituras podem mudar
+       atime e todo comando entra no histórico. */
+    assinarSnapshot(snapshot) {
+      try {
+        const d = JSON.parse(JSON.stringify(snapshot));
+        delete d.updatedAt; delete d.history;
+        for (const m of (d.machines || [])) {
+          for (const n of (m.filesystem && m.filesystem.nodes || [])) if (n.data) delete n.data.atime;
+        }
+        if (d.shell && d.shell.data) delete d.shell.data.history;
+        for (const row of (d.stack || [])) if (row.data) delete row.data.history;
+        return JSON.stringify(d);
+      } catch (e) { return null; }
     },
 
     _docLocal() {
@@ -123,7 +147,7 @@
         this._cacheWorkspace();          // offline-first: garante uma cópia local antes da rede
         if (this._offline()) { this._pendente = true; this.status('offline'); return; }
         const r = await LX.Storage.saveWorkspace(uid, doc);
-        if (r.ok) { this._revisao = r.revision; this._pendente = false; this._sujo = false; this.status('salvo'); }
+        if (r.ok) { this._revisao = r.revision; this._assinatura = this.assinarSnapshot(snap); this._pendente = false; this._sujo = false; this.status('salvo'); }
         else if (r.conflito) { this._resolverConflito(r.atual); }
         else { this._pendente = true; this.status('erro'); }
       } catch (e) {
@@ -202,6 +226,7 @@
             this.app.aplicarWorkspaceRestaurado(LX.Workspace.importState(conflito.atual.snapshot));
           }
           this._revisao = Number(conflito.atual && conflito.atual.revision || this._revisao);
+          this._assinatura = this.assinarSnapshot(conflito.atual.snapshot);
           this._sujo = false; this._pendente = false; this.status('salvo');
           return true;
         } catch (e) {
@@ -213,6 +238,7 @@
          remota mais nova. O controle otimista continua protegendo a gravação. */
       this._revisao = Number(conflito.atual && conflito.atual.revision || this._revisao);
       this._sujo = true;
+      this._assinatura = null; // força o envio consciente da versão escolhida
       if (uid) await this.flushWorkspace();
       return !this._sujo && !this._pendente;
     },
@@ -232,6 +258,7 @@
       try {
         const restaurado = LX.Workspace.importState(doc.snapshot);
         this._revisao = doc.revision || 0;
+        this._assinatura = this.assinarSnapshot(doc.snapshot);
         if (this.app && this.app.aplicarWorkspaceRestaurado) this.app.aplicarWorkspaceRestaurado(restaurado);
         this.status(this._temNuvem() ? 'salvo' : 'local');
         return true;
