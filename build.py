@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Monta o arquivo único da plataforma Terminalis."""
 from pathlib import Path
+import os
 
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "src"
@@ -37,6 +38,14 @@ def build():
     modules = js_files()
     parts = [f"/* ==== {path.name} ==== */\n{path.read_text(encoding='utf-8')}" for path in modules]
     js = '\n;\n'.join(parts)
+
+    # Os testes automatizados devem continuar independentes do projeto Supabase.
+    # O site publicado não define esta variável e usa a configuração de nuvem normal.
+    if os.environ.get("TERMINALIS_OFFLINE") == "1":
+        js = (
+            "globalThis.TERMINALIS_CONFIG = { supabase: { url: '', anonKey: '' } };\n"
+            + js
+        )
 
     css = (SRC / "70-styles.css").read_text(encoding="utf-8")
     html = (SRC / "75-shell.html").read_text(encoding="utf-8")
