@@ -305,7 +305,8 @@ button { font-family: inherit; }
 .cs-stat .v small { font-size: 14px; color: var(--tx-3); font-weight: 500; }
 .cs-stat .l { display: block; font-size: 11px; font-family: var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--tx-3); margin-top: 4px; }
 
-.cs-corpo { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+.cs-corpo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); gap: 20px; align-items: start; }
+.cs-main, .cs-side { min-width: 0; }
 .cs-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
 .cs-tab { background: none; border: 0; cursor: pointer; padding: 10px 14px; color: var(--tx-3); font-size: 14px; font-weight: 550; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .cs-tab:hover { color: var(--tx-2); }
