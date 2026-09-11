@@ -73,6 +73,8 @@ src/
   46-docker-cli.js          comandos docker
   47-dockerfile.js          interpretação e construção de Dockerfiles
   48-compose.js             operação de stacks Compose
+  49-workspace-00-codec.js  codec versionado de snapshots do laboratório
+  49-workspace-10-domains.js serialização e restauração por domínios
   50-content-00-core.js     registro de aulas, helpers e cenário inicial
   50-content-01-modules.js  mapa dos módulos
   50-content-02-trilhas.js  trilhas, etapas e pré-requisitos
@@ -84,6 +86,10 @@ src/
   72-file-browser.js        navegador de arquivos virtuais
   73-render.js              renderização dos blocos das aulas
   74-auth.js                contas, sessões e armazenamento
+  74-cloud-10-config.js    configuração pública do Supabase
+  74-cloud-20-supabase.js  Auth e persistência PostgreSQL via Supabase
+  74-cloud-30-storage.js   interface única de armazenamento
+  74-cloud-40-sync.js      cache offline, debounce e revisão otimista
   75-shell.html             estrutura HTML e inicialização
   76-progressao.js          etapas, conclusões e desbloqueios
   77-authui.js              interface de autenticação
@@ -121,11 +127,26 @@ Servir por localhost oferece uma origem adequada para armazenamento local e WebC
 
 A interface solicita uma conta. O código usa WebCrypto para derivar senhas com PBKDF2-SHA256, salt aleatório e 150 mil iterações. As sessões possuem token aleatório e validade de 30 dias.
 
-Por padrão, contas e progresso são gravados no **localStorage do navegador**, associados à origem da página. Limpar esse armazenamento remove os dados locais. O ZIP não contém um backend próprio de autenticação.
+Por padrão, contas e progresso são gravados no **localStorage do navegador**, associados à origem da página. Limpar esse armazenamento remove os dados locais. O modo local continua disponível para estudar offline.
 
-Há uma integração opcional com `claude.use('db')`. Quando essa capacidade está disponível, o armazenamento usa o banco do ambiente hospedeiro. A sincronização entre dispositivos depende dessa integração; servir o HTML em um site comum não ativa sincronização automaticamente.
+Para sincronizar a mesma conta entre computadores, configure um projeto Supabase e execute [docs/SUPABASE_SCHEMA.sql](docs/SUPABASE_SCHEMA.sql) no SQL Editor. Depois, passe a URL do projeto e a chave pública `anon` antes do bundle:
 
-O progresso e as anotações são persistidos, mas a máquina virtual é reconstruída ao iniciar a aplicação ou trocar de usuário. Os arquivos criados no terminal não são preservados entre essas sessões.
+```html
+<script>
+  window.TERMINALIS_CONFIG = {
+    supabase: {
+      url: 'https://seu-projeto.supabase.co',
+      anonKey: 'sua-chave-anon-publica'
+    }
+  };
+</script>
+```
+
+Nunca coloque a chave `service_role` no HTML. As tabelas `profiles`, `user_progress` e `workspaces` usam RLS e só aceitam linhas pertencentes a `auth.uid()`. O login, confirmação de e-mail e recuperação de senha são feitos pelo Supabase Auth.
+
+O workspace inteiro do laboratório (arquivos, shell, processos, serviços, Git, Docker, remotos e histórico necessário) é exportado por um codec versionado e salvo com cache offline. Alterações aguardam um debounce curto e usam revisão otimista; se outro dispositivo gravar antes, o estado local é preservado em um backup e a gravação não sobrescreve o remoto silenciosamente. O indicador da barra mostra `salvando`, `salvo`, `offline` ou erro.
+
+O modo `claude.use('db')` continua como fallback de armazenamento para ambientes que já oferecem essa capacidade, sem alterar a API usada pela aplicação.
 
 ## Testes
 
@@ -152,6 +173,8 @@ node test/solutions.js
 | `ui.js` | Inicialização e interação com a interface no navegador |
 | `auth.js` | Login e progressão entre trilhas no navegador |
 | `aluno.js` | Percurso de um aluno pela interface |
+| `workspace.js` | Codec e restauração do estado completo do laboratório |
+| `cloud.js` | Cache offline, migração e bloqueio otimista entre dispositivos |
 
 Para conferir uma aula isoladamente:
 

@@ -10,6 +10,7 @@ O Terminalis é uma aplicação web estática. Não existe um servidor de aplica
 4. Os módulos `50-*` a `68-*` registram o curso de Linux; `79-*` a `83-*`, Docker e operação; `84-*` a `86-*`, Git e GitHub.
 5. `70-styles.css` mantém todo o sistema visual.
 6. `71-*` a `78-*` e `87-*` a `88-*` implementam interface, autenticação, progresso e diagramas.
+7. `49-workspace-*` define o codec versionado e a serialização dos domínios; `74-cloud-*` conecta o armazenamento ao Supabase sem acoplar a interface ao SDK.
 
 `build.py` ordena os arquivos JavaScript pelo nome. Por isso, o prefixo numérico também declara a dependência de carregamento. Módulos novos devem entrar depois das APIs que consomem e antes da inicialização em `75-shell.html` quando forem necessários no primeiro carregamento.
 
@@ -25,15 +26,19 @@ O Terminalis é uma aplicação web estática. Não existe um servidor de aplica
 | Conteúdo | `50-*` a `68-*`, `80-*` a `86-*` | Catálogo editorial, cenários e verificadores das aulas |
 | Interface | `71-terminal.js`, `72-app.js`, `72-task-ui.js`, `72-file-browser.js`, `73-render.js` | Terminal, navegação, atividades, arquivos e blocos das aulas |
 | Conta e jornada | `74-auth.js`, `76-progressao.js` a `78-jornada.js` | Persistência por usuário, pré-requisitos e páginas de curso |
+| Workspace | `49-workspace-00-codec.js`, `49-workspace-10-domains.js` | Exportação, validação e restauração do laboratório completo |
+| Nuvem | `74-cloud-10-config.js` a `74-cloud-40-sync.js` | Configuração Supabase, Auth, armazenamento, cache offline e sincronização |
 | Apresentação | `70-styles.css`, `75-shell.html`, `87-git-visual.js`, `88-settings.js` | Layout, shell da página, diagramas e preferências |
 
 O código de domínio não deve acessar elementos da página. A camada de interface pode consultar os simuladores por meio do namespace `LX`. Conteúdo pode preparar cenários e verificar estado, mas não deve duplicar regras do motor.
 
 ## Dados e segurança
 
-No modo padrão, contas, hashes de senha, sessões, progresso e anotações ficam no `localStorage` da origem. A integração opcional `claude.use('db')` troca apenas o armazenamento e não transforma este projeto em um backend independente.
+No modo padrão, contas, hashes de senha, sessões, progresso e anotações ficam no `localStorage` da origem. A integração opcional `claude.use('db')` troca apenas o armazenamento. Quando `TERMINALIS_CONFIG.supabase` está preenchido e o SDK CDN carrega, `LX.Auth` usa o Supabase Auth e `LX.Storage` grava `profiles`, `user_progress` e `workspaces` no PostgreSQL.
 
-Senhas são derivadas com PBKDF2-SHA256, salt aleatório por conta e o número de iterações gravado junto ao hash. O token de sessão bruto fica no navegador; a conta guarda seu SHA-256. A máquina virtual e seus arquivos vivem apenas na memória da aba.
+Senhas locais são derivadas com PBKDF2-SHA256, salt aleatório por conta e o número de iterações gravado junto ao hash. No modo Supabase, a senha é tratada apenas pelo Supabase Auth. O token de sessão fica no navegador. No modo local, a máquina virtual vive na memória da aba; no modo Supabase, `LX.Workspace.exportState` produz um snapshot JSON versionado e `LX.Sync` o mantém em cache local e na tabela `workspaces` quando há rede. A revisão otimista impede que uma gravação baseada em estado antigo apague alterações de outro dispositivo. Em conflito, o snapshot local é copiado para `terminalis.backup.workspace/<uid>.<timestamp>` e o remoto permanece intacto.
+
+O SQL de produção está em [docs/SUPABASE_SCHEMA.sql](SUPABASE_SCHEMA.sql). Ele cria as tabelas, índices, trigger de perfil após `auth.users` e políticas RLS de leitura, inserção, atualização e remoção apenas da própria linha. A única função `SECURITY DEFINER` é o trigger de criação de perfil; ela fixa `search_path`, não recebe `user_id` do cliente e tem execução revogada para os papéis públicos.
 
 HTML escrito pelos autores das aulas é renderizado como conteúdo confiável do pacote. Mensagens produzidas a partir do estado do aluno passam por `LX.feedbackHtml`, que escapa texto e libera somente a marcação didática prevista. Dados de formulário e nomes apresentados pela interface devem passar por `LX.Util.escapeHtml` ou por `textContent`.
 
