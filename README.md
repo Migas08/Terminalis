@@ -129,7 +129,7 @@ A interface solicita uma conta. O código usa WebCrypto para derivar senhas com 
 
 Por padrão, contas e progresso são gravados no **localStorage do navegador**, associados à origem da página. Limpar esse armazenamento remove os dados locais. O modo local continua disponível para estudar offline.
 
-Para sincronizar a mesma conta entre computadores, configure um projeto Supabase e execute [docs/SUPABASE_SCHEMA.sql](docs/SUPABASE_SCHEMA.sql) no SQL Editor. Depois, passe a URL do projeto e a chave pública `anon` antes do bundle:
+Para sincronizar a mesma conta entre computadores, configure um projeto Supabase e execute [docs/SUPABASE_SCHEMA.sql](docs/SUPABASE_SCHEMA.sql) no SQL Editor. Copie [config.example.js](config.example.js) para `config.local.js`, preencha a URL do projeto e a chave pública `anon`, e inclua esse script antes do bundle:
 
 ```html
 <script>
@@ -224,3 +224,4 @@ A CI local interpreta workflows didáticos e verifica apenas `test -f README.md`
 ## Licença
 
 Uso pessoal e educacional.
+
