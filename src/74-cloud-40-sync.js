@@ -184,7 +184,7 @@
       this._conflito = { atual: atual || null, localSnapshot };
       this._pausado = true;
       this._pendente = false; this._sujo = false;
-      this.status('erro');
+      this.status('conflito');
       this._mostrarConflito();
     },
 
@@ -359,6 +359,7 @@
         salvo: ['dot-ok', 'salvo'],
         offline: ['dot-local', 'offline'],
         erro: ['dot-err', 'erro ao sincronizar'],
+        conflito: ['dot-err', 'conflito — escolha uma versão'],
         restaurando: ['dot-sync', 'restaurando ambiente…'],
         local: ['dot-local', 'local']
       };
