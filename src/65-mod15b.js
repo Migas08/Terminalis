@@ -4,8 +4,6 @@
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
-  const rodar = async (ctx, cmd) => (ctx.run ? (await ctx.run(cmd)).out : '');
 
   /* ============================== 15.5 ============================== */
   LX.lesson('m15', {
@@ -174,7 +172,7 @@ for a in $@     →  3 voltas:  [meu]  [arquivo.txt]  [outro.txt]   ✗`
         hints: ['Repare que o nome do arquivo tem um espaço — é justamente ele que revela a diferença.'],
         check: async (ctx) => H.checkAll([
           [() => H.exists(ctx, '/home/aluno/scripts/args.sh'), 'Crie o <code>~/scripts/args.sh</code>.'],
-          [() => /"\$@"/.test(ler(ctx, '/home/aluno/scripts/args.sh')), 'O <code>args.sh</code> deve percorrer <code>"$@"</code>.'],
+          [() => /"\$@"/.test(H.readText(ctx, '/home/aluno/scripts/args.sh')), 'O <code>args.sh</code> deve percorrer <code>"$@"</code>.'],
           [() => H.exists(ctx, '/home/aluno/scripts/estrela.sh'), 'Crie também o <code>~/scripts/estrela.sh</code> para comparar.'],
           [() => H.usedCommand(ctx, /\.\/args\.sh/), 'Rode o <code>./args.sh</code> com dois argumentos, um deles com espaço.']
         ])
@@ -224,14 +222,14 @@ for a in $@     →  3 voltas:  [meu]  [arquivo.txt]  [outro.txt]   ✗`
         ],
         solution: '<div class="code"><pre>mkdir -p ~/dados ~/scripts\nseq 1 40 &gt; ~/dados/grande.txt\nseq 1 12 &gt; ~/dados/medio.txt\nseq 1 3 &gt; ~/dados/pequeno.txt\nseq 1 7 &gt; ~/dados/outro.txt\n\ncat &gt; ~/scripts/relatorio.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\nNUM=3\nVERBOSE=0\n\nuso() {\n  echo "uso: $(basename "$0") [-v] [-n NUM] DIRETORIO" &gt;&amp;2\n  exit "${1:-2}"\n}\n\nwhile getopts "hn:v" opcao; do\n  case "$opcao" in\n    h) uso 0 ;;\n    n) NUM="$OPTARG" ;;\n    v) VERBOSE=1 ;;\n    *) uso 2 ;;\n  esac\ndone\nshift $((OPTIND - 1))\n\n[ $# -ge 1 ] || uso 2\nDIR="$1"\n[ -d "$DIR" ] || { echo "erro: $DIR nao e um diretorio" &gt;&amp;2; exit 2; }\n\n[ "$VERBOSE" -eq 1 ] &amp;&amp; echo "modo verboso ligado"\n\nwc -l "$DIR"/* | head -n -1 | sort -rn | head -n "$NUM" \\\n  | while read -r n arq; do echo "$n $(basename "$arq")"; done\nEOF\nchmod +x ~/scripts/relatorio.sh\n\n~/scripts/relatorio.sh -n 2 ~/dados\n~/scripts/relatorio.sh -h; echo "codigo do -h: $?"\n~/scripts/relatorio.sh 2&gt;/dev/null; echo "codigo sem argumento: $?"</pre></div><p style="margin-top:8px">Repare no <code>uso 0</code> do <code>-h</code>: pedir ajuda não é erro, então o código de saída é 0. Já a falta de argumento é erro de uso, e sai com 2. Essa distinção é o que faz o script se comportar bem dentro de outro script.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/scripts/relatorio.sh');
+          const sc = H.readText(ctx, '/home/aluno/scripts/relatorio.sh');
           if (!sc) return { ok: false, msg: 'Não encontrei <code>~/scripts/relatorio.sh</code>.' };
-          const semArg = await rodar(ctx, '~/scripts/relatorio.sh >/dev/null 2>&1; echo RC=$?');
-          const stderr = await rodar(ctx, '~/scripts/relatorio.sh 2>&1 >/dev/null');
-          const ajuda = await rodar(ctx, '~/scripts/relatorio.sh -h >/dev/null 2>&1; echo RC=$?');
-          const inexistente = await rodar(ctx, '~/scripts/relatorio.sh /nao/existe >/dev/null 2>&1; echo RC=$?');
-          const dois = await rodar(ctx, '~/scripts/relatorio.sh -n 2 ~/dados 2>/dev/null');
-          const verboso = await rodar(ctx, '~/scripts/relatorio.sh -v -n 1 ~/dados 2>/dev/null');
+          const semArg = await H.runOutput(ctx, '~/scripts/relatorio.sh >/dev/null 2>&1; echo RC=$?');
+          const stderr = await H.runOutput(ctx, '~/scripts/relatorio.sh 2>&1 >/dev/null');
+          const ajuda = await H.runOutput(ctx, '~/scripts/relatorio.sh -h >/dev/null 2>&1; echo RC=$?');
+          const inexistente = await H.runOutput(ctx, '~/scripts/relatorio.sh /nao/existe >/dev/null 2>&1; echo RC=$?');
+          const dois = await H.runOutput(ctx, '~/scripts/relatorio.sh -n 2 ~/dados 2>/dev/null');
+          const verboso = await H.runOutput(ctx, '~/scripts/relatorio.sh -v -n 1 ~/dados 2>/dev/null');
           const linhas = dois.split('\n').map(x => x.trim()).filter(Boolean);
           const rc = (s) => (/RC=(\d+)/.exec(s) || [])[1];
           return H.checkAll([
@@ -419,11 +417,11 @@ for a in $@     →  3 voltas:  [meu]  [arquivo.txt]  [outro.txt]   ✗`
         ],
         solution: '<div class="code"><pre>mkdir -p ~/scripts\nprintf \'12\\n45\\n7\\n90\\n23\\n\' &gt; ~/numeros.txt\n\ncat &gt; ~/scripts/stats.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\nmapfile -t numeros &lt; "$HOME/numeros.txt"\n\nsoma=0\nmaior=0\nfor n in "${numeros[@]}"; do\n  (( soma += n ))\n  if (( n &gt; maior )); then maior=$n; fi\ndone\n\necho "quantidade: ${#numeros[@]}"\necho "soma: $soma"\necho "maior: $maior"\nEOF\nchmod +x ~/scripts/stats.sh\n~/scripts/stats.sh</pre></div><p style="margin-top:8px">Nenhum processo externo foi criado. Num laço de cinco itens isso é irrelevante; num de cinquenta mil, é a diferença entre um segundo e vários minutos.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/scripts/stats.sh');
+          const sc = H.readText(ctx, '/home/aluno/scripts/stats.sh');
           if (!sc) return { ok: false, msg: 'Não encontrei <code>~/scripts/stats.sh</code>.' };
-          const saida = await rodar(ctx, '~/scripts/stats.sh 2>&1');
+          const saida = await H.runOutput(ctx, '~/scripts/stats.sh 2>&1');
           const l = saida.split('\n').map(x => x.trim()).filter(Boolean);
-          const nums = (ler(ctx, '/home/aluno/numeros.txt') || '').split('\n').map(x => x.trim()).filter(Boolean).map(Number);
+          const nums = (H.readText(ctx, '/home/aluno/numeros.txt') || '').split('\n').map(x => x.trim()).filter(Boolean).map(Number);
           const soma = nums.reduce((a, b) => a + b, 0);
           const maior = nums.length ? Math.max(...nums) : 0;
           return H.checkAll([
@@ -605,11 +603,11 @@ dois mundos`
         ],
         solution: '<div class="code"><pre>mkdir -p ~/scripts ~/entrada\nprintf \'a\\nb\\nc\\n\' &gt; "$HOME/entrada/meu arquivo.txt"\nprintf \'x\\ny\\n\' &gt; ~/entrada/outro.txt\n\ncat &gt; ~/scripts/corrigido.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\n[ $# -ge 1 ] || { echo "uso: $0 DIRETORIO" &gt;&amp;2; exit 2; }\nDIR="$1"\ncd "$DIR" || exit 1\n\nfor f in *.txt; do\n  echo "$f tem $(wc -l &lt; "$f") linhas"\ndone\nEOF\nchmod +x ~/scripts/corrigido.sh\n\nbash -n ~/scripts/corrigido.sh &amp;&amp; echo "sintaxe ok"\n~/scripts/corrigido.sh ~/entrada</pre></div><p style="margin-top:8px">Três aspas e uma validação. É quase sempre esse o tamanho da diferença entre um script que funciona na sua máquina e um que funciona em produção.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/scripts/corrigido.sh');
+          const sc = H.readText(ctx, '/home/aluno/scripts/corrigido.sh');
           if (!sc) return { ok: false, msg: 'Não encontrei <code>~/scripts/corrigido.sh</code>.' };
-          const saida = await rodar(ctx, '~/scripts/corrigido.sh ~/entrada 2>&1');
-          const semArg = await rodar(ctx, '~/scripts/corrigido.sh >/dev/null 2>&1; echo RC=$?');
-          const sintaxe = await rodar(ctx, 'bash -n ~/scripts/corrigido.sh 2>&1; echo RC=$?');
+          const saida = await H.runOutput(ctx, '~/scripts/corrigido.sh ~/entrada 2>&1');
+          const semArg = await H.runOutput(ctx, '~/scripts/corrigido.sh >/dev/null 2>&1; echo RC=$?');
+          const sintaxe = await H.runOutput(ctx, 'bash -n ~/scripts/corrigido.sh 2>&1; echo RC=$?');
           const l = saida.split('\n').map(x => x.trim()).filter(Boolean);
           return H.checkAll([
             [() => (H.mode(ctx, '/home/aluno/scripts/corrigido.sh') & 0o111) !== 0, 'O script precisa ser executável.'],
@@ -820,11 +818,11 @@ dois mundos`
         ],
         solution: '<div class="code"><pre>mkdir -p ~/scripts\ncat &gt; ~/scripts/sincroniza.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\nNOME=$(basename "$0")\nTMP=$(mktemp -d)\ntrap \'rm -rf "$TMP"\' EXIT\ntrap \'echo "$NOME: FALHOU na linha $LINENO" &gt;&amp;2\' ERR\n\nlog() { echo "$(date "+%F %T") $*"; }\n\nlog "iniciando"\ncp /etc/hostname "$TMP/copia.txt"\nlog "concluido em ${SECONDS}s"\nEOF\nchmod +x ~/scripts/sincroniza.sh\n\nflock -n /tmp/sinc.lock ~/scripts/sincroniza.sh &gt;&gt; ~/sincroniza.log 2&gt;&amp;1\ncat ~/sincroniza.log\n\nflock -n /tmp/sinc.lock flock -n /tmp/sinc.lock echo x; echo "trava: $?"</pre></div><p style="margin-top:8px">Repare que o diretório temporário some sozinho ao fim — inclusive se o script abortar no meio. É esse tipo de garantia que faz a diferença quando ninguém está olhando.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/scripts/sincroniza.sh');
+          const sc = H.readText(ctx, '/home/aluno/scripts/sincroniza.sh');
           if (!sc) return { ok: false, msg: 'Não encontrei <code>~/scripts/sincroniza.sh</code>.' };
-          const logArq = ler(ctx, '/home/aluno/sincroniza.log');
-          const saida = await rodar(ctx, '~/scripts/sincroniza.sh 2>&1');
-          const trava = await rodar(ctx, 'flock -n /tmp/prova.lock flock -n /tmp/prova.lock echo x >/dev/null 2>&1; echo RC=$?');
+          const logArq = H.readText(ctx, '/home/aluno/sincroniza.log');
+          const saida = await H.runOutput(ctx, '~/scripts/sincroniza.sh 2>&1');
+          const trava = await H.runOutput(ctx, 'flock -n /tmp/prova.lock flock -n /tmp/prova.lock echo x >/dev/null 2>&1; echo RC=$?');
           const tmpsAntes = (H.ls(ctx, '/tmp') || []).map(x => (typeof x === 'string' ? x : x.name)).filter(n => /^tmp\./.test(n));
           return H.checkAll([
             [() => (H.mode(ctx, '/home/aluno/scripts/sincroniza.sh') & 0o111) !== 0, 'O script precisa ser executável.'],

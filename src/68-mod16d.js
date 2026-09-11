@@ -6,12 +6,6 @@
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
-  const unidade = (ctx, nome) => {
-    const m = ctx.machine || ctx.sh.m;
-    const n = nome.includes('.') ? nome : nome + '.service';
-    return m.units && (m.units.get ? m.units.get(n) : m.units[n]);
-  };
 
   /* ============================== 17.1 ============================== */
   LX.lesson('m16d', {
@@ -341,12 +335,12 @@
         ],
         solution: '<div class="code"><pre>systemctl status relatorios --no-pager\nsudo systemctl start relatorios\nsudo journalctl -xeu relatorios --no-pager | tail -5\n\n# defeito 1: caminho errado no ExecStart\nsudo sed -i \'s|/opt/relatorio/gerar.sh|/opt/relatorios/gerar.sh|\' /etc/systemd/system/relatorios.service\nsudo systemctl daemon-reload\nsudo systemctl start relatorios\nsudo journalctl -xeu relatorios --no-pager | tail -3\n\n# defeito 2: o usuario do User= nao existe\nsudo useradd --system --shell /usr/sbin/nologin relatorios\nsudo chown relatorios /var/log/relatorios.log\nsudo systemctl start relatorios\nsudo systemctl enable relatorios\nsystemctl status relatorios --no-pager\n\nprintf \'DEFEITO: ExecStart apontava para /opt/relatorio (singular), caminho inexistente — 203/EXEC\\nDEFEITO: User=relatorios nao existia no sistema — 217/USER\\n\' &gt; ~/diagnostico-5120.txt</pre></div><p style="margin-top:8px">Dois defeitos, dois códigos diferentes, duas correções independentes. Se você tivesse mudado as duas coisas de uma vez, teria funcionado igual — e você não saberia que eram dois problemas.</p>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'relatorios');
-          const unit = ler(ctx, '/etc/systemd/system/relatorios.service');
+          const u = H.unit(ctx, 'relatorios');
+          const unit = H.readText(ctx, '/etc/systemd/system/relatorios.service');
           const m = ctx.machine || ctx.sh.m;
           const usuario = (/^\s*User\s*=\s*(\S+)\s*$/m.exec(unit) || [])[1];
           const exec = (/^\s*ExecStart\s*=\s*(\S+)/m.exec(unit) || [])[1];
-          const diag = ler(ctx, '/home/aluno/diagnostico-5120.txt');
+          const diag = H.readText(ctx, '/home/aluno/diagnostico-5120.txt');
           const defeitos = diag.split('\n').filter(l => /^DEFEITO:/.test(l.trim()));
           return H.checkAll([
             [!!unit, 'A unit <code>relatorios.service</code> sumiu — ela deveria existir em <code>/etc/systemd/system/</code>.'],
@@ -483,7 +477,7 @@
         solution: '<div class="code"><pre>sudo tee /etc/logrotate.d/coletor &gt; /dev/null &lt;&lt; \'EOF\'\n/var/log/coletor/*.log {\n    daily\n    rotate 5\n    compress\n    missingok\n    notifempty\n}\nEOF\nsudo logrotate -f /etc/logrotate.conf\nls -l /var/log/coletor/ | head\n\nsudo groupadd -f dados\nsudo useradd --system --shell /usr/sbin/nologin -G dados importador\nsudo chown -R root:dados /srv/dados\nsudo chmod 750 /srv/dados\nsudo chmod 640 /srv/dados/entrada.csv\nnamei -l /srv/dados/entrada.csv\nsudo -u importador cat /srv/dados/entrada.csv</pre></div><p style="margin-top:8px">Repare que a permissão de "outros" não foi tocada em momento algum. Foi tudo resolvido pelo grupo — que é o mecanismo que existe exatamente para isso.</p>',
         check: async (ctx) => {
           const m = ctx.machine || ctx.sh.m;
-          const conf = ler(ctx, '/etc/logrotate.d/coletor');
+          const conf = H.readText(ctx, '/etc/logrotate.d/coletor');
           const lista = (H.ls(ctx, '/var/log/coletor') || []).map(x => (typeof x === 'string' ? x : x.name));
           const dirModo = H.mode(ctx, '/srv/dados');
           const arqModo = H.mode(ctx, '/srv/dados/entrada.csv');
@@ -640,11 +634,11 @@
         ],
         solution: '<div class="code"><pre>cat /etc/resolv.conf\nping -c 2 185.125.190.21\n\n# defeito 1: nameserver inalcançável\nsudo sed -i \'s/^nameserver .*/nameserver 10.0.2.3/\' /etc/resolv.conf\ngetent hosts ubuntu.com\n\n# defeito 2: porta 8080 bloqueada na entrada\nsudo ufw status verbose\nsudo ufw allow 8080/tcp\nsudo ufw status verbose\n\nprintf \'DEFEITO: /etc/resolv.conf apontava para o nameserver 10.9.9.53, que nao responde — resolucao de nomes em timeout\\nDEFEITO: firewall com politica deny e sem regra para a porta 8080 — conexoes de fora descartadas em silencio\\n\' &gt; ~/diagnostico-5147.txt\ncat ~/diagnostico-5147.txt</pre></div><p style="margin-top:8px">Dois defeitos, duas camadas diferentes, dois testes independentes. O erro que o método evita aqui é tratar os dois sintomas como "a rede caiu" e sair reiniciando serviço de rede — o que não corrigiria nenhum dos dois.</p>',
         check: async (ctx) => {
-          const resolv = ler(ctx, '/etc/resolv.conf');
+          const resolv = H.readText(ctx, '/etc/resolv.conf');
           const ns = (/^\s*nameserver\s+(\S+)/m.exec(resolv) || [])[1];
           const f = ctx.sh.m.firewall || {};
           const regras = (f.rules || []).filter(r => (r.dir || 'in') === 'in');
-          const diag = ler(ctx, '/home/aluno/diagnostico-5147.txt');
+          const diag = H.readText(ctx, '/home/aluno/diagnostico-5147.txt');
           const defeitos = diag.split('\n').filter(l => /^DEFEITO:/.test(l.trim()));
           const resolveu = ctx.run ? (await ctx.run('getent hosts ubuntu.com')).out : '';
           return H.checkAll([

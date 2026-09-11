@@ -5,7 +5,6 @@
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
 
   /* ============================== 16.1 ============================== */
   LX.lesson('m16', {
@@ -163,7 +162,7 @@
         solution: '<div class="code"><pre>journalctl -p err --no-pager | grep -v "^--" \\\n  | awk \'{print $5}\' | cut -d"[" -f1 \\\n  | sort | uniq -c | sort -rn &gt; ~/erros-por-servico.txt\ncat ~/erros-por-servico.txt</pre></div><p style="margin-top:8px">Esse pipeline de cinco etapas é literalmente o que você vai digitar no primeiro dia em qualquer servidor herdado. Ele responde "onde dói" em uma linha.</p>',
         forja: ["printf '  9 systemd\\n  3 sshd\\n' > ~/erros-por-servico.txt"],
         check: async (ctx) => {
-          const c = ler(ctx, '/home/aluno/erros-por-servico.txt');
+          const c = H.readText(ctx, '/home/aluno/erros-por-servico.txt');
           if (!c.trim()) return { ok: false, msg: 'O arquivo <code>~/erros-por-servico.txt</code> ainda não existe ou está vazio.' };
           const m = ctx.machine || ctx.sh.m;
           /* a resposta certa é recalculada aqui a partir do journal desta máquina */
@@ -314,7 +313,7 @@ app.log.4.gz                 app.log.4.gz  ← a 5ª geração é apagada`
         ],
         solution: '<div class="code"><pre>sudo mkdir -p /var/log/app\nsudo sh -c \'for i in 1 2 3 4 5; do echo "linha de log $i" &gt;&gt; /var/log/app/app.log; done\'\n\nsudo tee /etc/logrotate.d/app &gt; /dev/null &lt;&lt; \'EOF\'\n/var/log/app/*.log {\n    daily\n    rotate 7\n    compress\n    missingok\n    notifempty\n    create 0640 root adm\n}\nEOF\n\nsudo logrotate -d /etc/logrotate.conf\nsudo logrotate -f /etc/logrotate.conf\nls -l /var/log/app/</pre></div><p style="margin-top:8px">Repare que a regra fica num arquivo só dela. Se amanhã a aplicação virar pacote, ou você mudar de servidor, é esse arquivo que viaja junto.</p>',
         check: async (ctx) => {
-          const conf = ler(ctx, '/etc/logrotate.d/app');
+          const conf = H.readText(ctx, '/etc/logrotate.d/app');
           const lista = (H.ls(ctx, '/var/log/app') || []).map(x => (typeof x === 'string' ? x : x.name));
           return H.checkAll([
             [() => H.isDir(ctx, '/var/log/app'), 'Monte o cenário: falta o diretório <code>/var/log/app</code>.'],
@@ -490,14 +489,14 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         solution: '<div class="code"><pre>mkdir -p ~/bin\ncat &gt; ~/painel.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\necho "CPU: $(awk \'{print $1}\' /proc/loadavg) / $(nproc)"\necho "MEM: $(free -m | awk \'/^Mem:/ {print $7}\') MB livres de $(free -m | awk \'/^Mem:/ {print $2}\') MB"\necho "DISCO: $(df -h / | awk \'NR==2 {print $5}\')"\necho "INODES: $(df -i / | awk \'NR==2 {print $5}\')"\nEOF\nchmod +x ~/painel.sh\n./painel.sh\n./painel.sh &gt; ~/painel.txt\ncat ~/painel.txt</pre></div><p style="margin-top:8px">Quatro linhas, quatro recursos. Um script assim, rodando por cron e mandando a saída para algum lugar, é o embrião honesto de qualquer sistema de monitoramento — e ensina mais sobre a máquina do que um painel pronto.</p>',
         forja: ["printf 'CPU: 0.08 / 2\\nMEM: 2000 MB livres de 4000 MB\\nDISCO: 47%%\\nINODES: 37%%\\n' > ~/painel.txt"],
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/painel.sh');
-          const saida = ler(ctx, '/home/aluno/painel.txt');
+          const sc = H.readText(ctx, '/home/aluno/painel.sh');
+          const saida = H.readText(ctx, '/home/aluno/painel.txt');
           const l = saida.split('\n').map(x => x.trim()).filter(Boolean);
           /* o painel tem de descrever ESTA máquina: o verificador mede tudo de novo */
-          const load = (ler(ctx, '/proc/loadavg').split(/\s+/)[0]) || '';
-          const nucleos = ler(ctx, '/proc/cpuinfo').split('\n').filter(x => /^processor/.test(x)).length;
-          const mem = /MemAvailable:\s+(\d+)/.exec(ler(ctx, '/proc/meminfo'));
-          const memTotal = /MemTotal:\s+(\d+)/.exec(ler(ctx, '/proc/meminfo'));
+          const load = (H.readText(ctx, '/proc/loadavg').split(/\s+/)[0]) || '';
+          const nucleos = H.readText(ctx, '/proc/cpuinfo').split('\n').filter(x => /^processor/.test(x)).length;
+          const mem = /MemAvailable:\s+(\d+)/.exec(H.readText(ctx, '/proc/meminfo'));
+          const memTotal = /MemTotal:\s+(\d+)/.exec(H.readText(ctx, '/proc/meminfo'));
           const dfSaida = ctx.run ? (await ctx.run('df -h / | awk \'NR==2 {print $5}\'; df -i / | awk \'NR==2 {print $5}\'')).out : '';
           const [pDisco, pInode] = dfSaida.split('\n').map(x => x.trim()).filter(Boolean);
           const perto = (a, b) => Math.abs(a - b) <= 3;
@@ -655,7 +654,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         ],
         hints: ['O <code>crontab -</code> lê a agenda da entrada padrão.'],
         check: async (ctx) => {
-          const cron = ler(ctx, '/var/spool/cron/crontabs/aluno');
+          const cron = H.readText(ctx, '/var/spool/cron/crontabs/aluno');
           return H.checkAll([
             [() => H.usedCommand(ctx, /cat\s+\/etc\/crontab|\/etc\/crontab/), 'Leia o <code>/etc/crontab</code> e repare no campo de usuário.'],
             [() => H.usedCommand(ctx, /cron\.d/), 'Veja um arquivo de <code>/etc/cron.d/</code>.'],
@@ -698,8 +697,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         ],
         solution: '<div class="code"><pre>sudo mkdir -p /var/tmp/app\n\nsudo tee /usr/local/bin/limpa-tmp.sh &gt; /dev/null &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\nALVO=/var/tmp/app\nfind "$ALVO" -type f -mtime +7 -delete\necho "$(date +%F) limpeza de $ALVO concluida"\nEOF\nsudo chmod 755 /usr/local/bin/limpa-tmp.sh\n\nprintf \'0 4 * * * /usr/local/bin/limpa-tmp.sh &gt;&gt; /var/log/limpa-tmp.log 2&gt;&amp;1\\n\' | sudo crontab -\nsudo crontab -l\nsudo /usr/local/bin/limpa-tmp.sh</pre></div><p style="margin-top:8px">Repare que a agenda é curta e o cuidado todo está fora dela: caminho absoluto, saída redirecionada e um script que aborta no primeiro erro. A linha do cron é a parte fácil.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/usr/local/bin/limpa-tmp.sh');
-          const cron = ler(ctx, '/var/spool/cron/crontabs/root');
+          const sc = H.readText(ctx, '/usr/local/bin/limpa-tmp.sh');
+          const cron = H.readText(ctx, '/var/spool/cron/crontabs/root');
           const linha = cron.split('\n').map(x => x.trim()).find(l => l && !l.startsWith('#') && /limpa-tmp/.test(l)) || '';
           const campos = linha.split(/\s+/);
           return H.checkAll([
@@ -876,10 +875,10 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         ],
         solution: '<div class="code"><pre>mkdir -p ~/site/paginas ~/backups\necho "&lt;h1&gt;inicio&lt;/h1&gt;" &gt; ~/site/index.html\necho "conteudo" &gt; ~/site/paginas/sobre.html\necho "cache" &gt; ~/site/tmp.cache\n\ncat &gt; ~/backup-site.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\nORIGEM="$HOME/site"\nDESTINO="$HOME/backups"\nD=$(date +%F)\nARQ="$DESTINO/site-$D.tar.gz"\n\nmkdir -p "$DESTINO"\ntar --exclude="*.cache" -czf "$ARQ" -C "$HOME" site\n\ncd "$DESTINO"\nsha256sum "site-$D.tar.gz" &gt; SHA256SUMS\n\nfind "$DESTINO" -name "site-*.tar.gz" -mtime +30 -delete\necho "backup gerado: $ARQ"\nEOF\nchmod +x ~/backup-site.sh\n~/backup-site.sh\n\nmkdir -p ~/restauro\ntar -xzf ~/backups/site-$(date +%F).tar.gz -C ~/restauro\nls -R ~/restauro\ncd ~/backups &amp;&amp; sha256sum -c SHA256SUMS &amp;&amp; cd ~</pre></div><p style="margin-top:8px">Note a ordem: gerar, somar, expirar. E note que o teste de restauro é um passo separado — porque na vida real ele é a parte que se esquece.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/backup-site.sh');
+          const sc = H.readText(ctx, '/home/aluno/backup-site.sh');
           const lista = (H.ls(ctx, '/home/aluno/backups') || []).map(x => (typeof x === 'string' ? x : x.name));
           const bkp = lista.find(n => /^site-\d{4}-\d{2}-\d{2}\.tar\.gz$/.test(n));
-          const sums = ler(ctx, '/home/aluno/backups/SHA256SUMS');
+          const sums = H.readText(ctx, '/home/aluno/backups/SHA256SUMS');
           const confere = (sums && ctx.run) ? (await ctx.run('cd ~/backups && sha256sum -c SHA256SUMS 2>&1')).out : '';
           const conteudo = bkp ? (H.read(ctx, '/home/aluno/backups/' + bkp) || '') : '';
           return H.checkAll([
@@ -1045,10 +1044,10 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         ],
         solution: '<div class="code"><pre>sudo mkdir -p /etc/ssh/sshd_config.d\nsudo tee /etc/ssh/sshd_config.d/99-endurecimento.conf &gt; /dev/null &lt;&lt; \'EOF\'\nPermitRootLogin no\nPasswordAuthentication no\nEOF\nsudo sshd -t &amp;&amp; sudo systemctl reload ssh\n\nsudo ufw default deny incoming\nsudo ufw allow 22/tcp\nsudo ufw enable\nsudo ufw status verbose\n\ngetent group sudo | cut -d: -f4 | tr "," "\\n" | grep . &gt; ~/revisao-contas.txt\ncat ~/revisao-contas.txt</pre></div><p style="margin-top:8px">Três controles, nenhum sofisticado — e juntos eles eliminam a maior parte do que realmente acontece com servidores expostos.</p>',
         check: async (ctx) => {
-          const drop = ler(ctx, '/etc/ssh/sshd_config.d/99-endurecimento.conf');
+          const drop = H.readText(ctx, '/etc/ssh/sshd_config.d/99-endurecimento.conf');
           const f = ctx.sh.m.firewall || {};
           const regras = (f.rules || []).filter(r => (r.dir || 'in') === 'in');
-          const rel = ler(ctx, '/home/aluno/revisao-contas.txt');
+          const rel = H.readText(ctx, '/home/aluno/revisao-contas.txt');
           const m = ctx.machine || ctx.sh.m;
           const admins = (m.groupByName('sudo') || { members: [] }).members.slice().sort();
           const ditos = rel.split('\n').map(x => x.trim()).filter(Boolean).sort();

@@ -2,10 +2,16 @@
   "name": "terminalis",
   "private": true,
   "devDependencies": {
-    "playwright": "^1.62.1"
+    "eslint": "^10.10.0",
+    "playwright": "^1.62.1",
+    "prettier": "^3.9.6"
   },
   "scripts": {
     "build": "python build.py",
+    "check:dist": "python tools/check_dist.py",
+    "lint": "eslint src test --max-warnings 69",
+    "format": "prettier --write \"eslint.config.js\" \"prettier.config.cjs\" \"package*.json\" \".github/**/*.{yml,yaml}\" \"config.example.js\"",
+    "format:check": "prettier --check \"eslint.config.js\" \"prettier.config.cjs\" \"package*.json\" \".github/**/*.{yml,yaml}\" \"config.example.js\"",
     "test": "node test/run.js",
     "test:browser": "node test/run-browser.js"
   }

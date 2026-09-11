@@ -19,9 +19,15 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Check formatting
+        run: npm run format:check
+      - name: Check generated site
+        run: npm run check:dist
       - name: Build (modo offline para os testes)
         env:
-          TERMINALIS_OFFLINE: "1"
+          TERMINALIS_OFFLINE: '1'
         run: npm run build
       - name: Test engine and content
         run: npm test
@@ -29,4 +35,3 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Test browser
         run: npm run test:browser
-

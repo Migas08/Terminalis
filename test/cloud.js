@@ -6,9 +6,12 @@ const { loadEngine, makeSession } = require('./harness');
 
 const LX = loadEngine();
 const localStorage = LX.__localStorage;   // o mesmo localStorage que o motor usa
+const offlineOriginal = LX.Sync._offline;
 
 /* Zera o estado global entre subtestes. */
 function limpar() {
+  if (LX.Sync._timer) clearTimeout(LX.Sync._timer);
+  if (LX.Sync._timerProg) clearTimeout(LX.Sync._timerProg);
   localStorage.clear();
   LX.Store.provider = null;
   LX.Store.modo = 'local';
@@ -19,9 +22,13 @@ function limpar() {
   LX.Sync._sujo = false;
   LX.Sync._pendente = false;
   LX.Sync._flushing = false;
+  LX.Sync._reflush = false;
   LX.Sync._assinatura = null;
   LX.Sync._pausado = false;
   LX.Sync._conflito = null;
+  LX.Sync._timer = null;
+  LX.Sync._timerProg = null;
+  LX.Sync._offline = offlineOriginal;
 }
 
 /* Provider de nuvem falso, com a mesma interface do SupabaseStore. */
@@ -81,7 +88,6 @@ function appReal() {
 
   /* ---------- B. conflito por revisão não sobrescreve o mais novo ---------- */
   limpar();
-  const snap = { version: 1, filesystem: {}, nada: 'x' };
   const r1 = await LX.Storage.saveWorkspace('u', { version: 1, snapshot: { a: 1 }, baseRevision: 0 });
   assert.ok(r1.ok && r1.revision === 1, 'primeira gravação cria revisão 1');
   const r2 = await LX.Storage.saveWorkspace('u', { version: 1, snapshot: { a: 2 }, baseRevision: 1 });
@@ -185,6 +191,117 @@ function appReal() {
   const remoto6 = LX.Workspace.importState(prov6.mem.workspaces.u6.snapshot);
   assert.match(remoto6.machine.fs.readFile('/home/aluno/projeto/index.html'), /PC2/, 'o trabalho do PC B não é apagado pelo PC A');
 
+  /* ---------- H. reload durante debounce usa o cache imediato ---------- */
+  limpar();
+  LX.Auth.usuario = { uid: 'reload' };
+  const antesReload = appReal();
+  LX.Sync.iniciar(antesReload);
+  await antesReload.sessao.run('echo debounce > /home/aluno/antes-do-reload.txt');
+  assert.equal(LX.Sync.marcarSujo('workspace'), true, 'alteração deve agendar o debounce');
+  assert.ok(LX.Sync._timer, 'o envio remoto ainda está aguardando o debounce');
+  assert.ok(localStorage.getItem('terminalis.cache.workspace/reload'), 'o cache local é escrito antes do debounce');
+  clearTimeout(LX.Sync._timer); LX.Sync._timer = null; // simula a página sendo encerrada
+  const depoisReload = appReal();
+  LX.Sync.app = depoisReload;
+  assert.ok(await LX.Sync.restaurar('reload'), 'a nova página restaura o cache mesmo sem upload');
+  assert.equal(depoisReload._restaurado.machine.fs.readFile('/home/aluno/antes-do-reload.txt'), 'debounce\n');
+
+  /* ---------- I. logout durante gravação conclui o envio capturado ---------- */
+  limpar();
+  const provLogout = providerFalso();
+  const saveLogout = provLogout.saveWorkspace.bind(provLogout);
+  let liberarGravacao;
+  let avisarInicio;
+  const iniciouGravacao = new Promise(resolve => { avisarInicio = resolve; });
+  const aguardarLogout = new Promise(resolve => { liberarGravacao = resolve; });
+  provLogout.saveWorkspace = async (...args) => {
+    avisarInicio();
+    await aguardarLogout;
+    return saveLogout(...args);
+  };
+  LX.Store.provider = provLogout; LX.Store.modo = 'supabase';
+  LX.Auth.usuario = { uid: 'logout' };
+  const appLogout = appReal();
+  LX.Sync.iniciar(appLogout);
+  await appLogout.sessao.run('echo logout > /home/aluno/logout.txt');
+  LX.Sync._sujo = true;
+  const capturaLogout = LX.Sync.capturarAgora();
+  await iniciouGravacao;
+  LX.Auth.usuario = null; // a conta é encerrada enquanto o provider responde
+  liberarGravacao();
+  await capturaLogout;
+  assert.ok(provLogout.mem.workspaces.logout, 'o snapshot iniciado antes do logout chega ao provider');
+  assert.equal(provLogout.mem.workspaces.logout.revision, 1, 'a gravação concluída mantém a revisão correta');
+
+  /* ---------- J. indisponibilidade mantém cache e marca pendência ---------- */
+  limpar();
+  const provIndisponivel = providerFalso();
+  provIndisponivel.saveWorkspace = async () => { throw new Error('Supabase indisponível'); };
+  LX.Store.provider = provIndisponivel; LX.Store.modo = 'supabase';
+  LX.Auth.usuario = { uid: 'sem-rede' };
+  const appIndisponivel = appReal();
+  LX.Sync.iniciar(appIndisponivel);
+  await appIndisponivel.sessao.run('echo protegido > /home/aluno/indisponivel.txt');
+  LX.Sync._sujo = true;
+  const avisoOriginal = console.warn;
+  const avisos = [];
+  console.warn = (...args) => { avisos.push(args); };
+  try { await LX.Sync.flushWorkspace(); } finally { console.warn = avisoOriginal; }
+  assert.equal(LX.Sync._pendente, true, 'falha do provider deixa o envio pendente');
+  assert.equal(LX.Sync._estado, 'erro', 'a interface recebe estado de erro');
+  assert.ok(localStorage.getItem('terminalis.cache.workspace/sem-rede'), 'o snapshot continua no cache local');
+  assert.match(String(avisos[0] && avisos[0][0]), /sem-rede.*revisão 0/, 'o diagnóstico identifica usuário e revisão');
+
+  /* ---------- K. snapshots inválidos não substituem a máquina ativa ---------- */
+  limpar();
+  const provInvalido = providerFalso();
+  LX.Store.provider = provInvalido; LX.Store.modo = 'supabase';
+  LX.Auth.usuario = { uid: 'invalido' };
+  const appInvalido = appReal();
+  LX.Sync.iniciar(appInvalido);
+  provInvalido.mem.workspaces.invalido = {
+    version: 1, revision: 2, updatedAt: Date.now(),
+    snapshot: { version: 1, machines: [], git: { format: 'vfs', repositoryFile: '.git/terminalis.json' } }
+  };
+  const avisosSnapshot = [];
+  console.warn = (...args) => { avisosSnapshot.push(args); };
+  try { assert.equal(await LX.Sync.restaurar('invalido'), false, 'snapshot estruturalmente inválido é recusado'); }
+  finally { console.warn = avisoOriginal; }
+  assert.equal(appInvalido._restaurado, null, 'a máquina ativa não é trocada por dados inválidos');
+
+  const valido = LX.Workspace.exportState(appInvalido.machine, appInvalido.term);
+  valido.version = LX.Workspace.VERSION + 1;
+  provInvalido.mem.workspaces.invalido.snapshot = valido;
+  console.warn = (...args) => { avisosSnapshot.push(args); };
+  try { assert.equal(await LX.Sync.restaurar('invalido'), false, 'snapshot de outra versão é recusado'); }
+  finally { console.warn = avisoOriginal; }
+  assert.equal(appInvalido._restaurado, null, 'a versão incompatível também preserva a máquina ativa');
+  assert.ok(avisosSnapshot.some(args => /snapshot de invalido recusado/.test(String(args[0]))), 'snapshot recusado deixa contexto no console');
+
+  /* ---------- L. a escolha local vence somente após confirmação ---------- */
+  limpar();
+  const provEscolha = providerFalso();
+  LX.Store.provider = provEscolha; LX.Store.modo = 'supabase';
+  LX.Auth.usuario = { uid: 'escolha-local' };
+  const remotoEscolha = appReal();
+  await remotoEscolha.sessao.run('echo remoto > /home/aluno/escolha.txt');
+  provEscolha.mem.workspaces['escolha-local'] = {
+    version: 1, revision: 3, updatedAt: Date.now(),
+    snapshot: LX.Workspace.exportState(remotoEscolha.machine, remotoEscolha.term)
+  };
+  const localEscolha = appReal();
+  await localEscolha.sessao.run('echo local > /home/aluno/escolha.txt');
+  LX.Sync.iniciar(localEscolha);
+  LX.Sync._revisao = 1;
+  LX.Sync._sujo = true;
+  await LX.Sync.flushWorkspace();
+  assert.equal(LX.Sync._pausado, true, 'a revisão antiga pausa antes de enviar a versão local');
+  assert.equal(provEscolha.mem.workspaces['escolha-local'].revision, 3, 'o remoto não muda antes da escolha');
+  assert.ok(await LX.Sync.resolverConflitoEscolha('local'), 'a escolha local é aceita');
+  assert.equal(provEscolha.mem.workspaces['escolha-local'].revision, 4, 'a versão local cria uma nova revisão');
+  const escolhido = LX.Workspace.importState(provEscolha.mem.workspaces['escolha-local'].snapshot);
+  assert.equal(escolhido.machine.fs.readFile('/home/aluno/escolha.txt'), 'local\n', 'o conteúdo local escolhido chega à nuvem');
+
   /* ---------- F. migração de dados locais na primeira entrada em nuvem ---------- */
   limpar();
   const prov5 = providerFalso();
@@ -198,6 +315,6 @@ function appReal() {
   const migrou2 = await LX.Sync.migrarLocais('u5');
   assert.ok(!migrou2, 'não migra duas vezes');
 
-  console.log('Cloud: progresso, conflito por revisão, offline→online, restauração de ambiente e migração passaram.');
+  console.log('Cloud: revisão, offline, reload, logout, restauração, snapshots inválidos, conflito e migração passaram.');
 })().catch(e => { console.error(e); process.exitCode = 1; });
 

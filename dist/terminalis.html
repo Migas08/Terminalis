@@ -302,7 +302,8 @@ button { font-family: inherit; }
 .cs-stat .v small { font-size: 14px; color: var(--tx-3); font-weight: 500; }
 .cs-stat .l { display: block; font-size: 11px; font-family: var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--tx-3); margin-top: 4px; }
 
-.cs-corpo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); gap: 20px; align-items: start; }\r\n.cs-main, .cs-side { min-width: 0; }
+.cs-corpo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); gap: 20px; align-items: start; }
+.cs-main, .cs-side { min-width: 0; }
 .cs-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
 .cs-tab { background: none; border: 0; cursor: pointer; padding: 10px 14px; color: var(--tx-3); font-size: 14px; font-weight: 550; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .cs-tab:hover { color: var(--tx-2); }
@@ -1494,6 +1495,7 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
 #sync-conflict button:first-child { background: var(--tx); color: var(--bg); }
 #sync-conflict button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 @keyframes ro-rot { to { transform: rotate(360deg); } }
+
 </style>
 </head>
 <body>
@@ -9683,13 +9685,13 @@ match(), sprintf(), toupper(), tolower(), int(), sqrt().
 })();
 
 ;
-/* ==== 32-admin.js ==== */
+/* ==== 32-admin-10-access.js ==== */
 /* =========================================================================
-   TERMINALIS — permissões, usuários, processos, systemd, pacotes, arquivos
+   TERMINALIS — permissões, identidade e usuários
    ========================================================================= */
 'use strict';
 (function () {
-  const { FileSystem, SysError, defcmd, getopt, C, modeToRwx, humanSize } = LX;
+  const { FileSystem, SysError, defcmd, getopt, modeToRwx } = LX;
   function P(sh, p) { return FileSystem.normalize(p, sh.cwd); }
 
   /* ============================== chmod ============================== */
@@ -10497,6 +10499,18 @@ Modo octal: três dígitos (dono, grupo, outros), somando r=4 w=2 x=1
     return 0;
   } });
 
+})();
+
+;
+/* ==== 32-admin-20-processes.js ==== */
+/* =========================================================================
+   TERMINALIS — processos
+   ========================================================================= */
+'use strict';
+(function () {
+  const { FileSystem, defcmd, getopt, C } = LX;
+  function P(sh, p) { return FileSystem.normalize(p, sh.cwd); }
+
   /* ============================== processos ============================== */
   defcmd({
     name: 'ps', pkg: 'procps',
@@ -10827,6 +10841,18 @@ Modo octal: três dígitos (dono, grupo, outros), somando r=4 w=2 x=1
     }
   });
 
+})();
+
+;
+/* ==== 32-admin-30-system.js ==== */
+/* =========================================================================
+   TERMINALIS — systemd e sistema
+   ========================================================================= */
+'use strict';
+(function () {
+  const { FileSystem, defcmd, getopt, C, humanSize } = LX;
+  function P(sh, p) { return FileSystem.normalize(p, sh.cwd); }
+
   /* ============================== systemd ============================== */
   defcmd({
     name: 'systemctl', path: '/usr/bin/systemctl', pkg: 'systemd',
@@ -10935,18 +10961,10 @@ Modo octal: três dígitos (dono, grupo, outros), somando r=4 w=2 x=1
         case 'reboot': case 'poweroff': case 'halt': io.stderr.write('Neste ambiente de estudo a máquina não reinicia. Use o botão "Reiniciar ambiente" da plataforma.\n'); return 1;
         case 'mask': if (u) { u.enabled = false; u.masked = true; } io.stderr.write(`Created symlink /etc/systemd/system/${unitName}.service → /dev/null.\n`); return 0;
         case 'unmask': if (u) u.masked = false; return 0;
-        case 'show': { if (!u) return 1; io.stdout.write(`Id=${u.name}\nDescription=${u.description}\nActiveState=${u.state}\nSubState=${u.sub}\nMainPID=${u.mainPid || 0}\nUnitFileState=${u.enabled ? 'enabled' : 'disabled'}\n`); return 0; }
         default:
           io.stderr.write(`Unknown command verb ${verb}.\n`);
           return 1;
       }
-      // --failed
-      const failed = Array.from(sh.m.units.values()).filter(x => x.state === 'failed');
-      if (!failed.length) { io.stdout.write('0 loaded units listed.\n'); return 0; }
-      io.stdout.write('  UNIT              LOAD   ACTIVE SUB    DESCRIPTION\n');
-      failed.forEach(x => io.stdout.write(`${C.red}●${C.reset} ${x.name.padEnd(17)} loaded failed failed ${x.description}\n`));
-      io.stdout.write(`\n${failed.length} loaded units listed.\n`);
-      return 0;
     }
   });
 
@@ -11196,6 +11214,17 @@ Modo octal: três dígitos (dono, grupo, outros), somando r=4 w=2 x=1
     }
   });
 
+})();
+
+;
+/* ==== 32-admin-40-packages.js ==== */
+/* =========================================================================
+   TERMINALIS — pacotes
+   ========================================================================= */
+'use strict';
+(function () {
+  const { defcmd, getopt, C, humanSize } = LX;
+
   /* ============================== pacotes ============================== */
   defcmd({
     name: ['apt', 'apt-get', 'apt-cache'], path: '/usr/bin/', pkg: 'apt',
@@ -11444,6 +11473,18 @@ Most used commands:
       return 0;
     }
   });
+
+})();
+
+;
+/* ==== 32-admin-50-archives.js ==== */
+/* =========================================================================
+   TERMINALIS — arquivos compactados
+   ========================================================================= */
+'use strict';
+(function () {
+  const { FileSystem, defcmd, getopt } = LX;
+  function P(sh, p) { return FileSystem.normalize(p, sh.cwd); }
 
   /* ============================== arquivos compactados ============================== */
   const TAR_MAGIC = 'TARDATA\n';
@@ -11695,6 +11736,18 @@ Most used commands:
       return 0;
     }
   });
+
+})();
+
+;
+/* ==== 32-admin-60-storage.js ==== */
+/* =========================================================================
+   TERMINALIS — disco e armazenamento
+   ========================================================================= */
+'use strict';
+(function () {
+  const { FileSystem, defcmd, getopt } = LX;
+  function P(sh, p) { return FileSystem.normalize(p, sh.cwd); }
 
   /* ============================== disco ============================== */
   /* Procura um dispositivo por /dev/nome, UUID= ou LABEL= */
@@ -12285,6 +12338,18 @@ Most used commands:
       return 1;
     }
   });
+
+})();
+
+;
+/* ==== 32-admin-70-tools.js ==== */
+/* =========================================================================
+   TERMINALIS — firewall e ferramentas do sistema
+   ========================================================================= */
+'use strict';
+(function () {
+  const { FileSystem, defcmd, getopt } = LX;
+  function P(sh, p) { return FileSystem.normalize(p, sh.cwd); }
 
   /* ============================== firewall ============================== */
   defcmd({
@@ -23055,6 +23120,7 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
 
   H.fs = (ctx) => ctx.sh.m.fs;
   H.opts = (ctx) => ctx.sh.fsopts();
+  H.machine = (ctx) => ctx.machine || ctx.sh.m;
 
   /* A verificação enxerga o sistema como root: o desafio pode ter criado
      arquivos que o próprio aluno não consegue atravessar. */
@@ -23071,6 +23137,14 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   H.isFile = (ctx, path) => { const s = H.stat(ctx, path); return !!s && s.type === 'file'; };
   H.read = (ctx, path) => {
     try { return ctx.sh.m.fs.readFile(path, { cwd: '/', ctx: ctx.sh.m.ctxRoot() }); } catch (e) { return null; }
+  };
+  H.readText = (ctx, path) => H.read(ctx, path) || '';
+  H.runOutput = async (ctx, command) => ctx.run ? (await ctx.run(command)).out : '';
+  H.unit = (ctx, name) => {
+    const machine = H.machine(ctx);
+    const fullName = name.includes('.') ? name : name + '.service';
+    const unit = machine.units && (machine.units.get ? machine.units.get(fullName) : machine.units[fullName]);
+    return unit || (typeof machine.unit === 'function' ? machine.unit(name) : undefined);
   };
   H.mode = (ctx, path) => { const s = H.lstat(ctx, path); return s ? (s.mode & 0o7777) : null; };
   H.owner = (ctx, path) => {
@@ -31572,7 +31646,6 @@ prioridade                                prioridade
 'use strict';
 (function () {
   const H = LX.H;
-  const unidade = (ctx, nome) => (ctx.machine || ctx.sh.m).unit(nome);
 
   /* ============================== 8.1 ============================== */
   LX.lesson('m08', {
@@ -31708,7 +31781,7 @@ ENABLED  →  vai subir no PRÓXIMO BOOT
         ],
         solution: '<div class="code"><pre>sudo systemctl disable ssh\necho "ativo: $(systemctl is-active ssh)" &gt; ~/estado-ssh.txt\necho "boot: $(systemctl is-enabled ssh)" &gt;&gt; ~/estado-ssh.txt\ncat ~/estado-ssh.txt</pre></div><p style="margin-top:8px">É exatamente o cenário do quiz anterior, só que ao contrário: aqui o serviço já nasceu <code>active + enabled</code>, e o <code>disable</code> sozinho — sem <code>stop</code> — produz o estado "ativo agora, ausente no próximo boot".</p>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'ssh');
+          const u = H.unit(ctx, 'ssh');
           if (!u) return { ok: false, msg: 'A unit <code>ssh.service</code> não foi encontrada nesta máquina.' };
           const c = H.read(ctx, '/home/aluno/estado-ssh.txt');
           if (c === null) return { ok: false, msg: 'O arquivo <code>~/estado-ssh.txt</code> ainda não existe.' };
@@ -31820,7 +31893,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         hints: ['<code>systemctl show -p MainPID</code> imprime só a propriedade pedida.'],
         solution: '<div class="code"><pre>systemctl status ssh --no-pager | head -6\nsystemctl show -p MainPID ssh\nsudo systemctl reload ssh\nsystemctl show -p MainPID ssh\nsudo systemctl restart ssh\nsystemctl show -p MainPID ssh\nsudo systemctl stop ssh\nsystemctl is-active ssh\nsudo systemctl start ssh\nsystemctl is-active ssh</pre></div>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'ssh');
+          const u = H.unit(ctx, 'ssh');
           return LX.H.checkAll([
             [() => H.usedCommand(ctx, /systemctl\s+status\s+ssh/), 'Comece pelo <code>systemctl status ssh</code>.'],
             [() => H.usedCommand(ctx, /show\s+-p\s+MainPID/), 'Compare o PID antes e depois com <code>systemctl show -p MainPID ssh</code>.'],
@@ -31864,7 +31937,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         ],
         solution: '<div class="code"><pre>sudo systemctl disable --now cron\necho "ativo: $(systemctl is-active cron)" &gt; ~/estado-cron.txt\necho "boot: $(systemctl is-enabled cron)" &gt;&gt; ~/estado-cron.txt\ncat ~/estado-cron.txt</pre></div><p style="margin-top:8px">O <code>--now</code> aplica a ação também ao estado atual: <code>disable --now</code> é <code>disable</code> + <code>stop</code>, e <code>enable --now</code> é <code>enable</code> + <code>start</code>.</p>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'cron');
+          const u = H.unit(ctx, 'cron');
           if (!u) return { ok: false, msg: 'A unit <code>cron.service</code> não foi encontrada nesta máquina.' };
           const c = H.read(ctx, '/home/aluno/estado-cron.txt');
           if (c === null) return { ok: false, msg: 'O arquivo <code>~/estado-cron.txt</code> ainda não existe.' };
@@ -32179,7 +32252,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         hints: ['O <code>tee</code> com <code>sudo</code> é a forma de escrever em um diretório do root usando redirecionamento — <code>sudo echo x &gt; arquivo</code> não funciona, porque quem redireciona é o seu shell.'],
         solution: '<div class="code"><pre>sudo mkdir -p /opt/relogio\nprintf \'#!/bin/bash\\nwhile true; do echo tick; sleep 60; done\\n\' | sudo tee /opt/relogio/run.sh &gt; /dev/null\nsudo chmod +x /opt/relogio/run.sh\nsudo tee /etc/systemd/system/relogio.service &gt; /dev/null &lt;&lt; \'EOF\'\n[Unit]\nDescription=Relogio de exemplo\nAfter=network.target\n\n[Service]\nType=simple\nExecStart=/opt/relogio/run.sh\nRestart=always\nRestartSec=3\n\n[Install]\nWantedBy=multi-user.target\nEOF\nsudo systemctl daemon-reload\nsudo systemctl enable --now relogio\nsystemctl status relogio --no-pager | head -6</pre></div>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'relogio');
+          const u = H.unit(ctx, 'relogio');
           return LX.H.checkAll([
             [H.exists(ctx, '/opt/relogio/run.sh'), 'Crie o programa <code>/opt/relogio/run.sh</code>.'],
             [(H.mode(ctx, '/opt/relogio/run.sh') & 0o111) !== 0, 'O script precisa ser executável (<code>chmod +x</code>).'],
@@ -32250,7 +32323,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         solution: '<div class="code"><pre>sudo useradd -r -s /usr/sbin/nologin coletor\n\nsudo tee /etc/systemd/system/coletor.service &gt; /dev/null &lt;&lt; \'EOF\'\n[Unit]\nDescription=Coletor de metricas\nAfter=network.target\n\n[Service]\nType=simple\nUser=coletor\nWorkingDirectory=/opt/coletor\nExecStart=/opt/coletor/coletor.sh\nRestart=always\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\nEOF\n\nsudo systemctl daemon-reload\nsudo systemctl enable --now coletor\nsystemctl status coletor --no-pager | head -6\njournalctl -u coletor -n 5 --no-pager</pre></div><p style="margin-top:8px">Esse arquivo é o esqueleto de praticamente qualquer serviço de aplicação: usuário próprio sem privilégio, diretório de trabalho definido, reinício automático com intervalo e log indo para o journal.</p>',
         check: async (ctx) => {
           const m = ctx.machine || ctx.sh.m;
-          const u = unidade(ctx, 'coletor');
+          const u = H.unit(ctx, 'coletor');
           const conta = m.userByName('coletor');
           if (!H.exists(ctx, '/etc/systemd/system/coletor.service')) return { ok: false, msg: 'O arquivo <code>/etc/systemd/system/coletor.service</code> ainda não existe.' };
           if (!u) return { ok: false, msg: 'A unit não foi carregada — rode <code>sudo systemctl daemon-reload</code>.' };
@@ -32402,7 +32475,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         hints: ['O <code>start</code> vai falhar — é esperado. O objetivo é ler o motivo.'],
         solution: '<div class="code"><pre>sudo tee /etc/systemd/system/quebrado.service &gt; /dev/null &lt;&lt; \'EOF\'\n[Unit]\nDescription=Servico com defeito\n\n[Service]\nExecStart=/opt/naoexiste/programa.sh\n\n[Install]\nWantedBy=multi-user.target\nEOF\nsudo systemctl daemon-reload\nsudo systemctl start quebrado\nsystemctl status quebrado --no-pager | head -6\njournalctl -xeu quebrado --no-pager | tail -4\nsystemctl --failed</pre></div>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'quebrado');
+          const u = H.unit(ctx, 'quebrado');
           return LX.H.checkAll([
             [H.exists(ctx, '/etc/systemd/system/quebrado.service'), 'Crie a unit <code>quebrado.service</code>.'],
             [!!u, 'A unit não foi carregada — faltou o <code>daemon-reload</code>.'],
@@ -32452,7 +32525,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         solution: '<div class="code"><pre># 1. investigação\nsystemctl cat inventario\nsudo systemctl start inventario\njournalctl -xeu inventario --no-pager | tail -5\n\n# 2. defeito: User=inventario não existe  (217/USER)\nsudo useradd -r -s /usr/sbin/nologin inventario\n\n# 3. defeito: WorkingDirectory não existe  (200/CHDIR)\nsudo mkdir -p /opt/inventario/dados\n\n# 4. defeito: o script não é executável    (203/EXEC)\nsudo chmod +x /opt/inventario/inventario.sh\n\n# 5. subir e habilitar\nsudo systemctl reset-failed inventario\nsudo systemctl enable --now inventario\nsystemctl status inventario --no-pager | head -6</pre></div><p style="margin-top:8px">Repare que nenhuma linha do arquivo da unit precisou ser alterada: os três defeitos estavam no <em>ambiente</em> que a unit pressupunha. É o padrão mais comum de "o serviço não sobe".</p>',
         check: async (ctx) => {
           const m = ctx.machine || ctx.sh.m;
-          const u = unidade(ctx, 'inventario');
+          const u = H.unit(ctx, 'inventario');
           if (!u) return { ok: false, msg: 'A unit <code>inventario.service</code> não está carregada — recarregue a aula para restaurar o cenário.' };
           const conta = m.userByName('inventario');
           return LX.H.checkAll([
@@ -32646,7 +32719,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         ],
         solution: '<div class="code"><pre>sudo mkdir -p /opt/higiene\nprintf \'#!/bin/bash\\necho "limpando temporarios"\\n\' | sudo tee /opt/higiene/limpar.sh &gt; /dev/null\nsudo chmod +x /opt/higiene/limpar.sh\n\nsudo tee /etc/systemd/system/higiene.service &gt; /dev/null &lt;&lt; \'EOF\'\n[Unit]\nDescription=Higiene do sistema\n\n[Service]\nType=oneshot\nExecStart=/opt/higiene/limpar.sh\nEOF\n\nsudo tee /etc/systemd/system/higiene.timer &gt; /dev/null &lt;&lt; \'EOF\'\n[Unit]\nDescription=Executa a higiene de hora em hora\n\n[Timer]\nOnCalendar=hourly\nPersistent=true\n\n[Install]\nWantedBy=timers.target\nEOF\n\nsudo systemctl daemon-reload\nsudo systemctl start higiene.service\nsystemctl status higiene --no-pager | head -5</pre></div><p style="margin-top:8px">O <code>Persistent=true</code> é a vantagem sobre o cron: se a máquina estiver desligada na hora marcada, a tarefa roda assim que ela voltar, em vez de simplesmente ser pulada.</p>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'higiene');
+          const u = H.unit(ctx, 'higiene');
           const timer = H.read(ctx, '/etc/systemd/system/higiene.timer');
           if (!H.exists(ctx, '/etc/systemd/system/higiene.service')) return { ok: false, msg: 'Crie o arquivo <code>/etc/systemd/system/higiene.service</code>.' };
           if (timer === null) return { ok: false, msg: 'Crie o arquivo <code>/etc/systemd/system/higiene.timer</code>.' };
@@ -35758,8 +35831,6 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
-  const rodar = async (ctx, cmd) => (ctx.run ? (await ctx.run(cmd)).out : '');
 
   /* ============================== 12.4 ============================== */
   LX.lesson('m12', {
@@ -35918,8 +35989,8 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         ],
         solution: '<div class="code"><pre>echo "chave-publica-simulada-da-equipe" | sudo tee /etc/apt/keyrings/exemplo.gpg &gt; /dev/null\n\nsudo tee /etc/apt/sources.list.d/exemplo.sources &gt; /dev/null &lt;&lt; \'EOF\'\nTypes: deb\nURIs: https://apt.exemplo.com.br\nSuites: stable\nComponents: main\nSigned-By: /etc/apt/keyrings/exemplo.gpg\nEOF\n\ncat /etc/apt/sources.list.d/exemplo.sources\nls -l /etc/apt/keyrings/</pre></div><p style="margin-top:8px">Repare que a chave fica em <code>/etc/apt/keyrings/</code> (terceiros) e não em <code>/usr/share/keyrings/</code> (que é território de pacotes). E o <code>Signed-By</code> amarra esta chave a este repositório — ela não vale para nenhum outro.</p>',
         check: async (ctx) => {
-          const chave = ler(ctx, '/etc/apt/keyrings/exemplo.gpg');
-          const src = ler(ctx, '/etc/apt/sources.list.d/exemplo.sources');
+          const chave = H.readText(ctx, '/etc/apt/keyrings/exemplo.gpg');
+          const src = H.readText(ctx, '/etc/apt/sources.list.d/exemplo.sources');
           return H.checkAll([
             [!!chave.trim(), 'Falta a chave em <code>/etc/apt/keyrings/exemplo.gpg</code>.'],
             [!!src, 'Falta o arquivo <code>/etc/apt/sources.list.d/exemplo.sources</code>.'],
@@ -36056,9 +36127,9 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         ],
         solution: '<div class="code"><pre>sudo mkdir -p /usr/local/bin\necho \'#!/bin/bash\' | sudo tee /usr/local/bin/deploy &gt; /dev/null\nsudo chmod +x /usr/local/bin/deploy\nsudo apt update &gt; /dev/null 2&gt;&amp;1\nsudo apt install -y nginx &gt; /dev/null 2&gt;&amp;1\nsudo apt-mark hold nginx\n\nmkdir -p ~/inventario\ndpkg --get-selections &gt; ~/inventario/pacotes.lista\napt-mark showhold &gt; ~/inventario/travados.txt\nfor b in /usr/local/bin/*; do dpkg -S "$b" &gt;/dev/null 2&gt;&amp;1 || echo "$b"; done &gt; ~/inventario/fora-do-apt.txt\n\nwc -l ~/inventario/*</pre></div><p style="margin-top:8px">Esses três arquivos, junto com um backup do <code>/etc</code>, são quase tudo o que se precisa para reconstruir um servidor. O terceiro é o que costuma faltar — e é o que dói na migração.</p>',
         check: async (ctx) => {
-          const pac = ler(ctx, '/home/aluno/inventario/pacotes.lista');
-          const hold = ler(ctx, '/home/aluno/inventario/travados.txt');
-          const fora = ler(ctx, '/home/aluno/inventario/fora-do-apt.txt');
+          const pac = H.readText(ctx, '/home/aluno/inventario/pacotes.lista');
+          const hold = H.readText(ctx, '/home/aluno/inventario/travados.txt');
+          const fora = H.readText(ctx, '/home/aluno/inventario/fora-do-apt.txt');
           const m = ctx.machine || ctx.sh.m;
           const instalados = Array.from(m.packages.keys());
           const linhasPac = pac.split('\n').map(x => x.trim()).filter(Boolean);
@@ -36625,8 +36696,6 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
-  const rodar = async (ctx, cmd) => (ctx.run ? (await ctx.run(cmd)).out : '');
 
   /* ============================== 13.4 ============================== */
   LX.lesson('m13', {
@@ -36773,7 +36842,7 @@ tar -xzf app.tar.gz --strip-components=1 →  joga src/, README.md, config.yml
         ],
         solution: '<div class="code"><pre>mkdir -p ~/pacote/src ~/saida ~/app\necho "config" &gt; ~/pacote/config.yml\necho "codigo" &gt; ~/pacote/src/main.py\necho "log antigo" &gt; ~/pacote/app.log\ntar -czf ~/pacote.tar.gz -C ~ pacote\n\ntar -tzf ~/pacote.tar.gz &gt; ~/saida/conteudo.txt\ncat ~/saida/conteudo.txt\n\ntar -xzf ~/pacote.tar.gz -C ~/saida pacote/config.yml\nls -R ~/saida\n\ntar -xzf ~/pacote.tar.gz -C ~/app --strip-components=1\nls ~/app</pre></div><p style="margin-top:8px">Três operações, nenhuma delas descompactou o arquivo inteiro. Num pacote de alguns gigabytes essa diferença deixa de ser elegância e vira o único jeito viável.</p>',
         check: async (ctx) => {
-          const lista = ler(ctx, '/home/aluno/saida/conteudo.txt');
+          const lista = H.readText(ctx, '/home/aluno/saida/conteudo.txt');
           const saidaLs = (H.ls(ctx, '/home/aluno/saida/pacote') || []).map(x => (typeof x === 'string' ? x : x.name));
           return H.checkAll([
             [() => H.exists(ctx, '/home/aluno/pacote.tar.gz'), 'Falta o <code>~/pacote.tar.gz</code> — recrie o cenário.'],
@@ -36929,12 +36998,12 @@ tar -xzf app.tar.gz --strip-components=1 →  joga src/, README.md, config.yml
         ],
         solution: '<div class="code"><pre>mkdir -p ~/envio ~/recebido\nseq 1 500 &gt; ~/envio/dados.txt\necho "config da equipe" &gt; ~/envio/config.ini\n\ncd ~\ntar -czf transporte.tar.gz envio\nsha256sum transporte.tar.gz &gt; transporte.sha256\ncat transporte.sha256\n\nsplit -b 400 transporte.tar.gz parte-\nls parte-*\n\ncat parte-* &gt; ~/recebido/transporte.tar.gz\ncd ~/recebido &amp;&amp; cp ~/transporte.sha256 . &amp;&amp; sha256sum -c transporte.sha256\ntar -xzf transporte.tar.gz\nls -R ~/recebido\ncd ~</pre></div><p style="margin-top:8px">A soma foi calculada antes de dividir e conferida depois de remontar — então ela cobre a divisão, cada pedaço transferido e a junção. Se qualquer etapa tivesse falhado, o <code>-c</code> acusaria.</p>',
         check: async (ctx) => {
-          const soma = ler(ctx, '/home/aluno/transporte.sha256');
+          const soma = H.readText(ctx, '/home/aluno/transporte.sha256');
           const raiz = (H.ls(ctx, '/home/aluno') || []).map(x => (typeof x === 'string' ? x : x.name));
           const partes = raiz.filter(n => /^parte-/.test(n));
-          const original = ler(ctx, '/home/aluno/transporte.tar.gz');
-          const remontado = ler(ctx, '/home/aluno/recebido/transporte.tar.gz');
-          const confere = await rodar(ctx, 'cd ~/recebido && cp ~/transporte.sha256 . 2>/dev/null; sha256sum -c transporte.sha256 2>&1');
+          const original = H.readText(ctx, '/home/aluno/transporte.tar.gz');
+          const remontado = H.readText(ctx, '/home/aluno/recebido/transporte.tar.gz');
+          const confere = await H.runOutput(ctx, 'cd ~/recebido && cp ~/transporte.sha256 . 2>/dev/null; sha256sum -c transporte.sha256 2>&1');
           return H.checkAll([
             [!!original, 'Falta o <code>~/transporte.tar.gz</code>.'],
             [() => /envio\/config\.ini/.test(original) && /envio\/dados\.txt/.test(original), 'O pacote deve conter o conteúdo de <code>~/envio</code>.'],
@@ -37528,8 +37597,6 @@ tar -xzf app.tar.gz --strip-components=1 →  joga src/, README.md, config.yml
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
-  const rodar = async (ctx, cmd) => (ctx.run ? (await ctx.run(cmd)).out : '');
 
   /* ============================== 14.4 ============================== */
   LX.lesson('m14', {
@@ -37682,9 +37749,9 @@ o shell executa:  grep erro de rede app.log sys.log`
         ],
         solution: '<div class="code"><pre>mkdir -p ~/lote ~/scripts\ntouch ~/lote/"relatorio final.tar.gz" ~/lote/notas.txt ~/lote/dados.csv.gz\n\ncat &gt; ~/scripts/nomes.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\nfor f in "$HOME"/lote/*; do\n  nome="${f##*/}"\n  ext="${nome#*.}"\n  echo "$nome | $ext"\ndone\nEOF\nchmod +x ~/scripts/nomes.sh\n~/scripts/nomes.sh</pre></div><p style="margin-top:8px">Três linhas dentro do laço, nenhum processo criado. O <code>##*/</code> come tudo até a última barra; o <code>#*.</code> come até o primeiro ponto. É a mesma lógica de <code>#</code> (começo) e <code>%</code> (fim) da tabela.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/scripts/nomes.sh');
+          const sc = H.readText(ctx, '/home/aluno/scripts/nomes.sh');
           if (!sc) return { ok: false, msg: 'Não encontrei <code>~/scripts/nomes.sh</code>.' };
-          const saida = await rodar(ctx, '~/scripts/nomes.sh 2>&1');
+          const saida = await H.runOutput(ctx, '~/scripts/nomes.sh 2>&1');
           const l = saida.split('\n').map(x => x.trim()).filter(Boolean).sort();
           return H.checkAll([
             [() => (H.mode(ctx, '/home/aluno/scripts/nomes.sh') & 0o111) !== 0, 'O script precisa ser executável.'],
@@ -37849,11 +37916,11 @@ o shell executa:  grep erro de rede app.log sys.log`
         ],
         solution: '<div class="code"><pre>mkdir -p ~/app ~/scripts\ncat &gt; ~/app/config.env &lt;&lt; \'EOF\'\nAPP_USUARIO=servico\nAPP_SENHA=trocar-em-producao\nEOF\nchmod 600 ~/app/config.env\nls -l ~/app/config.env\n\ncat &gt; ~/scripts/carrega.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\nexport LC_ALL=C\n\nsource "$HOME/app/config.env"\n\necho "usuario: $APP_USUARIO"\necho "senha: (oculta)"\n\nunset APP_SENHA\necho "senha no ambiente apos unset: [${APP_SENHA:-}]"\nEOF\nchmod +x ~/scripts/carrega.sh\n~/scripts/carrega.sh</pre></div><p style="margin-top:8px">O segredo fica num arquivo que só o dono lê, entra no shell por <code>source</code>, nunca é impresso e sai do ambiente assim que deixa de ser necessário. É o mínimo defensável — e já elimina os vazamentos mais comuns.</p>',
         check: async (ctx) => {
-          const conf = ler(ctx, '/home/aluno/app/config.env');
-          const sc = ler(ctx, '/home/aluno/scripts/carrega.sh');
+          const conf = H.readText(ctx, '/home/aluno/app/config.env');
+          const sc = H.readText(ctx, '/home/aluno/scripts/carrega.sh');
           const modo = H.mode(ctx, '/home/aluno/app/config.env');
           if (!sc) return { ok: false, msg: 'Não encontrei <code>~/scripts/carrega.sh</code>.' };
-          const saida = await rodar(ctx, '~/scripts/carrega.sh 2>&1');
+          const saida = await H.runOutput(ctx, '~/scripts/carrega.sh 2>&1');
           const l = saida.split('\n').map(x => x.trim()).filter(Boolean);
           return H.checkAll([
             [!!conf, 'Falta o <code>~/app/config.env</code>.'],
@@ -38852,8 +38919,6 @@ o shell executa:  grep erro de rede app.log sys.log`
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
-  const rodar = async (ctx, cmd) => (ctx.run ? (await ctx.run(cmd)).out : '');
 
   /* ============================== 15.5 ============================== */
   LX.lesson('m15', {
@@ -39022,7 +39087,7 @@ for a in $@     →  3 voltas:  [meu]  [arquivo.txt]  [outro.txt]   ✗`
         hints: ['Repare que o nome do arquivo tem um espaço — é justamente ele que revela a diferença.'],
         check: async (ctx) => H.checkAll([
           [() => H.exists(ctx, '/home/aluno/scripts/args.sh'), 'Crie o <code>~/scripts/args.sh</code>.'],
-          [() => /"\$@"/.test(ler(ctx, '/home/aluno/scripts/args.sh')), 'O <code>args.sh</code> deve percorrer <code>"$@"</code>.'],
+          [() => /"\$@"/.test(H.readText(ctx, '/home/aluno/scripts/args.sh')), 'O <code>args.sh</code> deve percorrer <code>"$@"</code>.'],
           [() => H.exists(ctx, '/home/aluno/scripts/estrela.sh'), 'Crie também o <code>~/scripts/estrela.sh</code> para comparar.'],
           [() => H.usedCommand(ctx, /\.\/args\.sh/), 'Rode o <code>./args.sh</code> com dois argumentos, um deles com espaço.']
         ])
@@ -39072,14 +39137,14 @@ for a in $@     →  3 voltas:  [meu]  [arquivo.txt]  [outro.txt]   ✗`
         ],
         solution: '<div class="code"><pre>mkdir -p ~/dados ~/scripts\nseq 1 40 &gt; ~/dados/grande.txt\nseq 1 12 &gt; ~/dados/medio.txt\nseq 1 3 &gt; ~/dados/pequeno.txt\nseq 1 7 &gt; ~/dados/outro.txt\n\ncat &gt; ~/scripts/relatorio.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\nNUM=3\nVERBOSE=0\n\nuso() {\n  echo "uso: $(basename "$0") [-v] [-n NUM] DIRETORIO" &gt;&amp;2\n  exit "${1:-2}"\n}\n\nwhile getopts "hn:v" opcao; do\n  case "$opcao" in\n    h) uso 0 ;;\n    n) NUM="$OPTARG" ;;\n    v) VERBOSE=1 ;;\n    *) uso 2 ;;\n  esac\ndone\nshift $((OPTIND - 1))\n\n[ $# -ge 1 ] || uso 2\nDIR="$1"\n[ -d "$DIR" ] || { echo "erro: $DIR nao e um diretorio" &gt;&amp;2; exit 2; }\n\n[ "$VERBOSE" -eq 1 ] &amp;&amp; echo "modo verboso ligado"\n\nwc -l "$DIR"/* | head -n -1 | sort -rn | head -n "$NUM" \\\n  | while read -r n arq; do echo "$n $(basename "$arq")"; done\nEOF\nchmod +x ~/scripts/relatorio.sh\n\n~/scripts/relatorio.sh -n 2 ~/dados\n~/scripts/relatorio.sh -h; echo "codigo do -h: $?"\n~/scripts/relatorio.sh 2&gt;/dev/null; echo "codigo sem argumento: $?"</pre></div><p style="margin-top:8px">Repare no <code>uso 0</code> do <code>-h</code>: pedir ajuda não é erro, então o código de saída é 0. Já a falta de argumento é erro de uso, e sai com 2. Essa distinção é o que faz o script se comportar bem dentro de outro script.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/scripts/relatorio.sh');
+          const sc = H.readText(ctx, '/home/aluno/scripts/relatorio.sh');
           if (!sc) return { ok: false, msg: 'Não encontrei <code>~/scripts/relatorio.sh</code>.' };
-          const semArg = await rodar(ctx, '~/scripts/relatorio.sh >/dev/null 2>&1; echo RC=$?');
-          const stderr = await rodar(ctx, '~/scripts/relatorio.sh 2>&1 >/dev/null');
-          const ajuda = await rodar(ctx, '~/scripts/relatorio.sh -h >/dev/null 2>&1; echo RC=$?');
-          const inexistente = await rodar(ctx, '~/scripts/relatorio.sh /nao/existe >/dev/null 2>&1; echo RC=$?');
-          const dois = await rodar(ctx, '~/scripts/relatorio.sh -n 2 ~/dados 2>/dev/null');
-          const verboso = await rodar(ctx, '~/scripts/relatorio.sh -v -n 1 ~/dados 2>/dev/null');
+          const semArg = await H.runOutput(ctx, '~/scripts/relatorio.sh >/dev/null 2>&1; echo RC=$?');
+          const stderr = await H.runOutput(ctx, '~/scripts/relatorio.sh 2>&1 >/dev/null');
+          const ajuda = await H.runOutput(ctx, '~/scripts/relatorio.sh -h >/dev/null 2>&1; echo RC=$?');
+          const inexistente = await H.runOutput(ctx, '~/scripts/relatorio.sh /nao/existe >/dev/null 2>&1; echo RC=$?');
+          const dois = await H.runOutput(ctx, '~/scripts/relatorio.sh -n 2 ~/dados 2>/dev/null');
+          const verboso = await H.runOutput(ctx, '~/scripts/relatorio.sh -v -n 1 ~/dados 2>/dev/null');
           const linhas = dois.split('\n').map(x => x.trim()).filter(Boolean);
           const rc = (s) => (/RC=(\d+)/.exec(s) || [])[1];
           return H.checkAll([
@@ -39267,11 +39332,11 @@ for a in $@     →  3 voltas:  [meu]  [arquivo.txt]  [outro.txt]   ✗`
         ],
         solution: '<div class="code"><pre>mkdir -p ~/scripts\nprintf \'12\\n45\\n7\\n90\\n23\\n\' &gt; ~/numeros.txt\n\ncat &gt; ~/scripts/stats.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\nmapfile -t numeros &lt; "$HOME/numeros.txt"\n\nsoma=0\nmaior=0\nfor n in "${numeros[@]}"; do\n  (( soma += n ))\n  if (( n &gt; maior )); then maior=$n; fi\ndone\n\necho "quantidade: ${#numeros[@]}"\necho "soma: $soma"\necho "maior: $maior"\nEOF\nchmod +x ~/scripts/stats.sh\n~/scripts/stats.sh</pre></div><p style="margin-top:8px">Nenhum processo externo foi criado. Num laço de cinco itens isso é irrelevante; num de cinquenta mil, é a diferença entre um segundo e vários minutos.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/scripts/stats.sh');
+          const sc = H.readText(ctx, '/home/aluno/scripts/stats.sh');
           if (!sc) return { ok: false, msg: 'Não encontrei <code>~/scripts/stats.sh</code>.' };
-          const saida = await rodar(ctx, '~/scripts/stats.sh 2>&1');
+          const saida = await H.runOutput(ctx, '~/scripts/stats.sh 2>&1');
           const l = saida.split('\n').map(x => x.trim()).filter(Boolean);
-          const nums = (ler(ctx, '/home/aluno/numeros.txt') || '').split('\n').map(x => x.trim()).filter(Boolean).map(Number);
+          const nums = (H.readText(ctx, '/home/aluno/numeros.txt') || '').split('\n').map(x => x.trim()).filter(Boolean).map(Number);
           const soma = nums.reduce((a, b) => a + b, 0);
           const maior = nums.length ? Math.max(...nums) : 0;
           return H.checkAll([
@@ -39453,11 +39518,11 @@ dois mundos`
         ],
         solution: '<div class="code"><pre>mkdir -p ~/scripts ~/entrada\nprintf \'a\\nb\\nc\\n\' &gt; "$HOME/entrada/meu arquivo.txt"\nprintf \'x\\ny\\n\' &gt; ~/entrada/outro.txt\n\ncat &gt; ~/scripts/corrigido.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\n[ $# -ge 1 ] || { echo "uso: $0 DIRETORIO" &gt;&amp;2; exit 2; }\nDIR="$1"\ncd "$DIR" || exit 1\n\nfor f in *.txt; do\n  echo "$f tem $(wc -l &lt; "$f") linhas"\ndone\nEOF\nchmod +x ~/scripts/corrigido.sh\n\nbash -n ~/scripts/corrigido.sh &amp;&amp; echo "sintaxe ok"\n~/scripts/corrigido.sh ~/entrada</pre></div><p style="margin-top:8px">Três aspas e uma validação. É quase sempre esse o tamanho da diferença entre um script que funciona na sua máquina e um que funciona em produção.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/scripts/corrigido.sh');
+          const sc = H.readText(ctx, '/home/aluno/scripts/corrigido.sh');
           if (!sc) return { ok: false, msg: 'Não encontrei <code>~/scripts/corrigido.sh</code>.' };
-          const saida = await rodar(ctx, '~/scripts/corrigido.sh ~/entrada 2>&1');
-          const semArg = await rodar(ctx, '~/scripts/corrigido.sh >/dev/null 2>&1; echo RC=$?');
-          const sintaxe = await rodar(ctx, 'bash -n ~/scripts/corrigido.sh 2>&1; echo RC=$?');
+          const saida = await H.runOutput(ctx, '~/scripts/corrigido.sh ~/entrada 2>&1');
+          const semArg = await H.runOutput(ctx, '~/scripts/corrigido.sh >/dev/null 2>&1; echo RC=$?');
+          const sintaxe = await H.runOutput(ctx, 'bash -n ~/scripts/corrigido.sh 2>&1; echo RC=$?');
           const l = saida.split('\n').map(x => x.trim()).filter(Boolean);
           return H.checkAll([
             [() => (H.mode(ctx, '/home/aluno/scripts/corrigido.sh') & 0o111) !== 0, 'O script precisa ser executável.'],
@@ -39668,11 +39733,11 @@ dois mundos`
         ],
         solution: '<div class="code"><pre>mkdir -p ~/scripts\ncat &gt; ~/scripts/sincroniza.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\nNOME=$(basename "$0")\nTMP=$(mktemp -d)\ntrap \'rm -rf "$TMP"\' EXIT\ntrap \'echo "$NOME: FALHOU na linha $LINENO" &gt;&amp;2\' ERR\n\nlog() { echo "$(date "+%F %T") $*"; }\n\nlog "iniciando"\ncp /etc/hostname "$TMP/copia.txt"\nlog "concluido em ${SECONDS}s"\nEOF\nchmod +x ~/scripts/sincroniza.sh\n\nflock -n /tmp/sinc.lock ~/scripts/sincroniza.sh &gt;&gt; ~/sincroniza.log 2&gt;&amp;1\ncat ~/sincroniza.log\n\nflock -n /tmp/sinc.lock flock -n /tmp/sinc.lock echo x; echo "trava: $?"</pre></div><p style="margin-top:8px">Repare que o diretório temporário some sozinho ao fim — inclusive se o script abortar no meio. É esse tipo de garantia que faz a diferença quando ninguém está olhando.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/scripts/sincroniza.sh');
+          const sc = H.readText(ctx, '/home/aluno/scripts/sincroniza.sh');
           if (!sc) return { ok: false, msg: 'Não encontrei <code>~/scripts/sincroniza.sh</code>.' };
-          const logArq = ler(ctx, '/home/aluno/sincroniza.log');
-          const saida = await rodar(ctx, '~/scripts/sincroniza.sh 2>&1');
-          const trava = await rodar(ctx, 'flock -n /tmp/prova.lock flock -n /tmp/prova.lock echo x >/dev/null 2>&1; echo RC=$?');
+          const logArq = H.readText(ctx, '/home/aluno/sincroniza.log');
+          const saida = await H.runOutput(ctx, '~/scripts/sincroniza.sh 2>&1');
+          const trava = await H.runOutput(ctx, 'flock -n /tmp/prova.lock flock -n /tmp/prova.lock echo x >/dev/null 2>&1; echo RC=$?');
           const tmpsAntes = (H.ls(ctx, '/tmp') || []).map(x => (typeof x === 'string' ? x : x.name)).filter(n => /^tmp\./.test(n));
           return H.checkAll([
             [() => (H.mode(ctx, '/home/aluno/scripts/sincroniza.sh') & 0o111) !== 0, 'O script precisa ser executável.'],
@@ -39708,13 +39773,6 @@ dois mundos`
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
-  const rodar = async (ctx, cmd) => (ctx.run ? (await ctx.run(cmd)).out : '');
-  const unidade = (ctx, nome) => {
-    const m = ctx.machine || ctx.sh.m;
-    const n = nome.includes('.') ? nome : nome + '.service';
-    return m.units && (m.units.get ? m.units.get(n) : m.units[n]);
-  };
 
   /* ============================== PF.1 ============================== */
   LX.lesson('mpf1', {
@@ -39962,7 +40020,7 @@ dois mundos`
           const m = ctx.machine || ctx.sh.m;
           const disco = (m.blockDevices || []).find(d => d.name === 'vdb');
           const p1 = disco && (disco.children || []).find(x => x.name === 'vdb1');
-          const fstab = ler(ctx, '/etc/fstab');
+          const fstab = H.readText(ctx, '/etc/fstab');
           const mnt = ((m.fs && m.fs.mounts) || m.mounts || []).find(x => x.mount === '/srv/projeto');
           const linha = fstab.split('\n').map(l => l.replace(/#.*/, '').trim()).filter(Boolean)
             .find(l => l.split(/\s+/)[1] === '/srv/projeto');
@@ -40111,9 +40169,9 @@ dois mundos`
         check: async (ctx) => {
           const m = ctx.machine || ctx.sh.m;
           const u = m.userByName('coletor');
-          const script = ler(ctx, '/opt/coletor/coletar.sh');
-          const unit = ler(ctx, '/etc/systemd/system/coletor.service');
-          const un = unidade(ctx, 'coletor');
+          const script = H.readText(ctx, '/opt/coletor/coletar.sh');
+          const unit = H.readText(ctx, '/etc/systemd/system/coletor.service');
+          const un = H.unit(ctx, 'coletor');
           return H.checkAll([
             [() => H.isFile(ctx, '/opt/coletor/coletar.sh'), 'Não encontrei <code>/opt/coletor/coletar.sh</code>.'],
             [() => (H.mode(ctx, '/opt/coletor/coletar.sh') & 0o111) !== 0, 'O script existe mas não está executável. Falta <code>chmod +x</code>.'],
@@ -40255,7 +40313,7 @@ dois mundos`
           const arqModo = H.mode(ctx, '/home/ana/.ssh/authorized_keys');
           const dirDono = H.owner(ctx, '/home/ana/.ssh');
           const arqDono = H.owner(ctx, '/home/ana/.ssh/authorized_keys');
-          const chaves = ler(ctx, '/home/ana/.ssh/authorized_keys');
+          const chaves = H.readText(ctx, '/home/ana/.ssh/authorized_keys');
           return H.checkAll([
             [!!ana, 'A usuária <code>ana</code> precisa existir (etapa PF.1).'],
             [() => H.isDir(ctx, '/home/ana/.ssh'), 'Falta o diretório <code>/home/ana/.ssh</code>.'],
@@ -40369,11 +40427,11 @@ dois mundos`
         ],
         solution: '<p><em>Garantindo que há conteúdo para empacotar:</em></p><div class="code"><pre>$ sudo mkdir -p /srv/projeto/publico /var/backups /opt/backup\n$ echo "dados da equipe" | sudo tee /srv/projeto/publico/leiame.txt &gt; /dev/null</pre></div><p>E a rotina:</p><div class="code"><pre>$ sudo tee /opt/backup/backup.sh &gt; /dev/null &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\nORIGEM=/srv/projeto\nDESTINO=/var/backups\nD=$(date +%F)\nARQ="$DESTINO/projeto-$D.tar.gz"\n\nmkdir -p "$DESTINO"\ntar -czf "$ARQ" -C "$(dirname "$ORIGEM")" "$(basename "$ORIGEM")"\n\ncd "$DESTINO"\nsha256sum "projeto-$D.tar.gz" &gt; SHA256SUMS\n\nfind "$DESTINO" -name "projeto-*.tar.gz" -mtime +7 -delete\necho "backup gerado: $ARQ"\nEOF\n$ sudo chmod 755 /opt/backup/backup.sh\n$ sudo /opt/backup/backup.sh\n$ ls -lh /var/backups/</pre></div><p style="margin-top:8px">Ordem: gerar, somar, expirar. O <code>-C</code> troca o diretório antes de empacotar, então o arquivo guarda <code>projeto/…</code> em vez de <code>srv/projeto/…</code>.</p>',
         check: async (ctx) => {
-          const s = ler(ctx, '/opt/backup/backup.sh');
+          const s = H.readText(ctx, '/opt/backup/backup.sh');
           const lista = (H.ls(ctx, '/var/backups') || []).map(x => (typeof x === 'string' ? x : x.name));
           const backup = lista.find(n => /^projeto-\d{4}-\d{2}-\d{2}\.tar\.gz$/.test(n));
-          const sums = ler(ctx, '/var/backups/SHA256SUMS');
-          const confere = (sums && ctx.run) ? await rodar(ctx, 'cd /var/backups && sha256sum -c SHA256SUMS 2>&1') : '';
+          const sums = H.readText(ctx, '/var/backups/SHA256SUMS');
+          const confere = (sums && ctx.run) ? await H.runOutput(ctx, 'cd /var/backups && sha256sum -c SHA256SUMS 2>&1') : '';
           return H.checkAll([
             [() => H.isFile(ctx, '/opt/backup/backup.sh'), 'Não encontrei <code>/opt/backup/backup.sh</code>.'],
             [() => (H.mode(ctx, '/opt/backup/backup.sh') & 0o111) !== 0, 'O script não está executável.'],
@@ -40386,7 +40444,7 @@ dois mundos`
             [() => /sha256sum/.test(s), 'O script precisa gerar a soma de verificação.'],
             [() => /-mtime\s*\+7/.test(s) && /(-delete|rm\b)/.test(s), 'Falta a retenção: apagar os backups com mais de 7 dias (<code>find ... -mtime +7 -delete</code>).'],
             [!!backup, 'Não achei nenhum <code>/var/backups/projeto-AAAA-MM-DD.tar.gz</code>. Rode o script: <code>sudo /opt/backup/backup.sh</code>.'],
-            [() => { const c = ler(ctx, '/var/backups/' + backup); return /projeto/.test(c); }, 'O arquivo de backup existe mas parece vazio ou sem o conteúdo de <code>/srv/projeto</code>.'],
+            [() => { const c = H.readText(ctx, '/var/backups/' + backup); return /projeto/.test(c); }, 'O arquivo de backup existe mas parece vazio ou sem o conteúdo de <code>/srv/projeto</code>.'],
             [!!sums, 'Falta o <code>/var/backups/SHA256SUMS</code>.'],
             [() => /: OK$/m.test(confere), 'O <code>sha256sum -c</code> não valida o backup. Gere a soma com o comando, de dentro de <code>/var/backups</code>.']
           ]);
@@ -40497,14 +40555,14 @@ dois mundos`
         solution: '<div class="code"><pre>$ sudo du -sh /var/log/* | sort -rh | head -3\n$ sudo find /usr/local/bin -perm -4000 -type f\n$ dpkg -S /usr/local/bin/atalho\n\n$ D=/var/log/coletor\n$ E=$(sudo grep -rh "ERROR" "$D" | wc -l)\n$ W=$(sudo grep -rh "WARN" "$D" | wc -l)\n$ S=$(sudo find /usr/local/bin -perm -4000 -type f | head -1)\n\n$ printf \'DIRETORIO: %s\\nERROS: %s\\nAVISOS: %s\\nSUID: %s\\n\' "$D" "$E" "$W" "$S" &gt; ~/incidente-4488.txt\n$ cat ~/incidente-4488.txt</pre></div><p style="margin-top:8px">Repare que nenhum número foi digitado: cada um veio de um comando guardado numa variável. É isso que faz o relatório continuar verdadeiro amanhã, quando os números mudarem.</p>',
         forja: ["printf 'DIRETORIO: /var/log/coletor\\nERROS: 100\\nAVISOS: 100\\nSUID: /usr/local/bin/atalho\\n' > ~/incidente-4488.txt"],
         check: async (ctx) => {
-          const rel = ler(ctx, '/home/aluno/incidente-4488.txt');
+          const rel = H.readText(ctx, '/home/aluno/incidente-4488.txt');
           if (!rel.trim()) return { ok: false, msg: 'O arquivo <code>~/incidente-4488.txt</code> ainda não existe.' };
           const l = rel.split('\n').map(x => x.trim()).filter(Boolean);
           const val = (i) => (l[i] || '').split(/:\s*/).slice(1).join(':').trim();
           /* o verificador reconta tudo na máquina */
-          const erros = (await rodar(ctx, 'sudo grep -rh "ERROR" /var/log/coletor 2>/dev/null | wc -l')).trim();
-          const avisos = (await rodar(ctx, 'sudo grep -rh "WARN" /var/log/coletor 2>/dev/null | wc -l')).trim();
-          const suid = (await rodar(ctx, 'sudo find /usr/local/bin -perm -4000 -type f 2>/dev/null')).trim().split('\n')[0];
+          const erros = (await H.runOutput(ctx, 'sudo grep -rh "ERROR" /var/log/coletor 2>/dev/null | wc -l')).trim();
+          const avisos = (await H.runOutput(ctx, 'sudo grep -rh "WARN" /var/log/coletor 2>/dev/null | wc -l')).trim();
+          const suid = (await H.runOutput(ctx, 'sudo find /usr/local/bin -perm -4000 -type f 2>/dev/null')).trim().split('\n')[0];
           return H.checkAll([
             [() => l.length === 4, () => `O relatório deve ter exatamente 4 linhas; tem ${l.length}.`],
             [() => /^DIRETORIO:/.test(l[0] || ''), 'A primeira linha deve começar com <code>DIRETORIO:</code>.'],
@@ -40603,15 +40661,15 @@ dois mundos`
         solution: '<p><em>O relatório só faz sentido com o servidor inteiro de pé. Este bloco reconstrói as seis etapas anteriores — é, na prática, o projeto todo:</em></p><div class="code"><pre>$ sudo groupadd -f dados\n$ sudo useradd -m -G dados,sudo ana\n$ sudo useradd -m -G dados bruno\n$ sudo parted -s /dev/vdb mklabel gpt\n$ sudo parted -s /dev/vdb mkpart projeto ext4 0% 100%\n$ sudo mkfs.ext4 -L PROJETO /dev/vdb1\n$ sudo mkdir -p /srv/projeto\n$ U=$(sudo blkid -s UUID -o value /dev/vdb1); echo "UUID=$U /srv/projeto ext4 defaults,nofail,noexec,nosuid,nodev 0 2" | sudo tee -a /etc/fstab &gt; /dev/null\n$ sudo mount -a\n$ sudo mkdir -p /srv/projeto/publico /srv/projeto/segredo /opt/coletor /opt/backup /var/backups /usr/local/bin\n$ echo dados | sudo tee /srv/projeto/publico/leiame.txt &gt; /dev/null\n$ sudo chown -R root:dados /srv/projeto\n$ sudo chmod 2770 /srv/projeto\n$ sudo useradd --system --shell /usr/sbin/nologin coletor\n$ printf \'#!/bin/bash\\nwhile true; do echo coleta &gt;&gt; /var/log/coletor.log; sleep 60; done\\n\' | sudo tee /opt/coletor/coletar.sh &gt; /dev/null\n$ sudo chmod 755 /opt/coletor/coletar.sh\n$ printf \'[Unit]\\nDescription=Coletor\\n\\n[Service]\\nType=simple\\nUser=coletor\\nExecStart=/opt/coletor/coletar.sh\\nRestart=always\\n\\n[Install]\\nWantedBy=multi-user.target\\n\' | sudo tee /etc/systemd/system/coletor.service &gt; /dev/null\n$ sudo systemctl daemon-reload\n$ sudo systemctl enable --now coletor\n$ sudo ufw default deny incoming\n$ sudo ufw allow 22/tcp\n$ sudo ufw allow 8080/tcp\n$ sudo ufw enable\n$ printf \'#!/bin/bash\\nset -euo pipefail\\nD=$(date +%F)\\ntar -czf "/var/backups/projeto-$D.tar.gz" -C /srv projeto\\n\' | sudo tee /opt/backup/backup.sh &gt; /dev/null\n$ sudo chmod 755 /opt/backup/backup.sh\n$ sudo /opt/backup/backup.sh\n$ printf \'#!/bin/bash\\n\' | sudo tee /usr/local/bin/atalho &gt; /dev/null\n$ sudo chmod 755 /usr/local/bin/atalho</pre></div><p>E o relatório:</p><div class="code"><pre>$ getent group dados | sudo tee /root/entrega.txt\n$ findmnt -n /srv/projeto | sudo tee -a /root/entrega.txt\n$ systemctl is-enabled coletor | sudo tee -a /root/entrega.txt\n$ sudo ufw status verbose | sudo tee -a /root/entrega.txt\n$ ls -l /var/backups | sudo tee -a /root/entrega.txt\n$ ls -l /usr/local/bin/atalho | sudo tee -a /root/entrega.txt\n$ sudo cat /root/entrega.txt</pre></div><p style="margin-top:8px">Seis comandos, seis evidências. Quem receber esse arquivo consegue conferir cada item do chamado sem precisar entrar na máquina — e, se precisar entrar, sabe exatamente o que esperar encontrar.</p>',
         forja: ["printf 'dados:x:1002:ana,bruno\\n/srv/projeto /dev/vdb1 ext4 rw\\nenabled\\nStatus: active\\ntotal 4\\n-rwxr-xr-x 1 root root 0 atalho\\n' | sudo tee /root/entrega.txt > /dev/null"],
         check: async (ctx) => {
-          const rel = ler(ctx, '/root/entrega.txt');
+          const rel = H.readText(ctx, '/root/entrega.txt');
           if (!rel.trim()) return { ok: false, msg: 'O arquivo <code>/root/entrega.txt</code> ainda não existe.' };
           const m = ctx.machine || ctx.sh.m;
           /* o verificador roda os mesmos comandos e compara com o relatório */
-          const grupo = (await rodar(ctx, 'getent group dados')).trim();
-          const montagem = (await rodar(ctx, 'findmnt -n /srv/projeto 2>/dev/null')).trim();
+          const grupo = (await H.runOutput(ctx, 'getent group dados')).trim();
+          const montagem = (await H.runOutput(ctx, 'findmnt -n /srv/projeto 2>/dev/null')).trim();
           const backups = (H.ls(ctx, '/var/backups') || []).map(x => (typeof x === 'string' ? x : x.name))
             .filter(n => /^projeto-\d{4}-\d{2}-\d{2}\.tar\.gz$/.test(n));
-          const un = unidade(ctx, 'coletor');
+          const un = H.unit(ctx, 'coletor');
           const f = m.firewall || {};
           const modoAtalho = H.mode(ctx, '/usr/local/bin/atalho');
           const semEspaco = (s) => String(s).replace(/\s+/g, ' ').trim();
@@ -40649,7 +40707,6 @@ dois mundos`
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
 
   /* ============================== 16.1 ============================== */
   LX.lesson('m16', {
@@ -40807,7 +40864,7 @@ dois mundos`
         solution: '<div class="code"><pre>journalctl -p err --no-pager | grep -v "^--" \\\n  | awk \'{print $5}\' | cut -d"[" -f1 \\\n  | sort | uniq -c | sort -rn &gt; ~/erros-por-servico.txt\ncat ~/erros-por-servico.txt</pre></div><p style="margin-top:8px">Esse pipeline de cinco etapas é literalmente o que você vai digitar no primeiro dia em qualquer servidor herdado. Ele responde "onde dói" em uma linha.</p>',
         forja: ["printf '  9 systemd\\n  3 sshd\\n' > ~/erros-por-servico.txt"],
         check: async (ctx) => {
-          const c = ler(ctx, '/home/aluno/erros-por-servico.txt');
+          const c = H.readText(ctx, '/home/aluno/erros-por-servico.txt');
           if (!c.trim()) return { ok: false, msg: 'O arquivo <code>~/erros-por-servico.txt</code> ainda não existe ou está vazio.' };
           const m = ctx.machine || ctx.sh.m;
           /* a resposta certa é recalculada aqui a partir do journal desta máquina */
@@ -40958,7 +41015,7 @@ app.log.4.gz                 app.log.4.gz  ← a 5ª geração é apagada`
         ],
         solution: '<div class="code"><pre>sudo mkdir -p /var/log/app\nsudo sh -c \'for i in 1 2 3 4 5; do echo "linha de log $i" &gt;&gt; /var/log/app/app.log; done\'\n\nsudo tee /etc/logrotate.d/app &gt; /dev/null &lt;&lt; \'EOF\'\n/var/log/app/*.log {\n    daily\n    rotate 7\n    compress\n    missingok\n    notifempty\n    create 0640 root adm\n}\nEOF\n\nsudo logrotate -d /etc/logrotate.conf\nsudo logrotate -f /etc/logrotate.conf\nls -l /var/log/app/</pre></div><p style="margin-top:8px">Repare que a regra fica num arquivo só dela. Se amanhã a aplicação virar pacote, ou você mudar de servidor, é esse arquivo que viaja junto.</p>',
         check: async (ctx) => {
-          const conf = ler(ctx, '/etc/logrotate.d/app');
+          const conf = H.readText(ctx, '/etc/logrotate.d/app');
           const lista = (H.ls(ctx, '/var/log/app') || []).map(x => (typeof x === 'string' ? x : x.name));
           return H.checkAll([
             [() => H.isDir(ctx, '/var/log/app'), 'Monte o cenário: falta o diretório <code>/var/log/app</code>.'],
@@ -41134,14 +41191,14 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         solution: '<div class="code"><pre>mkdir -p ~/bin\ncat &gt; ~/painel.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\necho "CPU: $(awk \'{print $1}\' /proc/loadavg) / $(nproc)"\necho "MEM: $(free -m | awk \'/^Mem:/ {print $7}\') MB livres de $(free -m | awk \'/^Mem:/ {print $2}\') MB"\necho "DISCO: $(df -h / | awk \'NR==2 {print $5}\')"\necho "INODES: $(df -i / | awk \'NR==2 {print $5}\')"\nEOF\nchmod +x ~/painel.sh\n./painel.sh\n./painel.sh &gt; ~/painel.txt\ncat ~/painel.txt</pre></div><p style="margin-top:8px">Quatro linhas, quatro recursos. Um script assim, rodando por cron e mandando a saída para algum lugar, é o embrião honesto de qualquer sistema de monitoramento — e ensina mais sobre a máquina do que um painel pronto.</p>',
         forja: ["printf 'CPU: 0.08 / 2\\nMEM: 2000 MB livres de 4000 MB\\nDISCO: 47%%\\nINODES: 37%%\\n' > ~/painel.txt"],
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/painel.sh');
-          const saida = ler(ctx, '/home/aluno/painel.txt');
+          const sc = H.readText(ctx, '/home/aluno/painel.sh');
+          const saida = H.readText(ctx, '/home/aluno/painel.txt');
           const l = saida.split('\n').map(x => x.trim()).filter(Boolean);
           /* o painel tem de descrever ESTA máquina: o verificador mede tudo de novo */
-          const load = (ler(ctx, '/proc/loadavg').split(/\s+/)[0]) || '';
-          const nucleos = ler(ctx, '/proc/cpuinfo').split('\n').filter(x => /^processor/.test(x)).length;
-          const mem = /MemAvailable:\s+(\d+)/.exec(ler(ctx, '/proc/meminfo'));
-          const memTotal = /MemTotal:\s+(\d+)/.exec(ler(ctx, '/proc/meminfo'));
+          const load = (H.readText(ctx, '/proc/loadavg').split(/\s+/)[0]) || '';
+          const nucleos = H.readText(ctx, '/proc/cpuinfo').split('\n').filter(x => /^processor/.test(x)).length;
+          const mem = /MemAvailable:\s+(\d+)/.exec(H.readText(ctx, '/proc/meminfo'));
+          const memTotal = /MemTotal:\s+(\d+)/.exec(H.readText(ctx, '/proc/meminfo'));
           const dfSaida = ctx.run ? (await ctx.run('df -h / | awk \'NR==2 {print $5}\'; df -i / | awk \'NR==2 {print $5}\'')).out : '';
           const [pDisco, pInode] = dfSaida.split('\n').map(x => x.trim()).filter(Boolean);
           const perto = (a, b) => Math.abs(a - b) <= 3;
@@ -41299,7 +41356,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         ],
         hints: ['O <code>crontab -</code> lê a agenda da entrada padrão.'],
         check: async (ctx) => {
-          const cron = ler(ctx, '/var/spool/cron/crontabs/aluno');
+          const cron = H.readText(ctx, '/var/spool/cron/crontabs/aluno');
           return H.checkAll([
             [() => H.usedCommand(ctx, /cat\s+\/etc\/crontab|\/etc\/crontab/), 'Leia o <code>/etc/crontab</code> e repare no campo de usuário.'],
             [() => H.usedCommand(ctx, /cron\.d/), 'Veja um arquivo de <code>/etc/cron.d/</code>.'],
@@ -41342,8 +41399,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         ],
         solution: '<div class="code"><pre>sudo mkdir -p /var/tmp/app\n\nsudo tee /usr/local/bin/limpa-tmp.sh &gt; /dev/null &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\nALVO=/var/tmp/app\nfind "$ALVO" -type f -mtime +7 -delete\necho "$(date +%F) limpeza de $ALVO concluida"\nEOF\nsudo chmod 755 /usr/local/bin/limpa-tmp.sh\n\nprintf \'0 4 * * * /usr/local/bin/limpa-tmp.sh &gt;&gt; /var/log/limpa-tmp.log 2&gt;&amp;1\\n\' | sudo crontab -\nsudo crontab -l\nsudo /usr/local/bin/limpa-tmp.sh</pre></div><p style="margin-top:8px">Repare que a agenda é curta e o cuidado todo está fora dela: caminho absoluto, saída redirecionada e um script que aborta no primeiro erro. A linha do cron é a parte fácil.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/usr/local/bin/limpa-tmp.sh');
-          const cron = ler(ctx, '/var/spool/cron/crontabs/root');
+          const sc = H.readText(ctx, '/usr/local/bin/limpa-tmp.sh');
+          const cron = H.readText(ctx, '/var/spool/cron/crontabs/root');
           const linha = cron.split('\n').map(x => x.trim()).find(l => l && !l.startsWith('#') && /limpa-tmp/.test(l)) || '';
           const campos = linha.split(/\s+/);
           return H.checkAll([
@@ -41520,10 +41577,10 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         ],
         solution: '<div class="code"><pre>mkdir -p ~/site/paginas ~/backups\necho "&lt;h1&gt;inicio&lt;/h1&gt;" &gt; ~/site/index.html\necho "conteudo" &gt; ~/site/paginas/sobre.html\necho "cache" &gt; ~/site/tmp.cache\n\ncat &gt; ~/backup-site.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\nORIGEM="$HOME/site"\nDESTINO="$HOME/backups"\nD=$(date +%F)\nARQ="$DESTINO/site-$D.tar.gz"\n\nmkdir -p "$DESTINO"\ntar --exclude="*.cache" -czf "$ARQ" -C "$HOME" site\n\ncd "$DESTINO"\nsha256sum "site-$D.tar.gz" &gt; SHA256SUMS\n\nfind "$DESTINO" -name "site-*.tar.gz" -mtime +30 -delete\necho "backup gerado: $ARQ"\nEOF\nchmod +x ~/backup-site.sh\n~/backup-site.sh\n\nmkdir -p ~/restauro\ntar -xzf ~/backups/site-$(date +%F).tar.gz -C ~/restauro\nls -R ~/restauro\ncd ~/backups &amp;&amp; sha256sum -c SHA256SUMS &amp;&amp; cd ~</pre></div><p style="margin-top:8px">Note a ordem: gerar, somar, expirar. E note que o teste de restauro é um passo separado — porque na vida real ele é a parte que se esquece.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/backup-site.sh');
+          const sc = H.readText(ctx, '/home/aluno/backup-site.sh');
           const lista = (H.ls(ctx, '/home/aluno/backups') || []).map(x => (typeof x === 'string' ? x : x.name));
           const bkp = lista.find(n => /^site-\d{4}-\d{2}-\d{2}\.tar\.gz$/.test(n));
-          const sums = ler(ctx, '/home/aluno/backups/SHA256SUMS');
+          const sums = H.readText(ctx, '/home/aluno/backups/SHA256SUMS');
           const confere = (sums && ctx.run) ? (await ctx.run('cd ~/backups && sha256sum -c SHA256SUMS 2>&1')).out : '';
           const conteudo = bkp ? (H.read(ctx, '/home/aluno/backups/' + bkp) || '') : '';
           return H.checkAll([
@@ -41689,10 +41746,10 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         ],
         solution: '<div class="code"><pre>sudo mkdir -p /etc/ssh/sshd_config.d\nsudo tee /etc/ssh/sshd_config.d/99-endurecimento.conf &gt; /dev/null &lt;&lt; \'EOF\'\nPermitRootLogin no\nPasswordAuthentication no\nEOF\nsudo sshd -t &amp;&amp; sudo systemctl reload ssh\n\nsudo ufw default deny incoming\nsudo ufw allow 22/tcp\nsudo ufw enable\nsudo ufw status verbose\n\ngetent group sudo | cut -d: -f4 | tr "," "\\n" | grep . &gt; ~/revisao-contas.txt\ncat ~/revisao-contas.txt</pre></div><p style="margin-top:8px">Três controles, nenhum sofisticado — e juntos eles eliminam a maior parte do que realmente acontece com servidores expostos.</p>',
         check: async (ctx) => {
-          const drop = ler(ctx, '/etc/ssh/sshd_config.d/99-endurecimento.conf');
+          const drop = H.readText(ctx, '/etc/ssh/sshd_config.d/99-endurecimento.conf');
           const f = ctx.sh.m.firewall || {};
           const regras = (f.rules || []).filter(r => (r.dir || 'in') === 'in');
-          const rel = ler(ctx, '/home/aluno/revisao-contas.txt');
+          const rel = H.readText(ctx, '/home/aluno/revisao-contas.txt');
           const m = ctx.machine || ctx.sh.m;
           const admins = (m.groupByName('sudo') || { members: [] }).members.slice().sort();
           const ditos = rel.split('\n').map(x => x.trim()).filter(Boolean).sort();
@@ -41726,12 +41783,6 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
-  const unidade = (ctx, nome) => {
-    const m = ctx.machine || ctx.sh.m;
-    const n = nome.includes('.') ? nome : nome + '.service';
-    return m.units && (m.units.get ? m.units.get(n) : m.units[n]);
-  };
 
   /* ============================== 17.1 ============================== */
   LX.lesson('m16d', {
@@ -42061,12 +42112,12 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         ],
         solution: '<div class="code"><pre>systemctl status relatorios --no-pager\nsudo systemctl start relatorios\nsudo journalctl -xeu relatorios --no-pager | tail -5\n\n# defeito 1: caminho errado no ExecStart\nsudo sed -i \'s|/opt/relatorio/gerar.sh|/opt/relatorios/gerar.sh|\' /etc/systemd/system/relatorios.service\nsudo systemctl daemon-reload\nsudo systemctl start relatorios\nsudo journalctl -xeu relatorios --no-pager | tail -3\n\n# defeito 2: o usuario do User= nao existe\nsudo useradd --system --shell /usr/sbin/nologin relatorios\nsudo chown relatorios /var/log/relatorios.log\nsudo systemctl start relatorios\nsudo systemctl enable relatorios\nsystemctl status relatorios --no-pager\n\nprintf \'DEFEITO: ExecStart apontava para /opt/relatorio (singular), caminho inexistente — 203/EXEC\\nDEFEITO: User=relatorios nao existia no sistema — 217/USER\\n\' &gt; ~/diagnostico-5120.txt</pre></div><p style="margin-top:8px">Dois defeitos, dois códigos diferentes, duas correções independentes. Se você tivesse mudado as duas coisas de uma vez, teria funcionado igual — e você não saberia que eram dois problemas.</p>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'relatorios');
-          const unit = ler(ctx, '/etc/systemd/system/relatorios.service');
+          const u = H.unit(ctx, 'relatorios');
+          const unit = H.readText(ctx, '/etc/systemd/system/relatorios.service');
           const m = ctx.machine || ctx.sh.m;
           const usuario = (/^\s*User\s*=\s*(\S+)\s*$/m.exec(unit) || [])[1];
           const exec = (/^\s*ExecStart\s*=\s*(\S+)/m.exec(unit) || [])[1];
-          const diag = ler(ctx, '/home/aluno/diagnostico-5120.txt');
+          const diag = H.readText(ctx, '/home/aluno/diagnostico-5120.txt');
           const defeitos = diag.split('\n').filter(l => /^DEFEITO:/.test(l.trim()));
           return H.checkAll([
             [!!unit, 'A unit <code>relatorios.service</code> sumiu — ela deveria existir em <code>/etc/systemd/system/</code>.'],
@@ -42203,7 +42254,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         solution: '<div class="code"><pre>sudo tee /etc/logrotate.d/coletor &gt; /dev/null &lt;&lt; \'EOF\'\n/var/log/coletor/*.log {\n    daily\n    rotate 5\n    compress\n    missingok\n    notifempty\n}\nEOF\nsudo logrotate -f /etc/logrotate.conf\nls -l /var/log/coletor/ | head\n\nsudo groupadd -f dados\nsudo useradd --system --shell /usr/sbin/nologin -G dados importador\nsudo chown -R root:dados /srv/dados\nsudo chmod 750 /srv/dados\nsudo chmod 640 /srv/dados/entrada.csv\nnamei -l /srv/dados/entrada.csv\nsudo -u importador cat /srv/dados/entrada.csv</pre></div><p style="margin-top:8px">Repare que a permissão de "outros" não foi tocada em momento algum. Foi tudo resolvido pelo grupo — que é o mecanismo que existe exatamente para isso.</p>',
         check: async (ctx) => {
           const m = ctx.machine || ctx.sh.m;
-          const conf = ler(ctx, '/etc/logrotate.d/coletor');
+          const conf = H.readText(ctx, '/etc/logrotate.d/coletor');
           const lista = (H.ls(ctx, '/var/log/coletor') || []).map(x => (typeof x === 'string' ? x : x.name));
           const dirModo = H.mode(ctx, '/srv/dados');
           const arqModo = H.mode(ctx, '/srv/dados/entrada.csv');
@@ -42360,11 +42411,11 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         ],
         solution: '<div class="code"><pre>cat /etc/resolv.conf\nping -c 2 185.125.190.21\n\n# defeito 1: nameserver inalcançável\nsudo sed -i \'s/^nameserver .*/nameserver 10.0.2.3/\' /etc/resolv.conf\ngetent hosts ubuntu.com\n\n# defeito 2: porta 8080 bloqueada na entrada\nsudo ufw status verbose\nsudo ufw allow 8080/tcp\nsudo ufw status verbose\n\nprintf \'DEFEITO: /etc/resolv.conf apontava para o nameserver 10.9.9.53, que nao responde — resolucao de nomes em timeout\\nDEFEITO: firewall com politica deny e sem regra para a porta 8080 — conexoes de fora descartadas em silencio\\n\' &gt; ~/diagnostico-5147.txt\ncat ~/diagnostico-5147.txt</pre></div><p style="margin-top:8px">Dois defeitos, duas camadas diferentes, dois testes independentes. O erro que o método evita aqui é tratar os dois sintomas como "a rede caiu" e sair reiniciando serviço de rede — o que não corrigiria nenhum dos dois.</p>',
         check: async (ctx) => {
-          const resolv = ler(ctx, '/etc/resolv.conf');
+          const resolv = H.readText(ctx, '/etc/resolv.conf');
           const ns = (/^\s*nameserver\s+(\S+)/m.exec(resolv) || [])[1];
           const f = ctx.sh.m.firewall || {};
           const regras = (f.rules || []).filter(r => (r.dir || 'in') === 'in');
-          const diag = ler(ctx, '/home/aluno/diagnostico-5147.txt');
+          const diag = H.readText(ctx, '/home/aluno/diagnostico-5147.txt');
           const defeitos = diag.split('\n').filter(l => /^DEFEITO:/.test(l.trim()));
           const resolveu = ctx.run ? (await ctx.run('getent hosts ubuntu.com')).out : '';
           return H.checkAll([
@@ -43219,10 +43270,13 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       if (!chip) return;
       const iniciais = u ? (u.nome || u.usuario).trim().slice(0, 2).toUpperCase() : '?';
       chip.innerHTML = `<span class="av">${esc(iniciais)}</span><span>${esc(u ? u.usuario : 'entrar')}</span>`;
-      const modo = LX.Store.modo === 'nuvem' ? 'na nuvem da plataforma' : 'neste navegador';
+      const modoNuvem = LX.Store.modo === 'nuvem' || LX.Store.modo === 'supabase';
+      const modo = modoNuvem
+        ? (LX.Store.modo === 'supabase' ? 'na nuvem (Supabase)' : 'na nuvem da plataforma')
+        : 'neste navegador';
       const sync = $('#sync-state');
       if (sync) {
-        sync.className = 'sync-state ' + (LX.Store.modo === 'nuvem' ? 'dot-ok' : 'dot-local');
+        sync.className = 'sync-state ' + (modoNuvem ? 'dot-ok' : 'dot-local');
         sync.innerHTML = `<i></i><span>${u ? esc(u.usuario) : 'sem conta'}</span>`;
       }
       const st = this.stats();
@@ -43631,7 +43685,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     applyLessonSetup() {
       const f = this.findLesson(this.route.lesson);
       if (!f || !f.lesson.setup) return;
-      try { f.lesson.setup(this.machine, this.term); } catch (e) { console.warn('setup falhou', e); }
+      try { f.lesson.setup(this.machine, this.term); }
+      catch (e) { console.warn(`[Terminalis] Falha ao preparar a aula ${f.lesson.id}:`, e); }
     }
 
     /* ----------------------------- render de aula ----------------------------- */
@@ -43732,7 +43787,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       try {
         await LX.Sync.migrarLocais(uid);
         await LX.Sync.restaurar(uid);
-      } catch (e) { console.warn('nuvem:', e); }
+      } catch (e) { console.warn(`[Terminalis] Falha ao iniciar a nuvem para ${uid}:`, e); }
       this.overlayRestauracao(false);
     }
 
@@ -44554,8 +44609,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     /* Preencha para ligar a sincronização em nuvem. Deixe vazio para
        rodar 100% local (localStorage), como sempre funcionou. */
     supabase: {
-      url: '',
-      anonKey: ''
+      url: 'https://ndfgsnzxhxxijrxlztoi.supabase.co',
+      anonKey: 'sb_publishable_Wx_oxGjxT97T8hoj7sMY1w_ddrVqQaG'
     },
 
     /* Ajustes finos da sincronização automática. */
@@ -44874,6 +44929,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
   LX.Cloud = Cloud;
 })();
 
+
 ;
 /* ==== 74-cloud-30-storage.js ==== */
 /* =========================================================================
@@ -45026,6 +45082,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
   LX.Storage = Storage;
 })();
 
+
 ;
 /* ==== 74-cloud-40-sync.js ==== */
 /* =========================================================================
@@ -45062,6 +45119,12 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
   const BACKUP_WS = 'terminalis.backup.workspace/';
   const MIGRADO = 'terminalis.migrado/';
 
+  function diagnosticar(contexto, erro) {
+    if (typeof console === 'undefined' || typeof console.warn !== 'function') return;
+    const detalhe = erro && erro.message ? ': ' + erro.message : '';
+    console.warn('[Terminalis Sync] ' + contexto + detalhe, erro);
+  }
+
   const Sync = {
     app: null,
     _revisao: 0,          // última revisão conhecida do workspace na nuvem
@@ -45082,7 +45145,10 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       if (temWindow && !this._ligado) {
         window.addEventListener('online', () => this._voltouOnline());
         window.addEventListener('offline', () => this.status('offline'));
-        window.addEventListener('beforeunload', () => { try { this._cacheProgresso(); } catch (e) { } });
+        window.addEventListener('beforeunload', () => {
+          try { this._cacheProgresso(); }
+          catch (e) { /* o navegador está encerrando; não há interface disponível para diagnóstico */ }
+        });
         this._ligado = true;
       }
       this.status(this._temNuvem() ? 'salvo' : 'local');
@@ -45142,7 +45208,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 
     _docLocal() {
       let raw = null;
-      try { raw = localStorage.getItem(CACHE_WS + this._uid()); } catch (e) { }
+      try { raw = localStorage.getItem(CACHE_WS + this._uid()); }
+      catch (e) { /* armazenamento bloqueado: a restauração ainda pode usar a nuvem */ }
       if (!raw) return null;
       try { return JSON.parse(raw); } catch (e) { return null; }
     },
@@ -45152,13 +45219,13 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         if (!snap) return;
         localStorage.setItem(CACHE_WS + this._uid(), JSON.stringify(
           { version: snap.version, revision: this._revisao, updatedAt: Date.now(), snapshot: snap }));
-      } catch (e) { /* cota cheia ou snapshot inválido: ignora o cache */ }
+      } catch (e) { diagnosticar('não foi possível atualizar o cache do workspace', e); }
     },
     _cacheProgresso() {
       try {
         if (LX.Progress && LX.Progress.data)
           localStorage.setItem(CACHE_PROG + this._uid(), JSON.stringify(LX.Progress.data));
-      } catch (e) { }
+      } catch (e) { diagnosticar('não foi possível atualizar o cache de progresso', e); }
     },
 
     /* ------------------------------ enviar ------------------------------ */
@@ -45182,7 +45249,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         else { this._pendente = true; this.status('erro'); }
       } catch (e) {
         this._pendente = true; this.status('erro');
-        if (typeof console !== 'undefined') console.warn('Sync workspace falhou:', e);
+        diagnosticar(`falha ao enviar workspace de ${uid} na revisão ${this._revisao}`, e);
       } finally {
         this._flushing = false;
         if (this._reflush) { this._reflush = false; this.marcarSujo('workspace'); }
@@ -45210,7 +45277,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         localSnapshot = snap;
         if (snap) localStorage.setItem(BACKUP_WS + this._uid() + '.' + Date.now(),
           JSON.stringify({ version: snap.version, updatedAt: Date.now(), snapshot: snap }));
-      } catch (e) { }
+      } catch (e) { diagnosticar('não foi possível criar o backup local do conflito', e); }
       this._conflito = { atual: atual || null, localSnapshot };
       this._pausado = true;
       this._pendente = false; this._sujo = false;
@@ -45260,6 +45327,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
           this._sujo = false; this._pendente = false; this.status('salvo');
           return true;
         } catch (e) {
+          diagnosticar('não foi possível aplicar o workspace remoto escolhido', e);
           this.status('erro');
           return false;
         }
@@ -45281,7 +45349,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       if (!uid) return false;
       this.status('restaurando');
       let doc = null;
-      try { doc = await LX.Storage.getWorkspace(uid); } catch (e) { doc = null; }
+      try { doc = await LX.Storage.getWorkspace(uid); }
+      catch (e) { diagnosticar(`falha ao buscar workspace remoto de ${uid}; tentando o cache local`, e); doc = null; }
       /* Sem nuvem ou sem snapshot na nuvem: tenta o cache local desta máquina. */
       if (!doc || !doc.snapshot) doc = this._melhorLocal(uid, doc);
       if (!doc || !doc.snapshot) { this._revisao = doc ? (doc.revision || 0) : 0; this.status(this._temNuvem() ? 'salvo' : 'local'); return false; }
@@ -45293,7 +45362,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         this.status(this._temNuvem() ? 'salvo' : 'local');
         return true;
       } catch (e) {
-        if (typeof console !== 'undefined') console.warn('Restauração falhou:', e);
+        diagnosticar(`snapshot de ${uid} recusado durante a restauração`, e);
         this.status(this._temNuvem() ? 'salvo' : 'local');
         return false;
       }
@@ -45314,7 +45383,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       uid = uid || this._uid();
       if (!uid) return false;
       let jaFez = false;
-      try { jaFez = !!localStorage.getItem(MIGRADO + uid); } catch (e) { }
+      try { jaFez = !!localStorage.getItem(MIGRADO + uid); }
+      catch (e) { /* sem marcador local, a migração idempotente pode ser tentada novamente */ }
       if (jaFez) return false;
 
       let migrou = false;
@@ -45331,7 +45401,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
             migrou = true;
           }
         }
-      } catch (e) { }
+      } catch (e) { diagnosticar(`falha ao migrar o progresso local de ${uid}`, e); }
 
       /* Workspace: idem, migra o cache local se a nuvem não tiver nada. */
       try {
@@ -45343,9 +45413,10 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
             if (r.ok) { this._revisao = r.revision; migrou = true; }
           }
         }
-      } catch (e) { }
+      } catch (e) { diagnosticar(`falha ao migrar o workspace local de ${uid}`, e); }
 
-      try { localStorage.setItem(MIGRADO + uid, String(Date.now())); } catch (e) { }
+      try { localStorage.setItem(MIGRADO + uid, String(Date.now())); }
+      catch (e) { /* o marcador é uma otimização; os dados já foram tratados acima */ }
       return migrou;
     },
 
@@ -45361,7 +45432,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
           const n = d && d.lessons ? Object.keys(d.lessons).length : 0;
           if (n > max) { max = n; melhor = d; }
         }
-      } catch (e) { }
+      } catch (e) { diagnosticar('falha ao procurar progresso no armazenamento local', e); }
       return melhor;
     },
 
@@ -45375,7 +45446,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         const uid = this._uid();
         const raw = localStorage.getItem(CACHE_PROG + uid);
         if (raw && LX.Auth && LX.Auth.gravarAgora) await LX.Auth.gravarAgora(JSON.parse(raw));
-      } catch (e) { }
+      } catch (e) { diagnosticar('falha ao reenviar o progresso depois da reconexão', e); }
     },
 
     /* ------------------------------- status ------------------------------- */
@@ -45407,6 +45478,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 
   LX.Sync = Sync;
 })();
+
 
 ;
 /* ==== 76-progressao.js ==== */
@@ -58985,6 +59057,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
     }
   };
 })();
+
 </script>
 <script>
   window.addEventListener('DOMContentLoaded', async function () {

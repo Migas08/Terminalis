@@ -32,6 +32,12 @@
   const BACKUP_WS = 'terminalis.backup.workspace/';
   const MIGRADO = 'terminalis.migrado/';
 
+  function diagnosticar(contexto, erro) {
+    if (typeof console === 'undefined' || typeof console.warn !== 'function') return;
+    const detalhe = erro && erro.message ? ': ' + erro.message : '';
+    console.warn('[Terminalis Sync] ' + contexto + detalhe, erro);
+  }
+
   const Sync = {
     app: null,
     _revisao: 0,          // última revisão conhecida do workspace na nuvem
@@ -52,7 +58,10 @@
       if (temWindow && !this._ligado) {
         window.addEventListener('online', () => this._voltouOnline());
         window.addEventListener('offline', () => this.status('offline'));
-        window.addEventListener('beforeunload', () => { try { this._cacheProgresso(); } catch (e) { } });
+        window.addEventListener('beforeunload', () => {
+          try { this._cacheProgresso(); }
+          catch (e) { /* o navegador está encerrando; não há interface disponível para diagnóstico */ }
+        });
         this._ligado = true;
       }
       this.status(this._temNuvem() ? 'salvo' : 'local');
@@ -112,7 +121,8 @@
 
     _docLocal() {
       let raw = null;
-      try { raw = localStorage.getItem(CACHE_WS + this._uid()); } catch (e) { }
+      try { raw = localStorage.getItem(CACHE_WS + this._uid()); }
+      catch (e) { /* armazenamento bloqueado: a restauração ainda pode usar a nuvem */ }
       if (!raw) return null;
       try { return JSON.parse(raw); } catch (e) { return null; }
     },
@@ -122,13 +132,13 @@
         if (!snap) return;
         localStorage.setItem(CACHE_WS + this._uid(), JSON.stringify(
           { version: snap.version, revision: this._revisao, updatedAt: Date.now(), snapshot: snap }));
-      } catch (e) { /* cota cheia ou snapshot inválido: ignora o cache */ }
+      } catch (e) { diagnosticar('não foi possível atualizar o cache do workspace', e); }
     },
     _cacheProgresso() {
       try {
         if (LX.Progress && LX.Progress.data)
           localStorage.setItem(CACHE_PROG + this._uid(), JSON.stringify(LX.Progress.data));
-      } catch (e) { }
+      } catch (e) { diagnosticar('não foi possível atualizar o cache de progresso', e); }
     },
 
     /* ------------------------------ enviar ------------------------------ */
@@ -152,7 +162,7 @@
         else { this._pendente = true; this.status('erro'); }
       } catch (e) {
         this._pendente = true; this.status('erro');
-        if (typeof console !== 'undefined') console.warn('Sync workspace falhou:', e);
+        diagnosticar(`falha ao enviar workspace de ${uid} na revisão ${this._revisao}`, e);
       } finally {
         this._flushing = false;
         if (this._reflush) { this._reflush = false; this.marcarSujo('workspace'); }
@@ -180,7 +190,7 @@
         localSnapshot = snap;
         if (snap) localStorage.setItem(BACKUP_WS + this._uid() + '.' + Date.now(),
           JSON.stringify({ version: snap.version, updatedAt: Date.now(), snapshot: snap }));
-      } catch (e) { }
+      } catch (e) { diagnosticar('não foi possível criar o backup local do conflito', e); }
       this._conflito = { atual: atual || null, localSnapshot };
       this._pausado = true;
       this._pendente = false; this._sujo = false;
@@ -230,6 +240,7 @@
           this._sujo = false; this._pendente = false; this.status('salvo');
           return true;
         } catch (e) {
+          diagnosticar('não foi possível aplicar o workspace remoto escolhido', e);
           this.status('erro');
           return false;
         }
@@ -251,7 +262,8 @@
       if (!uid) return false;
       this.status('restaurando');
       let doc = null;
-      try { doc = await LX.Storage.getWorkspace(uid); } catch (e) { doc = null; }
+      try { doc = await LX.Storage.getWorkspace(uid); }
+      catch (e) { diagnosticar(`falha ao buscar workspace remoto de ${uid}; tentando o cache local`, e); doc = null; }
       /* Sem nuvem ou sem snapshot na nuvem: tenta o cache local desta máquina. */
       if (!doc || !doc.snapshot) doc = this._melhorLocal(uid, doc);
       if (!doc || !doc.snapshot) { this._revisao = doc ? (doc.revision || 0) : 0; this.status(this._temNuvem() ? 'salvo' : 'local'); return false; }
@@ -263,7 +275,7 @@
         this.status(this._temNuvem() ? 'salvo' : 'local');
         return true;
       } catch (e) {
-        if (typeof console !== 'undefined') console.warn('Restauração falhou:', e);
+        diagnosticar(`snapshot de ${uid} recusado durante a restauração`, e);
         this.status(this._temNuvem() ? 'salvo' : 'local');
         return false;
       }
@@ -284,7 +296,8 @@
       uid = uid || this._uid();
       if (!uid) return false;
       let jaFez = false;
-      try { jaFez = !!localStorage.getItem(MIGRADO + uid); } catch (e) { }
+      try { jaFez = !!localStorage.getItem(MIGRADO + uid); }
+      catch (e) { /* sem marcador local, a migração idempotente pode ser tentada novamente */ }
       if (jaFez) return false;
 
       let migrou = false;
@@ -301,7 +314,7 @@
             migrou = true;
           }
         }
-      } catch (e) { }
+      } catch (e) { diagnosticar(`falha ao migrar o progresso local de ${uid}`, e); }
 
       /* Workspace: idem, migra o cache local se a nuvem não tiver nada. */
       try {
@@ -313,9 +326,10 @@
             if (r.ok) { this._revisao = r.revision; migrou = true; }
           }
         }
-      } catch (e) { }
+      } catch (e) { diagnosticar(`falha ao migrar o workspace local de ${uid}`, e); }
 
-      try { localStorage.setItem(MIGRADO + uid, String(Date.now())); } catch (e) { }
+      try { localStorage.setItem(MIGRADO + uid, String(Date.now())); }
+      catch (e) { /* o marcador é uma otimização; os dados já foram tratados acima */ }
       return migrou;
     },
 
@@ -331,7 +345,7 @@
           const n = d && d.lessons ? Object.keys(d.lessons).length : 0;
           if (n > max) { max = n; melhor = d; }
         }
-      } catch (e) { }
+      } catch (e) { diagnosticar('falha ao procurar progresso no armazenamento local', e); }
       return melhor;
     },
 
@@ -345,7 +359,7 @@
         const uid = this._uid();
         const raw = localStorage.getItem(CACHE_PROG + uid);
         if (raw && LX.Auth && LX.Auth.gravarAgora) await LX.Auth.gravarAgora(JSON.parse(raw));
-      } catch (e) { }
+      } catch (e) { diagnosticar('falha ao reenviar o progresso depois da reconexão', e); }
     },
 
     /* ------------------------------- status ------------------------------- */
