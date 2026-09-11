@@ -19,7 +19,9 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Build
+      - name: Build (modo offline para os testes)
+        env:
+          TERMINALIS_OFFLINE: "1"
         run: npm run build
       - name: Test engine and content
         run: npm test
