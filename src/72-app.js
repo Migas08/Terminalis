@@ -146,10 +146,13 @@
       if (!chip) return;
       const iniciais = u ? (u.nome || u.usuario).trim().slice(0, 2).toUpperCase() : '?';
       chip.innerHTML = `<span class="av">${esc(iniciais)}</span><span>${esc(u ? u.usuario : 'entrar')}</span>`;
-      const modo = LX.Store.modo === 'nuvem' ? 'na nuvem da plataforma' : 'neste navegador';
+      const modoNuvem = LX.Store.modo === 'nuvem' || LX.Store.modo === 'supabase';
+      const modo = modoNuvem
+        ? (LX.Store.modo === 'supabase' ? 'na nuvem (Supabase)' : 'na nuvem da plataforma')
+        : 'neste navegador';
       const sync = $('#sync-state');
       if (sync) {
-        sync.className = 'sync-state ' + (LX.Store.modo === 'nuvem' ? 'dot-ok' : 'dot-local');
+        sync.className = 'sync-state ' + (modoNuvem ? 'dot-ok' : 'dot-local');
         sync.innerHTML = `<i></i><span>${u ? esc(u.usuario) : 'sem conta'}</span>`;
       }
       const st = this.stats();
@@ -558,7 +561,8 @@
     applyLessonSetup() {
       const f = this.findLesson(this.route.lesson);
       if (!f || !f.lesson.setup) return;
-      try { f.lesson.setup(this.machine, this.term); } catch (e) { console.warn('setup falhou', e); }
+      try { f.lesson.setup(this.machine, this.term); }
+      catch (e) { console.warn(`[Terminalis] Falha ao preparar a aula ${f.lesson.id}:`, e); }
     }
 
     /* ----------------------------- render de aula ----------------------------- */
@@ -659,7 +663,7 @@
       try {
         await LX.Sync.migrarLocais(uid);
         await LX.Sync.restaurar(uid);
-      } catch (e) { console.warn('nuvem:', e); }
+      } catch (e) { console.warn(`[Terminalis] Falha ao iniciar a nuvem para ${uid}:`, e); }
       this.overlayRestauracao(false);
     }
 

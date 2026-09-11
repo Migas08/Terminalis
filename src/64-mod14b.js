@@ -4,8 +4,6 @@
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
-  const rodar = async (ctx, cmd) => (ctx.run ? (await ctx.run(cmd)).out : '');
 
   /* ============================== 14.4 ============================== */
   LX.lesson('m14', {
@@ -158,9 +156,9 @@ o shell executa:  grep erro de rede app.log sys.log`
         ],
         solution: '<div class="code"><pre>mkdir -p ~/lote ~/scripts\ntouch ~/lote/"relatorio final.tar.gz" ~/lote/notas.txt ~/lote/dados.csv.gz\n\ncat &gt; ~/scripts/nomes.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\nfor f in "$HOME"/lote/*; do\n  nome="${f##*/}"\n  ext="${nome#*.}"\n  echo "$nome | $ext"\ndone\nEOF\nchmod +x ~/scripts/nomes.sh\n~/scripts/nomes.sh</pre></div><p style="margin-top:8px">Três linhas dentro do laço, nenhum processo criado. O <code>##*/</code> come tudo até a última barra; o <code>#*.</code> come até o primeiro ponto. É a mesma lógica de <code>#</code> (começo) e <code>%</code> (fim) da tabela.</p>',
         check: async (ctx) => {
-          const sc = ler(ctx, '/home/aluno/scripts/nomes.sh');
+          const sc = H.readText(ctx, '/home/aluno/scripts/nomes.sh');
           if (!sc) return { ok: false, msg: 'Não encontrei <code>~/scripts/nomes.sh</code>.' };
-          const saida = await rodar(ctx, '~/scripts/nomes.sh 2>&1');
+          const saida = await H.runOutput(ctx, '~/scripts/nomes.sh 2>&1');
           const l = saida.split('\n').map(x => x.trim()).filter(Boolean).sort();
           return H.checkAll([
             [() => (H.mode(ctx, '/home/aluno/scripts/nomes.sh') & 0o111) !== 0, 'O script precisa ser executável.'],
@@ -325,11 +323,11 @@ o shell executa:  grep erro de rede app.log sys.log`
         ],
         solution: '<div class="code"><pre>mkdir -p ~/app ~/scripts\ncat &gt; ~/app/config.env &lt;&lt; \'EOF\'\nAPP_USUARIO=servico\nAPP_SENHA=trocar-em-producao\nEOF\nchmod 600 ~/app/config.env\nls -l ~/app/config.env\n\ncat &gt; ~/scripts/carrega.sh &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\nexport LC_ALL=C\n\nsource "$HOME/app/config.env"\n\necho "usuario: $APP_USUARIO"\necho "senha: (oculta)"\n\nunset APP_SENHA\necho "senha no ambiente apos unset: [${APP_SENHA:-}]"\nEOF\nchmod +x ~/scripts/carrega.sh\n~/scripts/carrega.sh</pre></div><p style="margin-top:8px">O segredo fica num arquivo que só o dono lê, entra no shell por <code>source</code>, nunca é impresso e sai do ambiente assim que deixa de ser necessário. É o mínimo defensável — e já elimina os vazamentos mais comuns.</p>',
         check: async (ctx) => {
-          const conf = ler(ctx, '/home/aluno/app/config.env');
-          const sc = ler(ctx, '/home/aluno/scripts/carrega.sh');
+          const conf = H.readText(ctx, '/home/aluno/app/config.env');
+          const sc = H.readText(ctx, '/home/aluno/scripts/carrega.sh');
           const modo = H.mode(ctx, '/home/aluno/app/config.env');
           if (!sc) return { ok: false, msg: 'Não encontrei <code>~/scripts/carrega.sh</code>.' };
-          const saida = await rodar(ctx, '~/scripts/carrega.sh 2>&1');
+          const saida = await H.runOutput(ctx, '~/scripts/carrega.sh 2>&1');
           const l = saida.split('\n').map(x => x.trim()).filter(Boolean);
           return H.checkAll([
             [!!conf, 'Falta o <code>~/app/config.env</code>.'],

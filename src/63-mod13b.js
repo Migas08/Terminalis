@@ -4,8 +4,6 @@
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
-  const rodar = async (ctx, cmd) => (ctx.run ? (await ctx.run(cmd)).out : '');
 
   /* ============================== 13.4 ============================== */
   LX.lesson('m13', {
@@ -152,7 +150,7 @@ tar -xzf app.tar.gz --strip-components=1 →  joga src/, README.md, config.yml
         ],
         solution: '<div class="code"><pre>mkdir -p ~/pacote/src ~/saida ~/app\necho "config" &gt; ~/pacote/config.yml\necho "codigo" &gt; ~/pacote/src/main.py\necho "log antigo" &gt; ~/pacote/app.log\ntar -czf ~/pacote.tar.gz -C ~ pacote\n\ntar -tzf ~/pacote.tar.gz &gt; ~/saida/conteudo.txt\ncat ~/saida/conteudo.txt\n\ntar -xzf ~/pacote.tar.gz -C ~/saida pacote/config.yml\nls -R ~/saida\n\ntar -xzf ~/pacote.tar.gz -C ~/app --strip-components=1\nls ~/app</pre></div><p style="margin-top:8px">Três operações, nenhuma delas descompactou o arquivo inteiro. Num pacote de alguns gigabytes essa diferença deixa de ser elegância e vira o único jeito viável.</p>',
         check: async (ctx) => {
-          const lista = ler(ctx, '/home/aluno/saida/conteudo.txt');
+          const lista = H.readText(ctx, '/home/aluno/saida/conteudo.txt');
           const saidaLs = (H.ls(ctx, '/home/aluno/saida/pacote') || []).map(x => (typeof x === 'string' ? x : x.name));
           return H.checkAll([
             [() => H.exists(ctx, '/home/aluno/pacote.tar.gz'), 'Falta o <code>~/pacote.tar.gz</code> — recrie o cenário.'],
@@ -308,12 +306,12 @@ tar -xzf app.tar.gz --strip-components=1 →  joga src/, README.md, config.yml
         ],
         solution: '<div class="code"><pre>mkdir -p ~/envio ~/recebido\nseq 1 500 &gt; ~/envio/dados.txt\necho "config da equipe" &gt; ~/envio/config.ini\n\ncd ~\ntar -czf transporte.tar.gz envio\nsha256sum transporte.tar.gz &gt; transporte.sha256\ncat transporte.sha256\n\nsplit -b 400 transporte.tar.gz parte-\nls parte-*\n\ncat parte-* &gt; ~/recebido/transporte.tar.gz\ncd ~/recebido &amp;&amp; cp ~/transporte.sha256 . &amp;&amp; sha256sum -c transporte.sha256\ntar -xzf transporte.tar.gz\nls -R ~/recebido\ncd ~</pre></div><p style="margin-top:8px">A soma foi calculada antes de dividir e conferida depois de remontar — então ela cobre a divisão, cada pedaço transferido e a junção. Se qualquer etapa tivesse falhado, o <code>-c</code> acusaria.</p>',
         check: async (ctx) => {
-          const soma = ler(ctx, '/home/aluno/transporte.sha256');
+          const soma = H.readText(ctx, '/home/aluno/transporte.sha256');
           const raiz = (H.ls(ctx, '/home/aluno') || []).map(x => (typeof x === 'string' ? x : x.name));
           const partes = raiz.filter(n => /^parte-/.test(n));
-          const original = ler(ctx, '/home/aluno/transporte.tar.gz');
-          const remontado = ler(ctx, '/home/aluno/recebido/transporte.tar.gz');
-          const confere = await rodar(ctx, 'cd ~/recebido && cp ~/transporte.sha256 . 2>/dev/null; sha256sum -c transporte.sha256 2>&1');
+          const original = H.readText(ctx, '/home/aluno/transporte.tar.gz');
+          const remontado = H.readText(ctx, '/home/aluno/recebido/transporte.tar.gz');
+          const confere = await H.runOutput(ctx, 'cd ~/recebido && cp ~/transporte.sha256 . 2>/dev/null; sha256sum -c transporte.sha256 2>&1');
           return H.checkAll([
             [!!original, 'Falta o <code>~/transporte.tar.gz</code>.'],
             [() => /envio\/config\.ini/.test(original) && /envio\/dados\.txt/.test(original), 'O pacote deve conter o conteúdo de <code>~/envio</code>.'],

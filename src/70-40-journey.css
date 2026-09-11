@@ -1,0 +1,255 @@
+/* =========================== JORNADA =========================== */
+.jn-hero { margin-bottom: 26px; max-width: 720px; }
+.jn-hero .title { margin-bottom: 10px; }
+.lede.pequena { font-size: 13.5px; margin: -6px 0 16px; }
+
+/* marcadores de estado reaproveitados em etapas e requisitos */
+.mk { width: 18px; height: 18px; flex: none; display: grid; place-items: center; }
+.mk svg { width: 100%; height: 100%; }
+.mk.feito { color: var(--green); }
+.mk.atual { color: var(--amber); }
+.mk.trava, .mk.aberto { color: var(--tx-3); }
+
+.jn-bar { display: block; height: 6px; border-radius: 4px; background: var(--surface-4); overflow: hidden; flex: 1; }
+.jn-bar i { display: block; height: 100%; border-radius: 4px; background: var(--acc, var(--green)); transition: width .45s cubic-bezier(.2,.8,.3,1); }
+.jn-bar.fina { height: 4px; margin-top: 6px; }
+
+.jn-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 650; letter-spacing: .01em; white-space: nowrap;
+  background: var(--surface-4); border: 1px solid var(--line-strong); color: var(--tx-2);
+}
+.jn-chip svg { width: 12px; height: 12px; }
+.jn-chip.concluida { background: var(--green-soft); border-color: var(--green-line); color: var(--green); }
+.jn-chip.em-andamento { background: var(--amber-soft); border-color: rgba(183,183,183,.32); color: var(--amber); }
+.jn-chip.disponivel { background: var(--blue-soft); border-color: rgba(156,156,156,.3); color: var(--blue); }
+
+/* ---- cartão "onde você está" ---- */
+.jn-agora {
+  --acc: var(--green);
+  position: relative; overflow: hidden; margin-bottom: 34px;
+  padding: 20px 24px 18px; display: grid; gap: 16px;
+  background: linear-gradient(140deg, var(--surface-2), var(--surface) 62%);
+  border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+}
+.jn-agora.c-amber { --acc: var(--amber); }
+.jn-agora.c-blue { --acc: var(--blue); }
+.jn-agora.c-green { --acc: var(--green); }
+.jn-agora.c-red { --acc: var(--red); }
+.jn-agora.c-violet { --acc: var(--violet); }
+.jn-agora::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--acc); }
+.jn-agora::after {
+  content: ''; position: absolute; right: -110px; top: -120px; width: 320px; height: 320px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--acc) 15%, transparent), transparent 68%); pointer-events: none;
+}
+.jn-agora > * { position: relative; z-index: 1; }
+
+.jn-agora-cab { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.jn-agora-ic {
+  width: 38px; height: 38px; flex: none; border-radius: 10px; display: grid; place-items: center;
+  background: var(--surface-3); border: 1px solid var(--line-strong); color: var(--acc);
+}
+.jn-agora-ic svg { width: 21px; height: 21px; }
+.jn-agora-onde { display: grid; gap: 1px; }
+.k {
+  font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--tx-3);
+}
+.jn-agora-onde .v { font-size: 14.5px; font-weight: 650; color: var(--tx); }
+.jn-agora-etapa {
+  margin-left: auto; padding: 5px 11px; border-radius: 999px; white-space: nowrap;
+  background: var(--surface-3); border: 1px solid var(--line); color: var(--tx-3); font-size: 11.5px;
+}
+.jn-agora-etapa b { color: var(--acc); font-weight: 650; }
+
+.jn-agora-corpo { max-width: 68ch; }
+.jn-agora-aula {
+  margin: 4px 0 7px; font-size: clamp(19px, 2.1vw, 24px); font-weight: 650;
+  letter-spacing: -.018em; line-height: 1.2; color: var(--tx); text-wrap: balance;
+}
+.jn-agora-goal { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--tx-2); }
+
+.jn-agora-pe {
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  padding-top: 15px; border-top: 1px solid var(--line-soft);
+}
+.jn-agora-prog { display: flex; align-items: center; gap: 11px; flex: 1; min-width: 180px; }
+.jn-agora-prog .pc { font-family: var(--f-mono); font-size: 11px; color: var(--tx-3); white-space: nowrap; }
+.jn-agora-cta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn.grande { padding: 11px 20px; font-size: 14px; justify-content: center; }
+.btn.grande svg { width: 15px; height: 15px; }
+
+/* ---- separador de seção ---- */
+.jn-secao { display: flex; align-items: center; gap: 12px; margin: 34px 0 16px; }
+.jn-secao-tt {
+  font-family: var(--f-mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--tx-3);
+}
+.jn-secao-ln { flex: 1; height: 1px; background: var(--line); }
+.jn-secao-link {
+  background: 0; border: 0; padding: 0; cursor: pointer; color: var(--tx-3);
+  font: 600 12px var(--f-ui); display: inline-flex; align-items: center; gap: 5px;
+}
+.jn-secao-link svg { width: 12px; height: 12px; }
+.jn-secao-link:hover { color: var(--green); }
+
+/* ---- a trilha vertical ---- */
+.jn-trilha { list-style: none; margin: 0; padding: 0; }
+.jn-no { --acc: var(--green); display: grid; grid-template-columns: 34px 1fr; gap: 14px; }
+.jn-no.c-amber { --acc: var(--amber); }
+.jn-no.c-blue { --acc: var(--blue); }
+.jn-no.c-green { --acc: var(--green); }
+.jn-no.c-red { --acc: var(--red); }
+.jn-no.c-violet { --acc: var(--violet); }
+.jn-linha { position: relative; display: flex; justify-content: center; padding-top: 22px; }
+.jn-linha::before {
+  content: ''; position: absolute; top: 0; bottom: -14px; left: 50%; width: 2px; margin-left: -1px;
+  background: linear-gradient(var(--line-strong), var(--line));
+}
+.jn-no:first-child .jn-linha::before { top: 22px; }
+.jn-no.ultimo .jn-linha::before { bottom: auto; height: 22px; }
+.jn-ponto {
+  position: relative; z-index: 1; width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--bg);
+  border: 2px solid var(--line-strong); color: var(--tx-3);
+}
+.jn-ponto svg { width: 13px; height: 13px; }
+.jn-no.concluida .jn-ponto { border-color: var(--green); color: var(--green); background: var(--green-soft); }
+.jn-no.em-andamento .jn-ponto { border-color: var(--acc); color: var(--acc); }
+.jn-no.disponivel .jn-ponto, .jn-no.em-producao .jn-ponto { border-color: var(--acc); color: var(--acc); }
+
+.jn-card {
+  margin-bottom: 16px; padding: 18px 20px; border-radius: var(--r-lg);
+  background: var(--surface-2); border: 1px solid var(--line); transition: .18s;
+}
+.jn-card.aberta { cursor: pointer; }
+.jn-card.aberta:hover { border-color: var(--acc); background: var(--surface-3); transform: translateY(-1px); }
+.jn-card.aberta:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.jn-no.bloqueada .jn-card { background: var(--surface); border-style: dashed; }
+.jn-card-topo { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 14px; }
+.jn-card-ic {
+  width: 38px; height: 38px; flex: none; border-radius: 10px; display: grid; place-items: center;
+  background: var(--surface-3); border: 1px solid var(--line); color: var(--acc);
+}
+.jn-no.bloqueada .jn-card-ic, .jn-painel.bloqueada .jn-card-ic { color: var(--tx-3); }
+.jn-card-ic svg { width: 21px; height: 21px; }
+.jn-card-tit { flex: 1; min-width: 0; }
+.jn-card-tit .nm { display: block; font-size: 16px; font-weight: 650; letter-spacing: -.01em; color: var(--tx); }
+.jn-card-tit .rs { display: block; margin-top: 2px; font-size: 12.8px; line-height: 1.5; color: var(--tx-3); }
+.jn-card-prog { display: flex; align-items: center; gap: 11px; margin-bottom: 15px; }
+.jn-card-prog .pc { font-family: var(--f-mono); font-size: 12px; font-weight: 600; color: var(--acc); min-width: 34px; }
+.jn-card-prog .nm2 { font-size: 11.5px; color: var(--tx-3); white-space: nowrap; }
+.jn-card-prog.grande .jn-bar { height: 8px; }
+
+/* etapas */
+.jn-etapas { list-style: none; margin: 0; padding: 0; display: grid; gap: 11px; }
+.jn-etapa { display: grid; grid-template-columns: 18px 1fr; gap: 11px; align-items: start; }
+.jn-etapa-topo { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.jn-etapa-nome { font-size: 13.2px; font-weight: 600; color: var(--tx-2); }
+.jn-etapa.concluida .jn-etapa-nome { color: var(--tx); }
+.jn-etapa.atual .jn-etapa-nome { color: var(--amber); }
+.jn-etapa-num { font-family: var(--f-mono); font-size: 10.5px; color: var(--tx-3); margin-left: auto; white-space: nowrap; }
+.jn-etapa-res { margin: 4px 0 7px; font-size: 12.5px; line-height: 1.55; color: var(--tx-3); }
+.jn-etapa .jn-bar { height: 5px; margin-top: 6px; }
+.jn-etapa.aguardando { opacity: .55; }
+
+.jn-mods { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px; margin-top: 10px; }
+.jn-mod {
+  display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer;
+  padding: 7px 10px; border-radius: var(--r-sm); background: var(--surface-3);
+  border: 1px solid var(--line-soft); color: var(--tx-2); font: 500 12.4px var(--f-ui);
+}
+.jn-mod:hover:not(:disabled) { border-color: var(--acc); color: var(--tx); }
+.jn-mod:disabled { cursor: default; opacity: .5; }
+.jn-mod .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jn-mod .ct { font-family: var(--f-mono); font-size: 10.5px; color: var(--tx-3); }
+.jn-mod.feito { border-color: var(--green-line); }
+.jn-mod.feito .ct { color: var(--green); }
+
+.jn-card-pe { margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--line-soft); display: flex; align-items: center; gap: 12px; }
+.jn-card-pe .cta { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 650; color: var(--acc); }
+.jn-card-pe .cta svg { width: 13px; height: 13px; }
+.jn-card-pe.travado { justify-content: space-between; flex-wrap: wrap; }
+.jn-card-pe .por-que { display: inline-flex; align-items: center; gap: 7px; font-size: 11.8px; color: var(--tx-3); line-height: 1.45; }
+.jn-card-pe .por-que svg { width: 13px; height: 13px; flex: none; }
+
+/* requisitos */
+.jn-req { border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-3); padding: 13px 15px; }
+.jn-req-cab {
+  font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--tx-3); margin-bottom: 11px;
+}
+.jn-req-cab b { color: var(--tx-2); }
+.jn-req-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.jn-req-lista li { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; }
+.jn-req-lista .tx { min-width: 0; }
+.jn-req-lista .t { display: block; font-size: 13px; font-weight: 600; color: var(--tx-2); }
+.jn-req-lista .d { display: block; margin-top: 1px; font-size: 11.5px; color: var(--tx-3); font-family: var(--f-mono); }
+.jn-req-lista li.ok .t { color: var(--green); }
+.jn-req-lista li.ok .d { color: var(--green-dim); }
+
+/* ---- cursos futuros ---- */
+.jn-futuros { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 12px; }
+.jn-futuro {
+  --acc: var(--green); display: grid; gap: 6px; padding: 15px 16px; border-radius: var(--r);
+  background: var(--surface); border: 1px dashed var(--line-strong); opacity: .78;
+}
+.jn-futuro.c-amber { --acc: var(--amber); }
+.jn-futuro.c-blue { --acc: var(--blue); }
+.jn-futuro.c-violet { --acc: var(--violet); }
+.jn-futuro.c-green { --acc: var(--green); }
+.jn-futuro .ic { width: 22px; height: 22px; color: var(--tx-3); }
+.jn-futuro .ic svg { width: 100%; height: 100%; }
+.jn-futuro .nm { font-size: 13.5px; font-weight: 650; color: var(--tx-2); }
+.jn-futuro .rs { font-size: 12px; line-height: 1.5; color: var(--tx-3); }
+.jn-futuro .dep {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
+  font-size: 11px; color: var(--tx-3); font-family: var(--f-mono);
+}
+.jn-futuro .dep svg { width: 11px; height: 11px; }
+
+/* ---- página Sua jornada ---- */
+.jn-placar { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 32px; }
+.jp {
+  padding: 15px 16px; border-radius: var(--r); background: var(--surface-2); border: 1px solid var(--line);
+  display: grid; gap: 4px;
+}
+.jp .n { font-size: 25px; font-weight: 650; letter-spacing: -.02em; color: var(--tx); font-variant-numeric: tabular-nums; }
+.jp .n small { font-size: 14px; font-weight: 500; color: var(--tx-3); }
+.jp .l { font-size: 11.5px; color: var(--tx-3); }
+
+.jn-painel {
+  --acc: var(--green); position: relative; margin-bottom: 20px; padding: 22px 24px;
+  border-radius: var(--r-lg); background: var(--surface-2); border: 1px solid var(--line);
+}
+.jn-painel.c-amber { --acc: var(--amber); }
+.jn-painel.c-blue { --acc: var(--blue); }
+.jn-painel.c-green { --acc: var(--green); }
+.jn-painel.c-red { --acc: var(--red); }
+.jn-painel.c-violet { --acc: var(--violet); }
+.jn-painel::before { content: ''; position: absolute; left: 0; top: 18px; bottom: 18px; width: 3px; border-radius: 3px; background: var(--acc); }
+.jn-painel.bloqueada { border-style: dashed; background: var(--surface); }
+.jn-painel.bloqueada::before { background: var(--line-strong); }
+.jn-painel.foco { border-color: var(--acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 14%, transparent); }
+.jn-painel-topo { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 16px; }
+
+.jn-obj { margin: 0 0 18px; padding: 13px 15px; border-radius: var(--r); background: var(--surface-3); border: 1px solid var(--line-soft); }
+.jn-obj-tt { font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--tx-3); }
+.jn-obj ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 7px; }
+.jn-obj li { display: grid; grid-template-columns: 15px 1fr; gap: 9px; align-items: start; font-size: 12.8px; line-height: 1.5; color: var(--tx-2); }
+.jn-obj li svg { width: 14px; height: 14px; margin-top: 1px; color: var(--acc); }
+
+.jn-travado { display: grid; gap: 12px; }
+.jn-travado-tt { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 650; color: var(--tx-2); }
+.jn-travado-tt svg { width: 15px; height: 15px; }
+.jn-travado-p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--tx-3); max-width: 70ch; }
+.jn-travado .btn { justify-self: start; }
+
+@media (max-width: 620px) {
+  .jn-no { grid-template-columns: 26px 1fr; gap: 10px; }
+  .jn-ponto { width: 22px; height: 22px; }
+  .jn-card, .jn-painel { padding: 15px 16px; }
+  .jn-agora-cta { width: 100%; }
+  .jn-agora-cta .btn { flex: 1; }
+  .jn-agora-etapa { margin-left: 0; width: 100%; }
+  .jn-etapa-num { margin-left: 0; width: 100%; }
+}

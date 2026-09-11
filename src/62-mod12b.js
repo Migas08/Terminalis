@@ -4,8 +4,6 @@
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
-  const rodar = async (ctx, cmd) => (ctx.run ? (await ctx.run(cmd)).out : '');
 
   /* ============================== 12.4 ============================== */
   LX.lesson('m12', {
@@ -164,8 +162,8 @@
         ],
         solution: '<div class="code"><pre>echo "chave-publica-simulada-da-equipe" | sudo tee /etc/apt/keyrings/exemplo.gpg &gt; /dev/null\n\nsudo tee /etc/apt/sources.list.d/exemplo.sources &gt; /dev/null &lt;&lt; \'EOF\'\nTypes: deb\nURIs: https://apt.exemplo.com.br\nSuites: stable\nComponents: main\nSigned-By: /etc/apt/keyrings/exemplo.gpg\nEOF\n\ncat /etc/apt/sources.list.d/exemplo.sources\nls -l /etc/apt/keyrings/</pre></div><p style="margin-top:8px">Repare que a chave fica em <code>/etc/apt/keyrings/</code> (terceiros) e não em <code>/usr/share/keyrings/</code> (que é território de pacotes). E o <code>Signed-By</code> amarra esta chave a este repositório — ela não vale para nenhum outro.</p>',
         check: async (ctx) => {
-          const chave = ler(ctx, '/etc/apt/keyrings/exemplo.gpg');
-          const src = ler(ctx, '/etc/apt/sources.list.d/exemplo.sources');
+          const chave = H.readText(ctx, '/etc/apt/keyrings/exemplo.gpg');
+          const src = H.readText(ctx, '/etc/apt/sources.list.d/exemplo.sources');
           return H.checkAll([
             [!!chave.trim(), 'Falta a chave em <code>/etc/apt/keyrings/exemplo.gpg</code>.'],
             [!!src, 'Falta o arquivo <code>/etc/apt/sources.list.d/exemplo.sources</code>.'],
@@ -302,9 +300,9 @@
         ],
         solution: '<div class="code"><pre>sudo mkdir -p /usr/local/bin\necho \'#!/bin/bash\' | sudo tee /usr/local/bin/deploy &gt; /dev/null\nsudo chmod +x /usr/local/bin/deploy\nsudo apt update &gt; /dev/null 2&gt;&amp;1\nsudo apt install -y nginx &gt; /dev/null 2&gt;&amp;1\nsudo apt-mark hold nginx\n\nmkdir -p ~/inventario\ndpkg --get-selections &gt; ~/inventario/pacotes.lista\napt-mark showhold &gt; ~/inventario/travados.txt\nfor b in /usr/local/bin/*; do dpkg -S "$b" &gt;/dev/null 2&gt;&amp;1 || echo "$b"; done &gt; ~/inventario/fora-do-apt.txt\n\nwc -l ~/inventario/*</pre></div><p style="margin-top:8px">Esses três arquivos, junto com um backup do <code>/etc</code>, são quase tudo o que se precisa para reconstruir um servidor. O terceiro é o que costuma faltar — e é o que dói na migração.</p>',
         check: async (ctx) => {
-          const pac = ler(ctx, '/home/aluno/inventario/pacotes.lista');
-          const hold = ler(ctx, '/home/aluno/inventario/travados.txt');
-          const fora = ler(ctx, '/home/aluno/inventario/fora-do-apt.txt');
+          const pac = H.readText(ctx, '/home/aluno/inventario/pacotes.lista');
+          const hold = H.readText(ctx, '/home/aluno/inventario/travados.txt');
+          const fora = H.readText(ctx, '/home/aluno/inventario/fora-do-apt.txt');
           const m = ctx.machine || ctx.sh.m;
           const instalados = Array.from(m.packages.keys());
           const linhasPac = pac.split('\n').map(x => x.trim()).filter(Boolean);

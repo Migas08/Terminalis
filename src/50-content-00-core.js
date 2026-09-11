@@ -27,6 +27,7 @@
 
   H.fs = (ctx) => ctx.sh.m.fs;
   H.opts = (ctx) => ctx.sh.fsopts();
+  H.machine = (ctx) => ctx.machine || ctx.sh.m;
 
   /* A verificação enxerga o sistema como root: o desafio pode ter criado
      arquivos que o próprio aluno não consegue atravessar. */
@@ -43,6 +44,14 @@
   H.isFile = (ctx, path) => { const s = H.stat(ctx, path); return !!s && s.type === 'file'; };
   H.read = (ctx, path) => {
     try { return ctx.sh.m.fs.readFile(path, { cwd: '/', ctx: ctx.sh.m.ctxRoot() }); } catch (e) { return null; }
+  };
+  H.readText = (ctx, path) => H.read(ctx, path) || '';
+  H.runOutput = async (ctx, command) => ctx.run ? (await ctx.run(command)).out : '';
+  H.unit = (ctx, name) => {
+    const machine = H.machine(ctx);
+    const fullName = name.includes('.') ? name : name + '.service';
+    const unit = machine.units && (machine.units.get ? machine.units.get(fullName) : machine.units[fullName]);
+    return unit || (typeof machine.unit === 'function' ? machine.unit(name) : undefined);
   };
   H.mode = (ctx, path) => { const s = H.lstat(ctx, path); return s ? (s.mode & 0o7777) : null; };
   H.owner = (ctx, path) => {

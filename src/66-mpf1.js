@@ -6,13 +6,6 @@
 'use strict';
 (function () {
   const H = LX.H;
-  const ler = (ctx, p) => H.read(ctx, p) || '';
-  const rodar = async (ctx, cmd) => (ctx.run ? (await ctx.run(cmd)).out : '');
-  const unidade = (ctx, nome) => {
-    const m = ctx.machine || ctx.sh.m;
-    const n = nome.includes('.') ? nome : nome + '.service';
-    return m.units && (m.units.get ? m.units.get(n) : m.units[n]);
-  };
 
   /* ============================== PF.1 ============================== */
   LX.lesson('mpf1', {
@@ -260,7 +253,7 @@
           const m = ctx.machine || ctx.sh.m;
           const disco = (m.blockDevices || []).find(d => d.name === 'vdb');
           const p1 = disco && (disco.children || []).find(x => x.name === 'vdb1');
-          const fstab = ler(ctx, '/etc/fstab');
+          const fstab = H.readText(ctx, '/etc/fstab');
           const mnt = ((m.fs && m.fs.mounts) || m.mounts || []).find(x => x.mount === '/srv/projeto');
           const linha = fstab.split('\n').map(l => l.replace(/#.*/, '').trim()).filter(Boolean)
             .find(l => l.split(/\s+/)[1] === '/srv/projeto');
@@ -409,9 +402,9 @@
         check: async (ctx) => {
           const m = ctx.machine || ctx.sh.m;
           const u = m.userByName('coletor');
-          const script = ler(ctx, '/opt/coletor/coletar.sh');
-          const unit = ler(ctx, '/etc/systemd/system/coletor.service');
-          const un = unidade(ctx, 'coletor');
+          const script = H.readText(ctx, '/opt/coletor/coletar.sh');
+          const unit = H.readText(ctx, '/etc/systemd/system/coletor.service');
+          const un = H.unit(ctx, 'coletor');
           return H.checkAll([
             [() => H.isFile(ctx, '/opt/coletor/coletar.sh'), 'Não encontrei <code>/opt/coletor/coletar.sh</code>.'],
             [() => (H.mode(ctx, '/opt/coletor/coletar.sh') & 0o111) !== 0, 'O script existe mas não está executável. Falta <code>chmod +x</code>.'],
@@ -553,7 +546,7 @@
           const arqModo = H.mode(ctx, '/home/ana/.ssh/authorized_keys');
           const dirDono = H.owner(ctx, '/home/ana/.ssh');
           const arqDono = H.owner(ctx, '/home/ana/.ssh/authorized_keys');
-          const chaves = ler(ctx, '/home/ana/.ssh/authorized_keys');
+          const chaves = H.readText(ctx, '/home/ana/.ssh/authorized_keys');
           return H.checkAll([
             [!!ana, 'A usuária <code>ana</code> precisa existir (etapa PF.1).'],
             [() => H.isDir(ctx, '/home/ana/.ssh'), 'Falta o diretório <code>/home/ana/.ssh</code>.'],
@@ -667,11 +660,11 @@
         ],
         solution: '<p><em>Garantindo que há conteúdo para empacotar:</em></p><div class="code"><pre>$ sudo mkdir -p /srv/projeto/publico /var/backups /opt/backup\n$ echo "dados da equipe" | sudo tee /srv/projeto/publico/leiame.txt &gt; /dev/null</pre></div><p>E a rotina:</p><div class="code"><pre>$ sudo tee /opt/backup/backup.sh &gt; /dev/null &lt;&lt; \'EOF\'\n#!/bin/bash\nset -euo pipefail\n\nORIGEM=/srv/projeto\nDESTINO=/var/backups\nD=$(date +%F)\nARQ="$DESTINO/projeto-$D.tar.gz"\n\nmkdir -p "$DESTINO"\ntar -czf "$ARQ" -C "$(dirname "$ORIGEM")" "$(basename "$ORIGEM")"\n\ncd "$DESTINO"\nsha256sum "projeto-$D.tar.gz" &gt; SHA256SUMS\n\nfind "$DESTINO" -name "projeto-*.tar.gz" -mtime +7 -delete\necho "backup gerado: $ARQ"\nEOF\n$ sudo chmod 755 /opt/backup/backup.sh\n$ sudo /opt/backup/backup.sh\n$ ls -lh /var/backups/</pre></div><p style="margin-top:8px">Ordem: gerar, somar, expirar. O <code>-C</code> troca o diretório antes de empacotar, então o arquivo guarda <code>projeto/…</code> em vez de <code>srv/projeto/…</code>.</p>',
         check: async (ctx) => {
-          const s = ler(ctx, '/opt/backup/backup.sh');
+          const s = H.readText(ctx, '/opt/backup/backup.sh');
           const lista = (H.ls(ctx, '/var/backups') || []).map(x => (typeof x === 'string' ? x : x.name));
           const backup = lista.find(n => /^projeto-\d{4}-\d{2}-\d{2}\.tar\.gz$/.test(n));
-          const sums = ler(ctx, '/var/backups/SHA256SUMS');
-          const confere = (sums && ctx.run) ? await rodar(ctx, 'cd /var/backups && sha256sum -c SHA256SUMS 2>&1') : '';
+          const sums = H.readText(ctx, '/var/backups/SHA256SUMS');
+          const confere = (sums && ctx.run) ? await H.runOutput(ctx, 'cd /var/backups && sha256sum -c SHA256SUMS 2>&1') : '';
           return H.checkAll([
             [() => H.isFile(ctx, '/opt/backup/backup.sh'), 'Não encontrei <code>/opt/backup/backup.sh</code>.'],
             [() => (H.mode(ctx, '/opt/backup/backup.sh') & 0o111) !== 0, 'O script não está executável.'],
@@ -684,7 +677,7 @@
             [() => /sha256sum/.test(s), 'O script precisa gerar a soma de verificação.'],
             [() => /-mtime\s*\+7/.test(s) && /(-delete|rm\b)/.test(s), 'Falta a retenção: apagar os backups com mais de 7 dias (<code>find ... -mtime +7 -delete</code>).'],
             [!!backup, 'Não achei nenhum <code>/var/backups/projeto-AAAA-MM-DD.tar.gz</code>. Rode o script: <code>sudo /opt/backup/backup.sh</code>.'],
-            [() => { const c = ler(ctx, '/var/backups/' + backup); return /projeto/.test(c); }, 'O arquivo de backup existe mas parece vazio ou sem o conteúdo de <code>/srv/projeto</code>.'],
+            [() => { const c = H.readText(ctx, '/var/backups/' + backup); return /projeto/.test(c); }, 'O arquivo de backup existe mas parece vazio ou sem o conteúdo de <code>/srv/projeto</code>.'],
             [!!sums, 'Falta o <code>/var/backups/SHA256SUMS</code>.'],
             [() => /: OK$/m.test(confere), 'O <code>sha256sum -c</code> não valida o backup. Gere a soma com o comando, de dentro de <code>/var/backups</code>.']
           ]);
@@ -795,14 +788,14 @@
         solution: '<div class="code"><pre>$ sudo du -sh /var/log/* | sort -rh | head -3\n$ sudo find /usr/local/bin -perm -4000 -type f\n$ dpkg -S /usr/local/bin/atalho\n\n$ D=/var/log/coletor\n$ E=$(sudo grep -rh "ERROR" "$D" | wc -l)\n$ W=$(sudo grep -rh "WARN" "$D" | wc -l)\n$ S=$(sudo find /usr/local/bin -perm -4000 -type f | head -1)\n\n$ printf \'DIRETORIO: %s\\nERROS: %s\\nAVISOS: %s\\nSUID: %s\\n\' "$D" "$E" "$W" "$S" &gt; ~/incidente-4488.txt\n$ cat ~/incidente-4488.txt</pre></div><p style="margin-top:8px">Repare que nenhum número foi digitado: cada um veio de um comando guardado numa variável. É isso que faz o relatório continuar verdadeiro amanhã, quando os números mudarem.</p>',
         forja: ["printf 'DIRETORIO: /var/log/coletor\\nERROS: 100\\nAVISOS: 100\\nSUID: /usr/local/bin/atalho\\n' > ~/incidente-4488.txt"],
         check: async (ctx) => {
-          const rel = ler(ctx, '/home/aluno/incidente-4488.txt');
+          const rel = H.readText(ctx, '/home/aluno/incidente-4488.txt');
           if (!rel.trim()) return { ok: false, msg: 'O arquivo <code>~/incidente-4488.txt</code> ainda não existe.' };
           const l = rel.split('\n').map(x => x.trim()).filter(Boolean);
           const val = (i) => (l[i] || '').split(/:\s*/).slice(1).join(':').trim();
           /* o verificador reconta tudo na máquina */
-          const erros = (await rodar(ctx, 'sudo grep -rh "ERROR" /var/log/coletor 2>/dev/null | wc -l')).trim();
-          const avisos = (await rodar(ctx, 'sudo grep -rh "WARN" /var/log/coletor 2>/dev/null | wc -l')).trim();
-          const suid = (await rodar(ctx, 'sudo find /usr/local/bin -perm -4000 -type f 2>/dev/null')).trim().split('\n')[0];
+          const erros = (await H.runOutput(ctx, 'sudo grep -rh "ERROR" /var/log/coletor 2>/dev/null | wc -l')).trim();
+          const avisos = (await H.runOutput(ctx, 'sudo grep -rh "WARN" /var/log/coletor 2>/dev/null | wc -l')).trim();
+          const suid = (await H.runOutput(ctx, 'sudo find /usr/local/bin -perm -4000 -type f 2>/dev/null')).trim().split('\n')[0];
           return H.checkAll([
             [() => l.length === 4, () => `O relatório deve ter exatamente 4 linhas; tem ${l.length}.`],
             [() => /^DIRETORIO:/.test(l[0] || ''), 'A primeira linha deve começar com <code>DIRETORIO:</code>.'],
@@ -901,15 +894,15 @@
         solution: '<p><em>O relatório só faz sentido com o servidor inteiro de pé. Este bloco reconstrói as seis etapas anteriores — é, na prática, o projeto todo:</em></p><div class="code"><pre>$ sudo groupadd -f dados\n$ sudo useradd -m -G dados,sudo ana\n$ sudo useradd -m -G dados bruno\n$ sudo parted -s /dev/vdb mklabel gpt\n$ sudo parted -s /dev/vdb mkpart projeto ext4 0% 100%\n$ sudo mkfs.ext4 -L PROJETO /dev/vdb1\n$ sudo mkdir -p /srv/projeto\n$ U=$(sudo blkid -s UUID -o value /dev/vdb1); echo "UUID=$U /srv/projeto ext4 defaults,nofail,noexec,nosuid,nodev 0 2" | sudo tee -a /etc/fstab &gt; /dev/null\n$ sudo mount -a\n$ sudo mkdir -p /srv/projeto/publico /srv/projeto/segredo /opt/coletor /opt/backup /var/backups /usr/local/bin\n$ echo dados | sudo tee /srv/projeto/publico/leiame.txt &gt; /dev/null\n$ sudo chown -R root:dados /srv/projeto\n$ sudo chmod 2770 /srv/projeto\n$ sudo useradd --system --shell /usr/sbin/nologin coletor\n$ printf \'#!/bin/bash\\nwhile true; do echo coleta &gt;&gt; /var/log/coletor.log; sleep 60; done\\n\' | sudo tee /opt/coletor/coletar.sh &gt; /dev/null\n$ sudo chmod 755 /opt/coletor/coletar.sh\n$ printf \'[Unit]\\nDescription=Coletor\\n\\n[Service]\\nType=simple\\nUser=coletor\\nExecStart=/opt/coletor/coletar.sh\\nRestart=always\\n\\n[Install]\\nWantedBy=multi-user.target\\n\' | sudo tee /etc/systemd/system/coletor.service &gt; /dev/null\n$ sudo systemctl daemon-reload\n$ sudo systemctl enable --now coletor\n$ sudo ufw default deny incoming\n$ sudo ufw allow 22/tcp\n$ sudo ufw allow 8080/tcp\n$ sudo ufw enable\n$ printf \'#!/bin/bash\\nset -euo pipefail\\nD=$(date +%F)\\ntar -czf "/var/backups/projeto-$D.tar.gz" -C /srv projeto\\n\' | sudo tee /opt/backup/backup.sh &gt; /dev/null\n$ sudo chmod 755 /opt/backup/backup.sh\n$ sudo /opt/backup/backup.sh\n$ printf \'#!/bin/bash\\n\' | sudo tee /usr/local/bin/atalho &gt; /dev/null\n$ sudo chmod 755 /usr/local/bin/atalho</pre></div><p>E o relatório:</p><div class="code"><pre>$ getent group dados | sudo tee /root/entrega.txt\n$ findmnt -n /srv/projeto | sudo tee -a /root/entrega.txt\n$ systemctl is-enabled coletor | sudo tee -a /root/entrega.txt\n$ sudo ufw status verbose | sudo tee -a /root/entrega.txt\n$ ls -l /var/backups | sudo tee -a /root/entrega.txt\n$ ls -l /usr/local/bin/atalho | sudo tee -a /root/entrega.txt\n$ sudo cat /root/entrega.txt</pre></div><p style="margin-top:8px">Seis comandos, seis evidências. Quem receber esse arquivo consegue conferir cada item do chamado sem precisar entrar na máquina — e, se precisar entrar, sabe exatamente o que esperar encontrar.</p>',
         forja: ["printf 'dados:x:1002:ana,bruno\\n/srv/projeto /dev/vdb1 ext4 rw\\nenabled\\nStatus: active\\ntotal 4\\n-rwxr-xr-x 1 root root 0 atalho\\n' | sudo tee /root/entrega.txt > /dev/null"],
         check: async (ctx) => {
-          const rel = ler(ctx, '/root/entrega.txt');
+          const rel = H.readText(ctx, '/root/entrega.txt');
           if (!rel.trim()) return { ok: false, msg: 'O arquivo <code>/root/entrega.txt</code> ainda não existe.' };
           const m = ctx.machine || ctx.sh.m;
           /* o verificador roda os mesmos comandos e compara com o relatório */
-          const grupo = (await rodar(ctx, 'getent group dados')).trim();
-          const montagem = (await rodar(ctx, 'findmnt -n /srv/projeto 2>/dev/null')).trim();
+          const grupo = (await H.runOutput(ctx, 'getent group dados')).trim();
+          const montagem = (await H.runOutput(ctx, 'findmnt -n /srv/projeto 2>/dev/null')).trim();
           const backups = (H.ls(ctx, '/var/backups') || []).map(x => (typeof x === 'string' ? x : x.name))
             .filter(n => /^projeto-\d{4}-\d{2}-\d{2}\.tar\.gz$/.test(n));
-          const un = unidade(ctx, 'coletor');
+          const un = H.unit(ctx, 'coletor');
           const f = m.firewall || {};
           const modoAtalho = H.mode(ctx, '/usr/local/bin/atalho');
           const semEspaco = (s) => String(s).replace(/\s+/g, ' ').trim();

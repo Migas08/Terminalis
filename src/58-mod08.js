@@ -4,7 +4,6 @@
 'use strict';
 (function () {
   const H = LX.H;
-  const unidade = (ctx, nome) => (ctx.machine || ctx.sh.m).unit(nome);
 
   /* ============================== 8.1 ============================== */
   LX.lesson('m08', {
@@ -140,7 +139,7 @@ ENABLED  →  vai subir no PRÓXIMO BOOT
         ],
         solution: '<div class="code"><pre>sudo systemctl disable ssh\necho "ativo: $(systemctl is-active ssh)" &gt; ~/estado-ssh.txt\necho "boot: $(systemctl is-enabled ssh)" &gt;&gt; ~/estado-ssh.txt\ncat ~/estado-ssh.txt</pre></div><p style="margin-top:8px">É exatamente o cenário do quiz anterior, só que ao contrário: aqui o serviço já nasceu <code>active + enabled</code>, e o <code>disable</code> sozinho — sem <code>stop</code> — produz o estado "ativo agora, ausente no próximo boot".</p>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'ssh');
+          const u = H.unit(ctx, 'ssh');
           if (!u) return { ok: false, msg: 'A unit <code>ssh.service</code> não foi encontrada nesta máquina.' };
           const c = H.read(ctx, '/home/aluno/estado-ssh.txt');
           if (c === null) return { ok: false, msg: 'O arquivo <code>~/estado-ssh.txt</code> ainda não existe.' };
@@ -252,7 +251,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         hints: ['<code>systemctl show -p MainPID</code> imprime só a propriedade pedida.'],
         solution: '<div class="code"><pre>systemctl status ssh --no-pager | head -6\nsystemctl show -p MainPID ssh\nsudo systemctl reload ssh\nsystemctl show -p MainPID ssh\nsudo systemctl restart ssh\nsystemctl show -p MainPID ssh\nsudo systemctl stop ssh\nsystemctl is-active ssh\nsudo systemctl start ssh\nsystemctl is-active ssh</pre></div>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'ssh');
+          const u = H.unit(ctx, 'ssh');
           return LX.H.checkAll([
             [() => H.usedCommand(ctx, /systemctl\s+status\s+ssh/), 'Comece pelo <code>systemctl status ssh</code>.'],
             [() => H.usedCommand(ctx, /show\s+-p\s+MainPID/), 'Compare o PID antes e depois com <code>systemctl show -p MainPID ssh</code>.'],
@@ -296,7 +295,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         ],
         solution: '<div class="code"><pre>sudo systemctl disable --now cron\necho "ativo: $(systemctl is-active cron)" &gt; ~/estado-cron.txt\necho "boot: $(systemctl is-enabled cron)" &gt;&gt; ~/estado-cron.txt\ncat ~/estado-cron.txt</pre></div><p style="margin-top:8px">O <code>--now</code> aplica a ação também ao estado atual: <code>disable --now</code> é <code>disable</code> + <code>stop</code>, e <code>enable --now</code> é <code>enable</code> + <code>start</code>.</p>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'cron');
+          const u = H.unit(ctx, 'cron');
           if (!u) return { ok: false, msg: 'A unit <code>cron.service</code> não foi encontrada nesta máquina.' };
           const c = H.read(ctx, '/home/aluno/estado-cron.txt');
           if (c === null) return { ok: false, msg: 'O arquivo <code>~/estado-cron.txt</code> ainda não existe.' };
@@ -611,7 +610,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         hints: ['O <code>tee</code> com <code>sudo</code> é a forma de escrever em um diretório do root usando redirecionamento — <code>sudo echo x &gt; arquivo</code> não funciona, porque quem redireciona é o seu shell.'],
         solution: '<div class="code"><pre>sudo mkdir -p /opt/relogio\nprintf \'#!/bin/bash\\nwhile true; do echo tick; sleep 60; done\\n\' | sudo tee /opt/relogio/run.sh &gt; /dev/null\nsudo chmod +x /opt/relogio/run.sh\nsudo tee /etc/systemd/system/relogio.service &gt; /dev/null &lt;&lt; \'EOF\'\n[Unit]\nDescription=Relogio de exemplo\nAfter=network.target\n\n[Service]\nType=simple\nExecStart=/opt/relogio/run.sh\nRestart=always\nRestartSec=3\n\n[Install]\nWantedBy=multi-user.target\nEOF\nsudo systemctl daemon-reload\nsudo systemctl enable --now relogio\nsystemctl status relogio --no-pager | head -6</pre></div>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'relogio');
+          const u = H.unit(ctx, 'relogio');
           return LX.H.checkAll([
             [H.exists(ctx, '/opt/relogio/run.sh'), 'Crie o programa <code>/opt/relogio/run.sh</code>.'],
             [(H.mode(ctx, '/opt/relogio/run.sh') & 0o111) !== 0, 'O script precisa ser executável (<code>chmod +x</code>).'],
@@ -682,7 +681,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         solution: '<div class="code"><pre>sudo useradd -r -s /usr/sbin/nologin coletor\n\nsudo tee /etc/systemd/system/coletor.service &gt; /dev/null &lt;&lt; \'EOF\'\n[Unit]\nDescription=Coletor de metricas\nAfter=network.target\n\n[Service]\nType=simple\nUser=coletor\nWorkingDirectory=/opt/coletor\nExecStart=/opt/coletor/coletor.sh\nRestart=always\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\nEOF\n\nsudo systemctl daemon-reload\nsudo systemctl enable --now coletor\nsystemctl status coletor --no-pager | head -6\njournalctl -u coletor -n 5 --no-pager</pre></div><p style="margin-top:8px">Esse arquivo é o esqueleto de praticamente qualquer serviço de aplicação: usuário próprio sem privilégio, diretório de trabalho definido, reinício automático com intervalo e log indo para o journal.</p>',
         check: async (ctx) => {
           const m = ctx.machine || ctx.sh.m;
-          const u = unidade(ctx, 'coletor');
+          const u = H.unit(ctx, 'coletor');
           const conta = m.userByName('coletor');
           if (!H.exists(ctx, '/etc/systemd/system/coletor.service')) return { ok: false, msg: 'O arquivo <code>/etc/systemd/system/coletor.service</code> ainda não existe.' };
           if (!u) return { ok: false, msg: 'A unit não foi carregada — rode <code>sudo systemctl daemon-reload</code>.' };
@@ -834,7 +833,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         hints: ['O <code>start</code> vai falhar — é esperado. O objetivo é ler o motivo.'],
         solution: '<div class="code"><pre>sudo tee /etc/systemd/system/quebrado.service &gt; /dev/null &lt;&lt; \'EOF\'\n[Unit]\nDescription=Servico com defeito\n\n[Service]\nExecStart=/opt/naoexiste/programa.sh\n\n[Install]\nWantedBy=multi-user.target\nEOF\nsudo systemctl daemon-reload\nsudo systemctl start quebrado\nsystemctl status quebrado --no-pager | head -6\njournalctl -xeu quebrado --no-pager | tail -4\nsystemctl --failed</pre></div>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'quebrado');
+          const u = H.unit(ctx, 'quebrado');
           return LX.H.checkAll([
             [H.exists(ctx, '/etc/systemd/system/quebrado.service'), 'Crie a unit <code>quebrado.service</code>.'],
             [!!u, 'A unit não foi carregada — faltou o <code>daemon-reload</code>.'],
@@ -884,7 +883,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         solution: '<div class="code"><pre># 1. investigação\nsystemctl cat inventario\nsudo systemctl start inventario\njournalctl -xeu inventario --no-pager | tail -5\n\n# 2. defeito: User=inventario não existe  (217/USER)\nsudo useradd -r -s /usr/sbin/nologin inventario\n\n# 3. defeito: WorkingDirectory não existe  (200/CHDIR)\nsudo mkdir -p /opt/inventario/dados\n\n# 4. defeito: o script não é executável    (203/EXEC)\nsudo chmod +x /opt/inventario/inventario.sh\n\n# 5. subir e habilitar\nsudo systemctl reset-failed inventario\nsudo systemctl enable --now inventario\nsystemctl status inventario --no-pager | head -6</pre></div><p style="margin-top:8px">Repare que nenhuma linha do arquivo da unit precisou ser alterada: os três defeitos estavam no <em>ambiente</em> que a unit pressupunha. É o padrão mais comum de "o serviço não sobe".</p>',
         check: async (ctx) => {
           const m = ctx.machine || ctx.sh.m;
-          const u = unidade(ctx, 'inventario');
+          const u = H.unit(ctx, 'inventario');
           if (!u) return { ok: false, msg: 'A unit <code>inventario.service</code> não está carregada — recarregue a aula para restaurar o cenário.' };
           const conta = m.userByName('inventario');
           return LX.H.checkAll([
@@ -1078,7 +1077,7 @@ Main PID: 640 (sshd)     ← o processo principal; útil para ps, lsof, /proc`
         ],
         solution: '<div class="code"><pre>sudo mkdir -p /opt/higiene\nprintf \'#!/bin/bash\\necho "limpando temporarios"\\n\' | sudo tee /opt/higiene/limpar.sh &gt; /dev/null\nsudo chmod +x /opt/higiene/limpar.sh\n\nsudo tee /etc/systemd/system/higiene.service &gt; /dev/null &lt;&lt; \'EOF\'\n[Unit]\nDescription=Higiene do sistema\n\n[Service]\nType=oneshot\nExecStart=/opt/higiene/limpar.sh\nEOF\n\nsudo tee /etc/systemd/system/higiene.timer &gt; /dev/null &lt;&lt; \'EOF\'\n[Unit]\nDescription=Executa a higiene de hora em hora\n\n[Timer]\nOnCalendar=hourly\nPersistent=true\n\n[Install]\nWantedBy=timers.target\nEOF\n\nsudo systemctl daemon-reload\nsudo systemctl start higiene.service\nsystemctl status higiene --no-pager | head -5</pre></div><p style="margin-top:8px">O <code>Persistent=true</code> é a vantagem sobre o cron: se a máquina estiver desligada na hora marcada, a tarefa roda assim que ela voltar, em vez de simplesmente ser pulada.</p>',
         check: async (ctx) => {
-          const u = unidade(ctx, 'higiene');
+          const u = H.unit(ctx, 'higiene');
           const timer = H.read(ctx, '/etc/systemd/system/higiene.timer');
           if (!H.exists(ctx, '/etc/systemd/system/higiene.service')) return { ok: false, msg: 'Crie o arquivo <code>/etc/systemd/system/higiene.service</code>.' };
           if (timer === null) return { ok: false, msg: 'Crie o arquivo <code>/etc/systemd/system/higiene.timer</code>.' };

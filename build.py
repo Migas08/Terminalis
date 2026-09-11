@@ -9,6 +9,150 @@ DIST = ROOT / "dist"
 OUTPUT = DIST / "terminalis.html"
 MAX_ARTIFACT_SIZE = 15_500_000
 
+# A ordem abaixo faz parte do contrato de inicialização do Terminalis. Cada
+# módulo deve pertencer a exatamente um grupo; arquivos novos exigem uma
+# decisão consciente sobre a dependência que representam.
+JS_GROUPS = (
+    ("núcleo", (
+        "09-runtime.js",
+        "10-vfs.js",
+        "11-kernel.js",
+        "12-catalog.js",
+    )),
+    ("shell", (
+        "20-shell-lex.js",
+        "21-shell-exec.js",
+        "22-shell-run.js",
+    )),
+    ("comandos Linux", (
+        "30-coreutils.js",
+        "31-textutils.js",
+        "32-admin-10-access.js",
+        "32-admin-20-processes.js",
+        "32-admin-30-system.js",
+        "32-admin-40-packages.js",
+        "32-admin-50-archives.js",
+        "32-admin-60-storage.js",
+        "32-admin-70-tools.js",
+        "33-net.js",
+        "34-manpages.js",
+    )),
+    ("motor Git", (
+        "35-git-core.js",
+        "36-git-cli.js",
+        "37-github-service.js",
+        "38-github-cli.js",
+    )),
+    ("motor Docker", (
+        "40-docker.js",
+        "41-sql.js",
+        "42-imgbin.js",
+        "43-docker-hub.js",
+        "44-yaml.js",
+        "45-traefik.js",
+        "46-docker-cli.js",
+        "47-dockerfile.js",
+        "48-compose.js",
+    )),
+    ("workspace", (
+        "49-workspace-00-codec.js",
+        "49-workspace-10-domains.js",
+    )),
+    ("base de conteúdo", (
+        "50-content-00-core.js",
+        "50-content-01-modules.js",
+        "50-content-02-trilhas.js",
+    )),
+    ("curso Linux", (
+        "51-mod01.js",
+        "52-mod02.js",
+        "53-mod03.js",
+        "54-mod04.js",
+        "55-mod05.js",
+        "56-mod06.js",
+        "57-mod07.js",
+        "58-mod08.js",
+        "59-mod09.js",
+        "60-mod10.js",
+        "61-mod11.js",
+        "62-mod12.js",
+        "62-mod12b.js",
+        "63-mod13.js",
+        "63-mod13b.js",
+        "64-mod14.js",
+        "64-mod14b.js",
+        "65-mod15.js",
+        "65-mod15b.js",
+        "66-mpf1.js",
+        "67-mod16.js",
+        "68-mod16d.js",
+    )),
+    ("interface", (
+        "71-terminal.js",
+        "72-app.js",
+        "72-file-browser.js",
+        "72-task-ui.js",
+        "73-render.js",
+        "74-auth.js",
+        "74-cloud-10-config.js",
+        "74-cloud-20-supabase.js",
+        "74-cloud-30-storage.js",
+        "74-cloud-40-sync.js",
+        "76-progressao.js",
+        "77-authui.js",
+        "78-jornada.js",
+        "79-docker-helpers.js",
+    )),
+    ("curso Docker", (
+        "80-d01.js",
+        "80-d02.js",
+        "80-d03.js",
+        "80-d04.js",
+        "80-d05.js",
+        "80-d06.js",
+        "80-d07.js",
+        "80-d08.js",
+        "80-d09.js",
+        "80-d10.js",
+        "80-d11.js",
+        "80-d12.js",
+        "80-d13.js",
+        "80-d14.js",
+        "80-d15.js",
+        "80-d16.js",
+        "80-d17.js",
+        "80-d18.js",
+        "80-d19.js",
+        "80-d20.js",
+        "80-d21.js",
+        "80-d22.js",
+        "81-mpf2.js",
+        "82-m25.js",
+        "83-m26.js",
+    )),
+    ("curso Git", (
+        "84-git-course.js",
+        "85-git-lessons.js",
+        "86-git-final.js",
+        "87-git-visual.js",
+    )),
+    ("configurações", (
+        "88-settings.js",
+    )),
+)
+
+CSS_FILES = (
+    "70-00-tokens-layout.css",
+    "70-10-learning.css",
+    "70-20-workspace.css",
+    "70-30-account-auth.css",
+    "70-40-journey.css",
+    "70-50-refinements-cloud.css",
+)
+
+# Mantém os espaços entre as seções do CSS original no bundle publicado.
+CSS_GAPS_AFTER = ("\n", "\n", "\n\n", "\n", "", "\n")
+
 ICONS = {
     '__ICON_MENU__': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
     '__ICON_MAP__': '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3 6.5v13L9 17l6 3 6-2.5v-13L15 7z"/><path d="M9 4v13M15 7v13"/></svg>',
@@ -30,8 +174,48 @@ ICONS = {
 }
 
 def js_files():
-    """Retorna os módulos na ordem definida pelos prefixos numéricos."""
-    return sorted(SRC.glob("*.js"))
+    """Valida o manifesto e retorna os módulos na ordem de inicialização."""
+    ordered = []
+    seen = set()
+
+    for group_name, filenames in JS_GROUPS:
+        for filename in filenames:
+            if filename in seen:
+                raise RuntimeError(
+                    f"Módulo duplicado no manifesto ({group_name}): {filename}"
+                )
+            seen.add(filename)
+            path = SRC / filename
+            if not path.is_file():
+                raise FileNotFoundError(
+                    f"Módulo ausente no grupo {group_name}: {filename}"
+                )
+            ordered.append(path)
+
+    actual = {path.name for path in SRC.glob("*.js")}
+    unclassified = sorted(actual - seen)
+    if unclassified:
+        raise RuntimeError(
+            "Módulos sem grupo no manifesto: " + ", ".join(unclassified)
+        )
+
+    return ordered
+
+def css_files():
+    """Valida e retorna as folhas na ordem da cascata."""
+    expected = set(CSS_FILES)
+    actual = {path.name for path in SRC.glob("70-*.css")}
+    missing = sorted(expected - actual)
+    unclassified = sorted(actual - expected)
+
+    if missing:
+        raise FileNotFoundError("Folhas de estilo ausentes: " + ", ".join(missing))
+    if unclassified:
+        raise RuntimeError(
+            "Folhas de estilo sem ordem definida: " + ", ".join(unclassified)
+        )
+
+    return [SRC / filename for filename in CSS_FILES]
 
 def build():
     DIST.mkdir(exist_ok=True)
@@ -47,7 +231,10 @@ def build():
             + js
         )
 
-    css = (SRC / "70-styles.css").read_text(encoding="utf-8")
+    css = "".join(
+        path.read_text(encoding="utf-8") + gap
+        for path, gap in zip(css_files(), CSS_GAPS_AFTER)
+    )
     html = (SRC / "75-shell.html").read_text(encoding="utf-8")
 
     for k, v in ICONS.items():
@@ -55,7 +242,9 @@ def build():
     html = html.replace('__CSS__', css)
     html = html.replace('__JS__', js)
 
-    OUTPUT.write_text(html, encoding="utf-8")
+    # O artefato é versionado. CRLF explícito evita diferenças entre o build
+    # feito no Windows e a mesma geração executada pelo CI no Linux.
+    OUTPUT.write_text(html, encoding="utf-8", newline="\r\n")
 
     size = OUTPUT.stat().st_size
     print(f"OK  {OUTPUT}  ({size / 1048576:.2f} MB, {len(modules)} arquivos JS)")
