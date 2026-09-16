@@ -293,7 +293,9 @@
       $$('.sp-view').forEach(v => v.classList.toggle('active', v.dataset.view === tab));
       $('#sp-term-actions').classList.toggle('hidden', tab !== 'term');
       $('#sp-file-actions').classList.toggle('hidden', tab !== 'files');
+      $('#sp-js-actions').classList.toggle('hidden', tab !== 'js');
       if (tab === 'files') this.renderFiles();
+      if (tab === 'js' && LX.JSWorkspace) LX.JSWorkspace.onShow(this);
       if (tab === 'notes') {
         const key = this.route.lesson || '_geral';
         $('#notes-area').value = Progress.data.notes[key] || '';

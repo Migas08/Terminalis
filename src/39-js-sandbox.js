@@ -149,7 +149,11 @@
   function iframeHtml() {
     return [
       '<!doctype html><html><head><meta charset="utf-8">',
-      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' blob:; worker-src blob:; connect-src \'none\'">',
+      // 'unsafe-eval' é intencional e SÓ existe aqui, dentro da origem opaca do
+      // iframe/Worker: é assim que o Worker compila o código do aluno (new
+      // Function). Isso nunca alcança o realm principal do app. connect-src 'none'
+      // mantém a rede negada; worker-src blob: permite o Worker descartável.
+      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' \'unsafe-eval\' blob:; worker-src blob:; connect-src \'none\'">',
       '</head><body><script>',
       '(function(){',
       '  var src = ', JSON.stringify(WORKER_SOURCE), ';',
