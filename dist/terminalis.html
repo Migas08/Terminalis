@@ -44896,15 +44896,27 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       return ({ progresso: 'user_progress', workspaces: 'workspaces', profiles: 'profiles' })[col] || null;
     },
 
+    /* Progresso com resultado explícito (mesma distinção do workspace). */
+    async getProgressResult(id) {
+      const c = cliente(); if (!c) return { ok: false, encontrado: false, value: null, error: 'sem cliente' };
+      try {
+        const { data, error } = await c.from('user_progress').select('data').eq('user_id', id).maybeSingle();
+        if (error) { diag('falha ao ler user_progress', error); return { ok: false, encontrado: false, value: null, error }; }
+        if (!data) return { ok: true, encontrado: false, value: null };
+        return { ok: true, encontrado: true, value: data.data };
+      } catch (e) { diag('exceção ao ler user_progress', e); return { ok: false, encontrado: false, value: null, error: e }; }
+    },
+
     async get(col, id) {
       const c = cliente(); if (!c) return null;
       const tab = this._tabela(col);
       if (!tab) return null;
       try {
         if (col === 'progresso') {
-          const { data, error } = await c.from(tab).select('data').eq('user_id', id).maybeSingle();
-          if (error) diag('falha ao ler ' + tab, error);
-          return data ? data.data : null;
+          /* Contrato antigo preservado: data | null (null para ausência OU
+             falha). A migração usa getProgressResult para diferenciar. */
+          const r = await this.getProgressResult(id);
+          return r.ok && r.encontrado ? r.value : null;
         }
         if (col === 'profiles') {
           const { data, error } = await c.from(tab).select('*').eq('id', id).maybeSingle();
@@ -44989,23 +45001,39 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       } catch (e) { diag('exceção ao gravar user_progress', e); return false; }
     },
 
-    /* -------- workspace com revisão (detecção de conflito real) -------- */
-    async getWorkspace(uid) {
-      const c = cliente(); if (!c) return null;
+    /* -------- workspace com revisão (detecção de conflito real) --------
+       Leitura com resultado EXPLÍCITO. Distingue três casos que antes eram
+       todos `null` — o que é perigoso para decisões irreversíveis (migração):
+         { ok:true,  encontrado:true,  value }   registro existe
+         { ok:true,  encontrado:false, value:null } não existe (leitura ok)
+         { ok:false, encontrado:false, value:null, error } falha na leitura
+       Erro NUNCA vira "não encontrado". O diagnóstico fica aqui (camada única). */
+    async getWorkspaceResult(uid) {
+      const c = cliente(); if (!c) return { ok: false, encontrado: false, value: null, error: 'sem cliente' };
       try {
         const { data, error } = await c.from('workspaces')
           .select('snapshot_version,data,revision,updated_at,device')
           .eq('user_id', uid).maybeSingle();
-        if (error) diag('falha ao ler workspace', error);
-        if (!data) return null;
+        if (error) { diag('falha ao ler workspace', error); return { ok: false, encontrado: false, value: null, error }; }
+        if (!data) return { ok: true, encontrado: false, value: null };
         return {
-          version: data.snapshot_version,
-          revision: data.revision || 0,
-          updatedAt: data.updated_at ? Date.parse(data.updated_at) : 0,
-          device: data.device || null,
-          snapshot: data.data
+          ok: true, encontrado: true, value: {
+            version: data.snapshot_version,
+            revision: data.revision || 0,
+            updatedAt: data.updated_at ? Date.parse(data.updated_at) : 0,
+            device: data.device || null,
+            snapshot: data.data
+          }
         };
-      } catch (e) { diag('exceção ao ler workspace', e); return null; }
+      } catch (e) { diag('exceção ao ler workspace', e); return { ok: false, encontrado: false, value: null, error: e }; }
+    },
+
+    /* Contrato antigo preservado: workspace | null (null tanto para ausência
+       quanto para falha — o restore normal ainda cai no cache local nesses
+       casos). Só a migração usa getWorkspaceResult para não confundir os dois. */
+    async getWorkspace(uid) {
+      const r = await this.getWorkspaceResult(uid);
+      return r.ok && r.encontrado ? r.value : null;
     },
 
     /* Grava só se a revisão base ainda for a atual. Devolve:
@@ -45131,6 +45159,29 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     return doc || null;
   };
 
+  /* Leitura com resultado explícito para decisões irreversíveis (migração):
+     distingue "não existe" de "falha ao ler". Delega ao provider quando ele
+     souber diferenciar; senão faz o melhor esforço (não consegue detectar erro
+     do backend antigo, mas mantém o formato). Não muda o get/getWorkspace. */
+  Store.getWorkspaceResult = async function (uid) {
+    if (this.provider) {
+      if (this.provider.getWorkspaceResult) return this.provider.getWorkspaceResult(uid);
+      const doc = await this.provider.getWorkspace(uid);
+      return { ok: true, encontrado: !!(doc && doc.snapshot), value: doc || null };
+    }
+    const doc = await baseGet('workspaces', uid);
+    return { ok: true, encontrado: !!doc, value: doc || null };
+  };
+  Store.getProgressResult = async function (uid) {
+    if (this.provider) {
+      if (this.provider.getProgressResult) return this.provider.getProgressResult(uid);
+      const doc = await this.provider.get('progresso', uid);
+      return { ok: true, encontrado: !!doc, value: doc || null };
+    }
+    const doc = await baseGet('progresso', uid);
+    return { ok: true, encontrado: !!doc, value: doc || null };
+  };
+
   /* Optimistic locking genérico (local / claude db): grava só se a revisão
      que lemos ainda for a atual. Impede que um dispositivo apague em
      silêncio o trabalho mais novo feito em outro. */
@@ -45203,6 +45254,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     getUser() { return LX.Auth ? LX.Auth.usuario : null; },
 
     async getProgress(uid) { return await Store.get('progresso', uid); },
+    async getProgressResult(uid) { return await Store.getProgressResult(uid); },
     async saveProgress(uid, dados) { return await Store.set('progresso', uid, dados); },
 
     async getNotes(uid) { const p = await this.getProgress(uid); return (p && p.notes) || {}; },
@@ -45218,6 +45270,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     },
 
     async getWorkspace(uid) { return await Store.getWorkspace(uid); },
+    async getWorkspaceResult(uid) { return await Store.getWorkspaceResult(uid); },
     async saveWorkspace(uid, doc) { return await Store.saveWorkspace(uid, doc); }
   };
 
@@ -45590,16 +45643,19 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       if (jaFez) return false;
 
       /* O marcador de "migrado" SÓ pode ser gravado quando pudermos afirmar que
-         o estado remoto foi lido, o local foi lido e tudo que precisava migrar
-         foi salvo com sucesso — OU não havia nada a migrar. Se o Supabase falhar
-         (leitura ou gravação), não marcamos: a próxima sessão tenta de novo. */
+         o estado remoto foi LIDO COM SUCESSO, o local foi lido e tudo que
+         precisava migrar foi salvo — OU não havia nada a migrar. A leitura usa
+         *Result (ok/encontrado): um erro de leitura NUNCA é tratado como "não
+         existe". Se o Supabase falhar (leitura ou gravação), não marcamos: a
+         próxima sessão tenta de novo. */
       let migrou = false, houveFalha = false;
 
-      /* Progresso: só migra se a nuvem estiver vazia e houver progresso local. */
+      /* Progresso: só migra se a leitura remota tiver sucesso E estiver vazia. */
       try {
-        const nuvem = await LX.Storage.getProgress(uid);
-        const temNuvem = nuvem && Object.keys(nuvem.lessons || {}).length;
-        if (!temNuvem) {
+        const remoto = await LX.Storage.getProgressResult(uid);
+        if (!remoto.ok) {
+          houveFalha = true;                 // erro de leitura ≠ progresso remoto vazio
+        } else if (!remoto.encontrado || !Object.keys((remoto.value && remoto.value.lessons) || {}).length) {
           const localProg = this._melhorProgressoLocal();
           if (localProg && Object.keys(localProg.lessons || {}).length) {
             const ok = await LX.Storage.saveProgress(uid, localProg);
@@ -45612,10 +45668,13 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         }
       } catch (e) { diagnosticar(`falha ao migrar o progresso local de ${uid}`, e); houveFalha = true; }
 
-      /* Workspace: idem, migra o cache local se a nuvem não tiver nada. */
+      /* Workspace: idem, migra o cache local se a leitura remota tiver sucesso
+         e não houver nada salvo. */
       try {
-        const wsNuvem = await LX.Storage.getWorkspace(uid);
-        if (!wsNuvem || !wsNuvem.snapshot) {
+        const remotoWs = await LX.Storage.getWorkspaceResult(uid);
+        if (!remotoWs.ok) {
+          houveFalha = true;                 // erro de leitura ≠ workspace remoto inexistente
+        } else if (!remotoWs.encontrado || !remotoWs.value || !remotoWs.value.snapshot) {
           const local = this._docLocal(uid);
           if (local && local.snapshot) {
             const r = await LX.Storage.saveWorkspace(uid, { version: local.version, snapshot: local.snapshot, device: LX.Config.dispositivoId(), baseRevision: 0 });
