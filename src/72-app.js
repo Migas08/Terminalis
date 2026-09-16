@@ -386,6 +386,12 @@
       document.body.classList.toggle('route-page', !emAula);
       const body = $('#body');
       if (body) body.classList.toggle('solo', !emAula);
+      // A aba JS (editor + execução) só existe dentro do curso de JavaScript.
+      const emCursoJs = emAula && this.trilhaId === 'js';
+      const abaJs = $('.sp-tab[data-tab="js"]');
+      if (abaJs) abaJs.classList.toggle('hidden', !emCursoJs);
+      const sel = $('.sp-tab[aria-selected="true"]');
+      if (!emCursoJs && sel && sel.dataset.tab === 'js') this.switchTab('term');
     }
 
     setCrumbs(a, b) {
