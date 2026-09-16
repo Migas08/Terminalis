@@ -54,13 +54,14 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
       }
     });
 
-    /* ---------- a aba JS só aparece no curso de JavaScript ---------- */
+    /* ---------- aba JS só no curso de JavaScript; terminal só fora dele ---------- */
     await page.evaluate(() => __app.goLesson('l1-1'));      // aula de Linux
     assert.equal(await page.locator('.sp-tab[data-tab="js"]').isVisible(), false, 'aba JS escondida fora do curso JS');
+    assert.equal(await page.locator('.sp-tab[data-tab="term"]').isVisible(), true, 'terminal visível fora do curso JS');
     await page.evaluate(() => __app.goLesson('js1-1'));      // aula de JavaScript
     assert.equal(await page.locator('.sp-tab[data-tab="js"]').isVisible(), true, 'aba JS visível no curso JS');
-    await page.click('.sp-tab[data-tab="js"]');
-    assert.equal(await page.locator('#js-editor').isVisible(), true, 'o editor aparece na aba JS');
+    assert.equal(await page.locator('.sp-tab[data-tab="term"]').isVisible(), false, 'terminal escondido no curso JS');
+    assert.equal(await page.locator('#js-editor').isVisible(), true, 'o editor é o painel padrão no curso JS');
 
     /* ---------- programar no editor e rodar ---------- */
     await runEditor(page, "console.log('Olá', 1 + 1, { a: [1, 2] });\nconsole.warn('cuidado');");
@@ -100,8 +101,8 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     /* ---------- laço infinito é encerrado e a interface continua viva ---------- */
     await runEditor(page, 'while (true) {}');
     await waitConsole(page, 'tempo esgotado', 12000);
-    await page.evaluate(() => __app.switchTab('term'));
-    assert.equal(await page.locator('.sp-view[data-view="term"]').isVisible(), true, 'a UI continua respondendo após o timeout');
+    await page.evaluate(() => __app.switchTab('files'));   // terminal não existe no curso JS
+    assert.equal(await page.locator('.sp-view[data-view="files"]').isVisible(), true, 'a UI continua respondendo após o timeout');
     await page.click('.sp-tab[data-tab="js"]');
 
     /* ---------- ação "rodar" a partir do preview de Arquivos ---------- */
