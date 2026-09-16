@@ -98,6 +98,7 @@ JS_GROUPS = (
         "74-cloud-10-config.js",
         "74-cloud-20-supabase.js",
         "74-cloud-30-storage.js",
+        "74-cloud-35-local-store.js",
         "74-cloud-40-sync.js",
         "76-progressao.js",
         "77-authui.js",
