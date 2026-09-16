@@ -81,10 +81,10 @@
   }
 
   function locationOf(payload) {
-    if (!payload || !payload.file) return '';
-    let text = 'linha ' + (payload.line != null ? payload.line : '?');
+    if (!payload || payload.line == null) return '';
+    let text = 'linha ' + payload.line;
     if (payload.column != null) text += ', coluna ' + payload.column;
-    return text;
+    return '(' + text + ')';
   }
 
   function onEvent(event) {

@@ -289,6 +289,12 @@
     }
 
     switchTab(tab) {
+      // Se a aba pedida está escondida (ex.: terminal no curso JS), cai para uma visível.
+      const alvo = $('.sp-tab[data-tab="' + tab + '"]');
+      if (alvo && alvo.classList.contains('hidden')) {
+        const js = $('.sp-tab[data-tab="js"]');
+        tab = (js && !js.classList.contains('hidden')) ? 'js' : ($('.sp-tab:not(.hidden)') || {}).dataset?.tab || 'term';
+      }
       $$('.sp-tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === tab)));
       $$('.sp-view').forEach(v => v.classList.toggle('active', v.dataset.view === tab));
       $('#sp-term-actions').classList.toggle('hidden', tab !== 'term');
@@ -386,12 +392,15 @@
       document.body.classList.toggle('route-page', !emAula);
       const body = $('#body');
       if (body) body.classList.toggle('solo', !emAula);
-      // A aba JS (editor + execução) só existe dentro do curso de JavaScript.
+      // No curso de JavaScript o painel é o editor JS; o terminal Linux não
+      // serve à aula, então some. Fora do curso, o inverso.
       const emCursoJs = emAula && this.trilhaId === 'js';
       const abaJs = $('.sp-tab[data-tab="js"]');
+      const abaTerm = $('.sp-tab[data-tab="term"]');
       if (abaJs) abaJs.classList.toggle('hidden', !emCursoJs);
+      if (abaTerm) abaTerm.classList.toggle('hidden', emCursoJs);
       const sel = $('.sp-tab[aria-selected="true"]');
-      if (!emCursoJs && sel && sel.dataset.tab === 'js') this.switchTab('term');
+      if (sel && sel.classList.contains('hidden')) this.switchTab(emCursoJs ? 'js' : 'term');
     }
 
     setCrumbs(a, b) {
