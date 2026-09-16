@@ -88,6 +88,7 @@ JS_GROUPS = (
         "68-mod16d.js",
     )),
     ("interface", (
+        "70-workspace-mutation.js",
         "71-terminal.js",
         "72-app.js",
         "72-file-browser.js",

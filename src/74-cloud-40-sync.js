@@ -27,6 +27,9 @@
 (function () {
   const temWindow = typeof window !== 'undefined';
   const temDoc = typeof document !== 'undefined';
+  /* Variáveis de shell voláteis: o shell as reescreve a cada comando (inclusive
+     leituras), então não indicam trabalho novo e ficam fora da assinatura. */
+  const VOLATEIS = new Set(['_', '?', 'SECONDS', 'RANDOM', 'SRANDOM', 'LINENO', 'HISTCMD', 'BASHPID', 'EPOCHSECONDS', 'EPOCHREALTIME', 'PIPESTATUS', 'PPID']);
   const CACHE_WS = 'terminalis.cache.workspace/';
   const CACHE_PROG = 'terminalis.cache.progresso/';
   const BACKUP_WS = 'terminalis.backup.workspace/';
@@ -54,6 +57,9 @@
     _timer: null,
     _timerProg: null,
     _estado: 'local',
+    _epocaSnap: -1,           // época de mutação (LX.WorkspaceMutation) do último snapshot
+    _shellSig: null,          // assinatura pequena do shell no último snapshot (cd/export/…)
+    _exportCount: 0,          // instrumentação: nº de exportações completas (métricas/testes)
 
     /* --------------------------- ciclo de vida --------------------------- */
     iniciar(app) {
@@ -67,8 +73,16 @@
         });
         this._ligado = true;
       }
+      this._marcarLimpo();   // o boot criou a VM (época já mexeu); parte de um baseline limpo
       this.status(this._temNuvem() ? 'salvo' : 'local');
       return this;
+    },
+
+    /* Fixa o baseline de "limpo": a próxima leitura só é considerada suja se a
+       época de mutação OU a assinatura do shell mudarem a partir daqui. */
+    _marcarLimpo() {
+      this._epocaSnap = LX.WorkspaceMutation ? LX.WorkspaceMutation.epoca() : 0;
+      this._shellSig = this._assinaturaShell();
     },
 
     /* Zera TODO o estado da sessão de sincronização. O estado global (revisão,
@@ -88,6 +102,8 @@
       this._pausado = false;
       this._conflito = null;
       this._assinatura = null;
+      this._epocaSnap = -1;
+      this._shellSig = null;
       this._estado = 'local';
       /* Fecha o cartão de conflito de outra sessão, se ainda estiver aberto. */
       if (temDoc) { const el = document.getElementById('sync-conflict'); if (el) el.classList.remove('on'); }
@@ -108,23 +124,49 @@
         this._cacheProgresso();
         return true; // o progresso é gravado pelo LX.Auth (debounce próprio); aqui só cacheamos
       }
-      /* O gancho é chamado após qualquer comando, inclusive ls/pwd/cat. A
-         assinatura evita agendar upload quando o domínio não mudou. */
-      const atual = this.exportarSnapshot();
-      const assinatura = atual ? this.assinarSnapshot(atual) : null;
-      if (assinatura && assinatura === this._assinatura) return false;
-      this._assinatura = assinatura || this._assinatura;
+      /* O gancho é chamado após QUALQUER comando, inclusive ls/pwd/cat. Em vez
+         de exportar a VM inteira toda vez, decide por dois sinais baratos:
+           · a época de mutação (LX.WorkspaceMutation), tocada só por escritas
+             reais no FS/subsistemas/Docker;
+           · a assinatura pequena do shell (cwd/vars/aliases), para cd/export.
+         Leituras não mexem em nenhum dos dois -> retorna sem exportar nada. */
+      const ep = LX.WorkspaceMutation ? LX.WorkspaceMutation.epoca() : (this._epocaSnap + 1);
+      const shellSig = this._assinaturaShell();
+      if (ep === this._epocaSnap && shellSig === this._shellSig) return false;
+      this._epocaSnap = ep;
+      this._shellSig = shellSig;
       this._sujo = true;
-      this._cacheWorkspace();          // cache local imediato (offline-first)
+      this._cacheWorkspace();          // cache local imediato (proteção de reload/offline-first)
       const ms = (LX.Config.sync && LX.Config.sync.workspaceDebounceMs) || 1500;
       if (this._timer) clearTimeout(this._timer);
       this._timer = setTimeout(() => { this._timer = null; this.flushWorkspace(); }, ms);
       return true;
     },
 
+    /* Assinatura pequena e barata do shell ativo (sem o histórico, que muda a
+       cada comando). Capta cd, export, alias, umask, funções — mutações que não
+       passam por um método central hookável. Muito menor que a VM inteira. */
+    _assinaturaShell() {
+      if (!this.app) return '';
+      const term = this.app.term;
+      const sh = (LX.Shell && term instanceof LX.Shell) ? term : (term && term.sh) || null;
+      if (!sh || typeof sh.exportState !== 'function') return '';
+      try {
+        const d = sh.exportState();
+        if (d) {
+          delete d.history; delete d.lastStatus; delete d.pipestatus;   // voláteis: mudam em leituras
+          /* Remove variáveis voláteis que o shell atualiza a cada comando
+             (ex.: `_` = último argumento) — senão toda leitura pareceria suja. */
+          if (d.vars && Array.isArray(d.vars.$map)) d.vars.$map = d.vars.$map.filter(([k]) => !VOLATEIS.has(k));
+        }
+        return JSON.stringify(d);
+      } catch (e) { return ''; }
+    },
+
     /* --------------------------- exportar snapshot --------------------------- */
     exportarSnapshot() {
       if (!this.app || !this.app.machine) return null;
+      this._exportCount++;   // instrumentação de performance (contagem de exportações)
       return LX.Workspace.exportState(this.app.machine, this.app.term || null,
         { trilhaId: this.app.trilhaId || null });
     },
@@ -180,12 +222,16 @@
       try {
         const snap = this.exportarSnapshot();
         if (!snap) { this.status('salvo'); return; }
+        /* Baseline capturado no MOMENTO do export: mutações que chegarem durante
+           o await abaixo continuam detectadas (época/shell já terão avançado). */
+        const epExport = LX.WorkspaceMutation ? LX.WorkspaceMutation.epoca() : this._epocaSnap;
+        const shellExport = this._assinaturaShell();
         const doc = { version: snap.version, snapshot: snap, device: LX.Config.dispositivoId(), baseRevision: this._revisao };
         this._cacheWorkspace();          // offline-first: garante uma cópia local antes da rede
         if (this._offline()) { this._pendente = true; this.status('offline'); return; }
         traco('tentando salvar baseRevision=' + this._revisao);
         const r = await LX.Storage.saveWorkspace(uid, doc);
-        if (r.ok) { this._revisao = r.revision; this._assinatura = this.assinarSnapshot(snap); this._pendente = false; this._sujo = false; this.status('salvo'); traco('salvo revision=' + r.revision); }
+        if (r.ok) { this._revisao = r.revision; this._assinatura = this.assinarSnapshot(snap); this._epocaSnap = epExport; this._shellSig = shellExport; this._pendente = false; this._sujo = false; this.status('salvo'); traco('salvo revision=' + r.revision); }
         else if (r.conflito) { traco('conflito de revisão — sincronização pausada'); this._resolverConflito(r.atual); }
         else { this._pendente = true; this.status('erro'); diagnosticar('falha ao salvar workspace', r.erro ? { message: r.erro } : null); }
       } catch (e) {
@@ -265,6 +311,7 @@
           }
           this._revisao = Number(conflito.atual && conflito.atual.revision || this._revisao);
           this._assinatura = this.assinarSnapshot(conflito.atual.snapshot);
+          this._marcarLimpo();   // adotou o remoto: baseline limpo
           this._sujo = false; this._pendente = false; this.status('salvo');
           return true;
         } catch (e) {
@@ -301,6 +348,7 @@
         this._revisao = Number(doc.revision || 0);
         this._assinatura = this.assinarSnapshot(doc.snapshot);
         if (this.app && this.app.aplicarWorkspaceRestaurado) this.app.aplicarWorkspaceRestaurado(restaurado);
+        this._marcarLimpo();   // acabou de restaurar: parte de um baseline limpo (1º comando não é falso-dirty)
         traco('ambiente restaurado revision=' + this._revisao + ' origem=' + escolha.origem);
         if (escolha.precisaEnviar) {
           /* O cache local trazia alterações não enviadas (reload/fechamento

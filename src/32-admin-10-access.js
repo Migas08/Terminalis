@@ -73,6 +73,7 @@
         else if (/^[0-7]{1,4}$/.test(spec)) node.mode = parseInt(spec, 8);
         else node.mode = applySymbolic(node.mode, spec, node.type === 'dir');
         node.ctime = Date.now();
+        if (LX.WorkspaceMutation) LX.WorkspaceMutation.markDirty();   // metadados alterados direto: fora dos hooks do FS
         if (opts.v || opts['--verbose'] || (opts.c && old !== node.mode))
           io.stdout.write(`mode of '${path}' ${old === node.mode ? 'retained as' : 'changed from'} ${(old & 0o7777).toString(8).padStart(4, '0')} (${modeToRwx(old, node.type).slice(1)})${old === node.mode ? '' : ' to ' + (node.mode & 0o7777).toString(8).padStart(4, '0') + ' (' + modeToRwx(node.mode, node.type).slice(1) + ')'}\n`);
       };
@@ -134,6 +135,7 @@ Modo octal: três dígitos (dono, grupo, outros), somando r=4 w=2 x=1
         if (uid !== null) n.uid = uid;
         if (gid !== null) n.gid = gid;
         n.ctime = Date.now();
+        if (LX.WorkspaceMutation) LX.WorkspaceMutation.markDirty();   // dono/grupo alterados direto: fora dos hooks do FS
         if (opts.v || opts['--verbose']) io.stdout.write(`changed ownership of '${path}'\n`);
       };
       for (const f of rest) {
@@ -391,6 +393,7 @@ Modo octal: três dígitos (dono, grupo, outros), somando r=4 w=2 x=1
         // recalcula a máscara (bits de grupo do mode), como faz o setfacl real
         if (node.acl && node.acl.length) node.mode = (node.mode & ~0o070) | (aclMask(node) << 3);
         node.ctime = Date.now();
+        if (LX.WorkspaceMutation) LX.WorkspaceMutation.markDirty();   // ACL alterada direto: fora dos hooks do FS
       };
       for (const f of rest) {
         try {
