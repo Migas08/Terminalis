@@ -60,6 +60,12 @@
       $('#fb-prev-body').textContent = content || '(arquivo vazio)';
       $('#fb-prev-close').onclick = () => $('#fb-preview').classList.add('hidden');
       $('#fb-prev-edit').onclick = async () => { await this.term.editor(path); this.previewFile(path); };
+      const runBtn = $('#fb-prev-run');
+      const isJs = /\.(mjs|cjs|js)$/i.test(path);
+      if (runBtn) {
+        runBtn.classList.toggle('hidden', !isJs);
+        runBtn.onclick = () => { if (LX.JSWorkspace) LX.JSWorkspace.openAndRun(this, path); };
+      }
     }
   }
 

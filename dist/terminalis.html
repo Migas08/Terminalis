@@ -639,6 +639,24 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
 @keyframes blink { 0%,55% { opacity: 1; } 56%,100% { opacity: 0; } }
 #term-hidden { position: absolute; opacity: 0; width: 1px; height: 1px; left: -9999px; }
 
+/* ---------- playground JavaScript ---------- */
+.js-shell { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--term-bg); }
+#js-console {
+  flex: 1; overflow-y: auto; padding: 12px 16px 16px;
+  font-family: var(--f-mono); font-size: 12.5px; line-height: 1.6;
+  color: var(--term-tx); white-space: pre-wrap; word-break: break-word; min-height: 0;
+}
+.js-line { white-space: pre-wrap; }
+.js-line.js-info { color: var(--term-blue); }
+.js-line.js-warn { color: var(--term-yellow); }
+.js-line.js-error, .js-line.js-err { color: var(--term-red); }
+.js-line.js-debug, .js-line.js-sys { color: var(--term-dim); }
+.js-loc { color: var(--term-dim); }
+.js-entry {
+  font-family: var(--f-mono); font-size: 11.5px; color: var(--tx-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%;
+}
+
 .term-status {
   display: flex; align-items: center; gap: 16px; padding: 9px 14px;
   border-top: 1px solid var(--line); background: var(--surface); font-size: 12px; color: var(--tx-3);
@@ -1562,6 +1580,7 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
         <button class="sp-tab" data-tab="term" role="tab" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-5-6-5"/><path d="M12 19h8"/></svg><span>Terminal</span></button>
         <button class="sp-tab" data-tab="files" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg><span>Arquivos</span></button>
         <button class="sp-tab" data-tab="notes" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span>Anotações</span></button>
+        <button class="sp-tab" data-tab="js" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-5-6-5"/><path d="M12 19h8"/></svg><span>JS</span></button>
         <div class="sp-tabs-spacer"></div>
         <button class="mini-btn danger sp-reset" id="btn-reset-term" aria-label="Recriar o ambiente" title="Recriar o ambiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span>Reset</span></button>
       </div>
@@ -1575,6 +1594,13 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
         <span class="fb-path" id="fb-crumbs" style="padding:0;border:0"></span>
         <div class="spacer"></div>
         <button class="mini-btn" id="fb-here">ir para o diretório atual</button>
+      </div>
+      <div class="sp-actions hidden" id="sp-js-actions">
+        <span class="js-entry" id="js-entry">nenhum arquivo</span>
+        <div class="spacer"></div>
+        <button class="mini-btn" id="js-run"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z"/></svg>rodar</button>
+        <button class="mini-btn" id="js-cancel" disabled>parar</button>
+        <button class="mini-btn square" id="js-clear" aria-label="Limpar console" title="Limpar console"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
       </div>
 
       <!-- terminal -->
@@ -1602,10 +1628,18 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
         <div class="files-wrap"><div id="fb-list"></div></div>
         <div class="fb-preview hidden" id="fb-preview">
           <div class="h"><span id="fb-prev-name"></span><span class="spacer"></span>
+            <button class="mini-btn hidden" id="fb-prev-run"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z"/></svg>rodar</button>
             <button class="mini-btn" id="fb-prev-edit">editar</button>
             <button class="mini-btn" id="fb-prev-close">fechar</button>
           </div>
           <pre id="fb-prev-body"></pre>
+        </div>
+      </div>
+
+      <!-- playground JavaScript -->
+      <div class="sp-view" data-view="js">
+        <div class="js-shell">
+          <div id="js-console" aria-live="polite"></div>
         </div>
       </div>
 
@@ -14957,6 +14991,743 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
     help: 'GitHub CLI educacional: auth login/status, repo create/view/fork, issue create/list, pr create/list/review/comment/merge/close, release create/list, run list.',
     run
   });
+})();
+
+;
+/* ==== 39-js-protocol.js ==== */
+/* Protocolo do runner JavaScript/TypeScript do Terminalis.
+
+   Este módulo NÃO executa código do aluno e NÃO acessa o DOM. Ele define o
+   contrato entre a aplicação (LX) e a sandbox: nomes de eventos e comandos,
+   limites numéricos, geração de identificadores e — o mais importante — as
+   funções que garantem que só passe pelo canal dado serializável. Nunca deve
+   trafegar Error cru, nó de DOM, função ou objeto interno do LX.
+
+   O runner (39-js-runner.js) e a sandbox (39-js-sandbox.js) dependem daqui, por
+   isso o prefixo 39 vem antes deles e depois do VFS/rede que eventualmente serão
+   expostos como capabilities. */
+'use strict';
+(function () {
+  const JS = (LX.JS = LX.JS || {});
+
+  /* Eventos que o coordenador emite para os assinantes. Todo evento carrega
+     sessionId, runId, seq (relógio lógico monotônico) e um payload serializável. */
+  const EVENTS = Object.freeze({
+    RUN_START: 'run-start',
+    CONSOLE: 'console',
+    DIAGNOSTIC: 'diagnostic',
+    TEST_START: 'test-start',
+    TEST_RESULT: 'test-result',
+    UNCAUGHT_ERROR: 'uncaught-error',
+    UNHANDLED_REJECTION: 'unhandled-rejection',
+    RUN_TIMEOUT: 'run-timeout',
+    RUN_CANCELLED: 'run-cancelled',
+    RUN_COMPLETE: 'run-complete',
+    OUTPUT_LIMIT: 'output-limit',
+    MODULE_LOADED: 'module-loaded',
+    LIFECYCLE: 'lifecycle'
+  });
+
+  /* Comandos que a aplicação envia para dentro da sandbox. */
+  const COMMANDS = Object.freeze({
+    INIT: 'init',
+    RUN: 'run',
+    RUN_TESTS: 'run-tests',
+    CANCEL: 'cancel',
+    DISPOSE: 'dispose'
+  });
+
+  const CONSOLE_LEVELS = Object.freeze(['log', 'info', 'warn', 'error', 'debug']);
+
+  /* Limites deliberadamente conservadores. São o teto de segurança: saída,
+     tamanho de mensagem, profundidade de inspeção, número e tamanho de arquivos e
+     o tempo de uma execução antes do encerramento forçado. */
+  const LIMITS = Object.freeze({
+    OUTPUT_BYTES: 256 * 1024,
+    MESSAGE_BYTES: 1024 * 1024,
+    INSPECT_DEPTH: 6,
+    INSPECT_ITEMS: 100,
+    STRING_LEN: 10000,
+    RUN_TIMEOUT_MS: 5000,
+    MAX_FILES: 200,
+    MAX_FILE_BYTES: 512 * 1024,
+    MAX_PATH_LEN: 1024
+  });
+
+  /* Chaves proibidas em qualquer profundidade: barram prototype pollution vinda
+     de um payload malicioso do canal. */
+  const FORBIDDEN_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
+  function byteLength(text) {
+    // TextEncoder existe no navegador, no Worker e no Node moderno.
+    return typeof TextEncoder !== 'undefined'
+      ? new TextEncoder().encode(text).length
+      : unescape(encodeURIComponent(text)).length;
+  }
+
+  /* Inspeção legível de valores para o console: à prova de ciclos, com limite de
+     profundidade, de itens e de tamanho de string. Nunca lança e nunca devolve o
+     objeto original — só uma string. */
+  function inspect(value, opts) {
+    const depthMax = (opts && opts.depth) || LIMITS.INSPECT_DEPTH;
+    const itemMax = (opts && opts.items) || LIMITS.INSPECT_ITEMS;
+    const strMax = (opts && opts.stringLen) || LIMITS.STRING_LEN;
+    const seen = new Set();
+
+    function clip(text) {
+      return text.length > strMax ? text.slice(0, strMax) + '… (truncado)' : text;
+    }
+
+    function walk(node, depth) {
+      const type = typeof node;
+      if (node === null) return 'null';
+      if (type === 'undefined') return 'undefined';
+      if (type === 'string') return depth === 0 ? clip(node) : JSON.stringify(clip(node));
+      if (type === 'number' || type === 'boolean') return String(node);
+      if (type === 'bigint') return String(node) + 'n';
+      if (type === 'symbol') return node.toString();
+      if (type === 'function') return '[Function: ' + (node.name || 'anônima') + ']';
+      if (node instanceof Error) return node.name + ': ' + clip(String(node.message));
+      if (depth >= depthMax) return Array.isArray(node) ? '[Array]' : '[Object]';
+      if (seen.has(node)) return '[Circular]';
+      seen.add(node);
+      try {
+        if (Array.isArray(node)) {
+          const parts = node.slice(0, itemMax).map(item => walk(item, depth + 1));
+          if (node.length > itemMax) parts.push('… +' + (node.length - itemMax) + ' itens');
+          return '[' + parts.join(', ') + ']';
+        }
+        if (node instanceof Map) {
+          const parts = [];
+          for (const [k, v] of node) {
+            if (parts.length >= itemMax) { parts.push('…'); break; }
+            parts.push(walk(k, depth + 1) + ' => ' + walk(v, depth + 1));
+          }
+          return 'Map(' + node.size + ') {' + parts.join(', ') + '}';
+        }
+        if (node instanceof Set) {
+          const parts = [];
+          for (const v of node) {
+            if (parts.length >= itemMax) { parts.push('…'); break; }
+            parts.push(walk(v, depth + 1));
+          }
+          return 'Set(' + node.size + ') {' + parts.join(', ') + '}';
+        }
+        const keys = Object.keys(node);
+        const parts = keys.slice(0, itemMax).map(k => {
+          const label = /^[A-Za-z_$][\w$]*$/.test(k) ? k : JSON.stringify(k);
+          return label + ': ' + walk(node[k], depth + 1);
+        });
+        if (keys.length > itemMax) parts.push('… +' + (keys.length - itemMax) + ' chaves');
+        const ctor = node.constructor && node.constructor.name;
+        const prefix = ctor && ctor !== 'Object' ? ctor + ' ' : '';
+        return prefix + '{' + parts.join(', ') + '}';
+      } finally {
+        seen.delete(node);
+      }
+    }
+    try {
+      return walk(value, 0);
+    } catch (_) {
+      return '[valor não inspecionável]';
+    }
+  }
+
+  /* Garante que um valor é seguro para atravessar o canal: só primitivos JSON,
+     arrays e objetos simples, sem chaves proibidas e dentro do limite de bytes.
+     Devolve uma cópia limpa. Lança em qualquer coisa fora disso. É a rede de
+     segurança usada ao montar todo evento de saída. */
+  function assertSerializable(value, depth) {
+    depth = depth || 0;
+    if (depth > 100) throw new Error('Payload excede a profundidade permitida.');
+    if (value === null) return null;
+    const type = typeof value;
+    if (type === 'boolean') return value;
+    if (type === 'number') { if (!Number.isFinite(value)) throw new Error('Número não finito no payload.'); return value; }
+    if (type === 'string') return value;
+    if (type === 'undefined' || type === 'function' || type === 'symbol' || type === 'bigint') {
+      throw new Error('Valor não serializável no payload: ' + type + '.');
+    }
+    if (Array.isArray(value)) return value.map(item => assertSerializable(item, depth + 1));
+    const tag = Object.prototype.toString.call(value);
+    if (tag !== '[object Object]') throw new Error('Objeto não serializável no payload: ' + tag + '.');
+    // Plainness pela PROFUNDIDADE da cadeia de protótipos, não por comparação com
+    // um Object.prototype específico: literais criados em outro realm (o vm dos
+    // testes injeta um Object externo) têm um Object.prototype diferente, então a
+    // comparação direta falharia. Um objeto simples tem protótipo nulo ou cujo
+    // próprio protótipo é nulo; uma instância de classe tem a cadeia mais longa.
+    // Também não usa value.constructor, para uma chave própria "constructor" não
+    // mascarar a checagem — ela é barrada como poluição logo abaixo.
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== null && Object.getPrototypeOf(proto) !== null) {
+      throw new Error('Instância não serializável no payload.');
+    }
+    const out = {};
+    for (const key of Object.keys(value)) {
+      if (FORBIDDEN_KEYS.has(key)) throw new Error('Chave proibida no payload: ' + key + '.');
+      out[key] = assertSerializable(value[key], depth + 1);
+    }
+    return out;
+  }
+
+  /* Rejeita chaves proibidas em qualquer profundidade de uma mensagem de entrada,
+     sem exigir que ela seja totalmente serializável (o comando pode carregar
+     strings grandes de arquivo). */
+  function assertNoPollution(value, depth) {
+    depth = depth || 0;
+    if (depth > 100) throw new Error('Comando excede a profundidade permitida.');
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) { value.forEach(item => assertNoPollution(item, depth + 1)); return; }
+    for (const key of Object.keys(value)) {
+      if (FORBIDDEN_KEYS.has(key)) throw new Error('Chave proibida no comando: ' + key + '.');
+      assertNoPollution(value[key], depth + 1);
+    }
+  }
+
+  /* Valida um comando de entrada: objeto simples, tipo conhecido, sem poluição de
+     protótipo e dentro do limite de tamanho. Devolve o próprio comando. */
+  function validateCommand(message) {
+    if (!message || typeof message !== 'object' || Array.isArray(message)) {
+      throw new Error('Comando inválido: esperado objeto.');
+    }
+    if (typeof message.type !== 'string' || !Object.values(COMMANDS).includes(message.type)) {
+      throw new Error('Comando desconhecido.');
+    }
+    assertNoPollution(message);
+    let size;
+    try { size = byteLength(JSON.stringify(message)); }
+    catch (_) { throw new Error('Comando não serializável.'); }
+    if (size > LIMITS.MESSAGE_BYTES) throw new Error('Comando excede o tamanho máximo de mensagem.');
+    return message;
+  }
+
+  let counter = 0;
+  function newId(prefix) {
+    counter = (counter + 1) >>> 0;
+    let random;
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const buf = new Uint8Array(6);
+      crypto.getRandomValues(buf);
+      random = Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
+    } else {
+      random = Math.random().toString(16).slice(2, 14);
+    }
+    return (prefix || 'id') + '_' + counter.toString(36) + random;
+  }
+
+  /* Monta um evento de saída já validado. O payload é sanitizado (cópia limpa) e o
+     tamanho total é conferido contra MESSAGE_BYTES. */
+  function makeEvent(type, meta, payload) {
+    if (!Object.values(EVENTS).includes(type)) throw new Error('Tipo de evento desconhecido: ' + type + '.');
+    const event = {
+      type,
+      sessionId: String((meta && meta.sessionId) || ''),
+      runId: (meta && meta.runId != null) ? String(meta.runId) : null,
+      seq: (meta && Number.isInteger(meta.seq)) ? meta.seq : 0,
+      at: (meta && Number.isFinite(meta.at)) ? meta.at : 0,
+      payload: assertSerializable(payload == null ? {} : payload)
+    };
+    const size = byteLength(JSON.stringify(event));
+    if (size > LIMITS.MESSAGE_BYTES) throw new Error('Evento excede o tamanho máximo de mensagem.');
+    return event;
+  }
+
+  JS.Protocol = {
+    EVENTS, COMMANDS, CONSOLE_LEVELS, LIMITS, FORBIDDEN_KEYS,
+    byteLength, inspect, assertSerializable, assertNoPollution,
+    validateCommand, newId, makeEvent
+  };
+})();
+
+;
+/* ==== 39-js-runner.js ==== */
+/* Coordenador do runner JavaScript/TypeScript.
+
+   Domínio puro: não acessa DOM, não usa eval/new Function e não conhece a
+   implementação da sandbox. Conversa com a fronteira isolada apenas por um
+   `transport` injetado, o que permite:
+     · em produção, dirigir um iframe sandbox + Worker descartável;
+     · em teste, dirigir a mesma fonte de Worker dentro de um contexto isolado.
+
+   Contrato do transport:
+     transport.open(sessionId, onMessage) -> handle
+     handle.post(command)   // envia um comando validado para dentro da sandbox
+     handle.terminate()     // encerra a sandbox (equivale a Worker.terminate)
+   `onMessage(raw)` é chamado pelo transport quando a sandbox emite algo; o
+   coordenador traduz essa mensagem crua em um evento estruturado e a repassa aos
+   assinantes já sanitizada. */
+'use strict';
+(function () {
+  const JS = (LX.JS = LX.JS || {});
+  const P = JS.Protocol;
+
+  function createRunner(options) {
+    options = options || {};
+    const transport = options.transport;
+    if (!transport || typeof transport.open !== 'function') {
+      throw new Error('createRunner exige um transport com open().');
+    }
+    const limits = Object.assign({}, P.LIMITS, options.limits || {});
+    const now = options.now || (() => (typeof Date !== 'undefined' ? Date.now() : 0));
+    const schedule = options.schedule || ((fn, ms) => setTimeout(fn, ms));
+    const cancelSchedule = options.cancelSchedule || (token => clearTimeout(token));
+
+    const sessions = new Map();
+    const listeners = new Set();
+    let seq = 0;
+
+    function emit(type, session, runId, payload) {
+      let event;
+      try {
+        event = P.makeEvent(type, { sessionId: session.id, runId: runId, seq: seq++, at: now() }, payload);
+      } catch (error) {
+        // Um payload impossível de sanitizar nunca deve derrubar o coordenador.
+        event = P.makeEvent(EVENTS_SAFE(type), { sessionId: session.id, runId: runId, seq: seq++, at: now() },
+          { message: 'Evento descartado: ' + error.message });
+      }
+      for (const listener of listeners) {
+        try { listener(event); } catch (_) { /* um assinante quebrado não afeta os demais */ }
+      }
+    }
+    function EVENTS_SAFE(type) {
+      return Object.values(P.EVENTS).includes(type) ? type : P.EVENTS.DIAGNOSTIC;
+    }
+
+    function openHandle(session) {
+      session.handle = transport.open(session.id, raw => onSandboxMessage(session, raw));
+      try { session.handle.post({ type: P.COMMANDS.INIT, limits: limits }); }
+      catch (_) { /* INIT é best-effort; RUN reenvia tudo o que a sandbox precisa */ }
+    }
+
+    function requireSession(sessionId) {
+      const session = sessions.get(String(sessionId));
+      if (!session) throw new Error('Sessão inválida ou já descartada.');
+      return session;
+    }
+
+    function finishRun(session, type, payload, runId) {
+      const run = session.run;
+      const id = runId || (run && run.runId);
+      if (run && run.timer != null) { cancelSchedule(run.timer); run.timer = null; }
+      session.run = null;
+      if (type) emit(type, session, id, payload || {});
+    }
+
+    /* Traduz uma mensagem crua da sandbox no evento correspondente. Só o runId
+       ativo é aceito: mensagens de uma execução já encerrada são ignoradas. */
+    function onSandboxMessage(session, raw) {
+      if (!raw || typeof raw !== 'object') return;
+      const run = session.run;
+      const type = raw.type;
+
+      if (type === 'ready') { emit(P.EVENTS.LIFECYCLE, session, null, { state: 'ready' }); return; }
+      if (!run || (raw.runId != null && String(raw.runId) !== run.runId)) return;
+
+      switch (type) {
+        case P.EVENTS.CONSOLE: {
+          const text = String(raw.text == null ? '' : raw.text);
+          const level = P.CONSOLE_LEVELS.includes(raw.level) ? raw.level : 'log';
+          run.output += P.byteLength(text);
+          if (run.output > limits.OUTPUT_BYTES) {
+            if (!run.limited) { run.limited = true; emit(P.EVENTS.OUTPUT_LIMIT, session, run.runId, { kind: 'console' }); }
+            return;
+          }
+          emit(P.EVENTS.CONSOLE, session, run.runId, { level, text });
+          return;
+        }
+        case P.EVENTS.OUTPUT_LIMIT:
+          if (!run.limited) { run.limited = true; emit(P.EVENTS.OUTPUT_LIMIT, session, run.runId, { kind: String(raw.kind || 'console') }); }
+          return;
+        case P.EVENTS.UNCAUGHT_ERROR:
+          emit(P.EVENTS.UNCAUGHT_ERROR, session, run.runId, safeError(raw.error));
+          return;
+        case P.EVENTS.UNHANDLED_REJECTION:
+          emit(P.EVENTS.UNHANDLED_REJECTION, session, run.runId, safeError(raw.reason));
+          return;
+        case P.EVENTS.DIAGNOSTIC:
+          emit(P.EVENTS.DIAGNOSTIC, session, run.runId, plain(raw.payload));
+          return;
+        case P.EVENTS.RUN_COMPLETE:
+          finishRun(session, P.EVENTS.RUN_COMPLETE, { ok: raw.ok !== false }, run.runId);
+          return;
+        default:
+          // Tipos ainda não suportados (test-result, module-loaded) chegam nas
+          // fases seguintes; por ora são ignorados em silêncio controlado.
+          return;
+      }
+    }
+
+    function safeError(error) {
+      error = error || {};
+      const out = {
+        name: String(error.name || 'Error'),
+        message: String(error.message == null ? '' : error.message).slice(0, limits.STRING_LEN),
+        stack: error.stack != null ? String(error.stack).slice(0, limits.STRING_LEN) : null,
+        line: Number.isFinite(error.line) ? error.line : null,
+        column: Number.isFinite(error.column) ? error.column : null,
+        file: error.file != null ? String(error.file).slice(0, limits.MAX_PATH_LEN) : null
+      };
+      return out;
+    }
+    function plain(value) {
+      try { return P.assertSerializable(value == null ? {} : value); }
+      catch (_) { return { note: 'payload não serializável descartado' }; }
+    }
+
+    function validateFiles(files) {
+      if (!files || typeof files !== 'object' || Array.isArray(files)) {
+        throw new Error('files deve ser um objeto { caminho: conteúdo }.');
+      }
+      P.assertNoPollution(files);
+      const names = Object.keys(files);
+      if (names.length > limits.MAX_FILES) throw new Error('Excesso de arquivos na sessão (máximo ' + limits.MAX_FILES + ').');
+      const clean = {};
+      for (const name of names) {
+        if (typeof name !== 'string' || !name || name.length > limits.MAX_PATH_LEN) throw new Error('Caminho de arquivo inválido.');
+        const content = files[name];
+        if (typeof content !== 'string') throw new Error('Conteúdo de arquivo deve ser texto: ' + name + '.');
+        if (P.byteLength(content) > limits.MAX_FILE_BYTES) throw new Error('Arquivo excede o tamanho máximo: ' + name + '.');
+        clean[name] = content;
+      }
+      return clean;
+    }
+
+    /* -------------------------------- API pública -------------------------------- */
+
+    function createSession(sessionOptions) {
+      sessionOptions = sessionOptions || {};
+      const id = P.newId('sess');
+      const session = { id, files: {}, handle: null, run: null };
+      sessions.set(id, session);
+      openHandle(session);
+      if (sessionOptions.files) session.files = validateFiles(sessionOptions.files);
+      emit(P.EVENTS.LIFECYCLE, session, null, { state: 'created' });
+      return id;
+    }
+
+    function putFiles(sessionId, files) {
+      const session = requireSession(sessionId);
+      const clean = validateFiles(files);
+      Object.assign(session.files, clean);
+      return Object.keys(session.files).length;
+    }
+
+    function run(sessionId, entrypoint, runOptions) {
+      const session = requireSession(sessionId);
+      runOptions = runOptions || {};
+      if (typeof entrypoint !== 'string' || !Object.prototype.hasOwnProperty.call(session.files, entrypoint)) {
+        throw new Error('Arquivo de entrada inexistente na sessão: ' + entrypoint + '.');
+      }
+      if (session.run) throw new Error('A sessão já tem uma execução ativa. Cancele ou aguarde.');
+      if (!session.handle) openHandle(session);
+      const runId = P.newId('run');
+      const timeout = Number.isFinite(runOptions.timeoutMs) ? runOptions.timeoutMs : limits.RUN_TIMEOUT_MS;
+      const runState = { runId, output: 0, limited: false, timer: null };
+      session.run = runState;
+      emit(P.EVENTS.RUN_START, session, runId, { entrypoint, mode: 'run' });
+      runState.timer = schedule(() => onTimeout(session, runId), timeout);
+      try {
+        // Os arquivos já foram validados (chaves e tamanho) em putFiles; o
+        // comando RUN é uma transferência em bloco, então não passa pelo teto de
+        // MESSAGE_BYTES do validateCommand, que vale para mensagens avulsas.
+        session.handle.post({ type: P.COMMANDS.RUN, runId, entrypoint, files: session.files });
+      } catch (error) {
+        finishRun(session, P.EVENTS.UNCAUGHT_ERROR, safeError({ name: 'RunnerError', message: error.message }), runId);
+      }
+      return runId;
+    }
+
+    function runTests() {
+      // O test runner chega na Fase 2. Falha explícita, nunca fingir suporte.
+      throw new Error('runTests ainda não é suportado nesta fase do runner.');
+    }
+
+    function onTimeout(session, runId) {
+      if (!session.run || session.run.runId !== runId) return;
+      // Um laço infinito só termina encerrando a sandbox; reabrimos em seguida.
+      hardReset(session);
+      finishRun(session, P.EVENTS.RUN_TIMEOUT, { timeoutMs: limits.RUN_TIMEOUT_MS }, runId);
+    }
+
+    function hardReset(session) {
+      try { if (session.handle) session.handle.terminate(); } catch (_) { /* já pode estar morto */ }
+      openHandle(session);
+    }
+
+    function cancel(runId) {
+      for (const session of sessions.values()) {
+        if (session.run && session.run.runId === String(runId)) {
+          hardReset(session);
+          finishRun(session, P.EVENTS.RUN_CANCELLED, { reason: 'cancelado' }, session.run.runId);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function resetSession(sessionId) {
+      const session = requireSession(sessionId);
+      finishRun(session, null, null, null);
+      hardReset(session);
+      emit(P.EVENTS.LIFECYCLE, session, null, { state: 'reset' });
+    }
+
+    function dispose(sessionId) {
+      const session = sessions.get(String(sessionId));
+      if (!session) return false;
+      if (session.run && session.run.timer != null) cancelSchedule(session.run.timer);
+      try { if (session.handle) session.handle.terminate(); } catch (_) { /* ignora */ }
+      sessions.delete(session.id);
+      return true;
+    }
+
+    function subscribe(listener) {
+      if (typeof listener !== 'function') throw new Error('subscribe exige uma função.');
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }
+
+    function disposeAll() {
+      for (const id of Array.from(sessions.keys())) dispose(id);
+    }
+
+    return {
+      createSession, putFiles, run, runTests, cancel,
+      resetSession, dispose, disposeAll, subscribe,
+      get sessionCount() { return sessions.size; }
+    };
+  }
+
+  JS.createRunner = createRunner;
+})();
+
+;
+/* ==== 39-js-sandbox.js ==== */
+/* Sandbox do runner JavaScript.
+
+   Duas partes:
+     · WORKER_SOURCE — o script, como STRING, que roda dentro do Worker. A mesma
+       fonte é usada em produção (Blob -> Worker dentro de um iframe sandbox) e nos
+       testes (executada em um contexto isolado do Node). Executar código do aluno
+       aqui é seguro porque isto NÃO é o realm da aplicação: em produção é um Worker
+       dentro de um iframe `sandbox="allow-scripts"` sem `allow-same-origin`, de
+       origem opaca; no Node é um contexto `vm` sem acesso ao LX.
+     · createBrowserTransport — monta essa fronteira no navegador e fala com o
+       coordenador (39-js-runner.js) pelo contrato open/post/terminate.
+
+   O código dentro de WORKER_SOURCE é propositalmente autocontido: ele não pode
+   importar nada do LX (esse é justamente o ponto do isolamento). A inspeção de
+   console é uma versão compacta da que existe no protocolo. */
+'use strict';
+(function () {
+  const JS = (LX.JS = LX.JS || {});
+
+  const WORKER_SOURCE = [
+    "'use strict';",
+    "(function () {",
+    "  var post = (self && self.postMessage) ? self.postMessage.bind(self) : function () {};",
+    "  var LIMITS = { OUTPUT_BYTES: 262144, STRING_LEN: 10000, INSPECT_DEPTH: 6, INSPECT_ITEMS: 100 };",
+    "  var files = {};",
+    "  var PARAMS = 'console, self, postMessage, onmessage, globalThis, importScripts, close';",
+    "  var PROLOGUE = '\"use strict\";\\n';",
+    "  var OFFSET = null;",
+    "  function wrapperOffset() {",
+    "    if (OFFSET !== null) return OFFSET;",
+    "    OFFSET = 0;",
+    "    try { new Function(PARAMS, PROLOGUE + 'throw new Error(\"p\");\\n//# sourceURL=__lx_probe__')(); }",
+    "    catch (e) { if (e && e.stack) { var m = String(e.stack).match(/__lx_probe__:(\\d+):/); if (m) OFFSET = Number(m[1]) - 1; } }",
+    "    return OFFSET;",
+    "  }",
+    "  function byteLen(t) { try { return new TextEncoder().encode(t).length; } catch (e) { return t.length; } }",
+    "  function clip(t) { return t.length > LIMITS.STRING_LEN ? t.slice(0, LIMITS.STRING_LEN) + '\\u2026 (truncado)' : t; }",
+    "  function inspect(value) {",
+    "    var seen = [];",
+    "    function walk(node, depth) {",
+    "      var type = typeof node;",
+    "      if (node === null) return 'null';",
+    "      if (type === 'undefined') return 'undefined';",
+    "      if (type === 'string') return depth === 0 ? clip(node) : JSON.stringify(clip(node));",
+    "      if (type === 'number' || type === 'boolean') return String(node);",
+    "      if (type === 'bigint') return String(node) + 'n';",
+    "      if (type === 'symbol') return node.toString();",
+    "      if (type === 'function') return '[Function: ' + (node.name || 'anonima') + ']';",
+    "      if (node instanceof Error) return node.name + ': ' + clip(String(node.message));",
+    "      if (depth >= LIMITS.INSPECT_DEPTH) return Array.isArray(node) ? '[Array]' : '[Object]';",
+    "      if (seen.indexOf(node) !== -1) return '[Circular]';",
+    "      seen.push(node);",
+    "      try {",
+    "        if (Array.isArray(node)) {",
+    "          var parts = [];",
+    "          for (var i = 0; i < node.length && i < LIMITS.INSPECT_ITEMS; i++) parts.push(walk(node[i], depth + 1));",
+    "          if (node.length > LIMITS.INSPECT_ITEMS) parts.push('\\u2026 +' + (node.length - LIMITS.INSPECT_ITEMS) + ' itens');",
+    "          return '[' + parts.join(', ') + ']';",
+    "        }",
+    "        var keys = Object.keys(node), out = [];",
+    "        for (var k = 0; k < keys.length && k < LIMITS.INSPECT_ITEMS; k++) {",
+    "          var label = /^[A-Za-z_$][\\w$]*$/.test(keys[k]) ? keys[k] : JSON.stringify(keys[k]);",
+    "          out.push(label + ': ' + walk(node[keys[k]], depth + 1));",
+    "        }",
+    "        if (keys.length > LIMITS.INSPECT_ITEMS) out.push('\\u2026 +' + (keys.length - LIMITS.INSPECT_ITEMS) + ' chaves');",
+    "        var ctor = node.constructor && node.constructor.name;",
+    "        var prefix = ctor && ctor !== 'Object' ? ctor + ' ' : '';",
+    "        return prefix + '{' + out.join(', ') + '}';",
+    "      } finally { seen.pop(); }",
+    "    }",
+    "    try { return walk(value, 0); } catch (e) { return '[valor nao inspecionavel]'; }",
+    "  }",
+    "  function formatArgs(args) {",
+    "    var parts = [];",
+    "    for (var i = 0; i < args.length; i++) parts.push(inspect(args[i]));",
+    "    return parts.join(' ');",
+    "  }",
+    "  function makeConsole(runId, state) {",
+    "    function sink(level) {",
+    "      return function () {",
+    "        if (state.stopped) return;",
+    "        var text = formatArgs(Array.prototype.slice.call(arguments));",
+    "        state.bytes += byteLen(text);",
+    "        if (state.bytes > LIMITS.OUTPUT_BYTES) { state.stopped = true; post({ type: 'output-limit', runId: runId, kind: 'console' }); return; }",
+    "        post({ type: 'console', runId: runId, level: level, text: text });",
+    "      };",
+    "    }",
+    "    return { log: sink('log'), info: sink('info'), warn: sink('warn'), error: sink('error'), debug: sink('debug') };",
+    "  }",
+    "  function locate(error, entry) {",
+    "    var info = { name: 'Error', message: String(error), stack: null, line: null, column: null, file: entry };",
+    "    if (error && typeof error === 'object') {",
+    "      info.name = String(error.name || 'Error');",
+    "      info.message = String(error.message == null ? error : error.message);",
+    "      if (error.stack) info.stack = String(error.stack);",
+    "      if (typeof error.lineNumber === 'number') info.line = error.lineNumber - wrapperOffset();",
+    "      if (typeof error.columnNumber === 'number') info.column = error.columnNumber;",
+    "    }",
+    "    if ((info.line == null) && info.stack) {",
+    "      var re = new RegExp(entry.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + ':(\\\\d+):(\\\\d+)');",
+    "      var m = info.stack.match(re);",
+    "      if (m) { info.line = Number(m[1]) - wrapperOffset(); info.column = Number(m[2]); }",
+    "    }",
+    "    if (info.line != null && !(info.line > 0)) info.line = null;",
+    "    return info;",
+    "  }",
+    "  function runFile(runId, entry) {",
+    "    if (!Object.prototype.hasOwnProperty.call(files, entry)) {",
+    "      post({ type: 'uncaught-error', runId: runId, error: { name: 'ResolutionError', message: 'Arquivo nao encontrado: ' + entry, file: entry } });",
+    "      post({ type: 'run-complete', runId: runId, ok: false });",
+    "      return;",
+    "    }",
+    "    var state = { bytes: 0, stopped: false };",
+    "    var sandboxConsole = makeConsole(runId, state);",
+    "    var source = String(files[entry]) + '\\n//# sourceURL=' + entry;",
+    "    var factory;",
+    "    try {",
+    "      factory = new Function(PARAMS, PROLOGUE + source);",
+    "    } catch (syntaxError) {",
+    "      post({ type: 'uncaught-error', runId: runId, error: locate(syntaxError, entry) });",
+    "      post({ type: 'run-complete', runId: runId, ok: false });",
+    "      return;",
+    "    }",
+    "    var ok = true;",
+    "    try {",
+    "      factory(sandboxConsole, undefined, undefined, undefined, undefined, undefined, undefined);",
+    "    } catch (runtimeError) {",
+    "      ok = false;",
+    "      post({ type: 'uncaught-error', runId: runId, error: locate(runtimeError, entry) });",
+    "    }",
+    "    post({ type: 'run-complete', runId: runId, ok: ok });",
+    "  }",
+    "  function handle(msg) {",
+    "    if (!msg || typeof msg !== 'object') return;",
+    "    if (msg.type === 'init') { if (msg.limits && typeof msg.limits === 'object') { for (var k in LIMITS) if (typeof msg.limits[k] === 'number') LIMITS[k] = msg.limits[k]; } return; }",
+    "    if (msg.type === 'run') { files = (msg.files && typeof msg.files === 'object') ? msg.files : {}; runFile(String(msg.runId), String(msg.entrypoint)); return; }",
+    "    if (msg.type === 'dispose') { if (self.close) self.close(); return; }",
+    "  }",
+    "  if (self.addEventListener) self.addEventListener('message', function (ev) { handle(ev.data); });",
+    "  else self.onmessage = function (ev) { handle(ev.data); };",
+    "  post({ type: 'ready' });",
+    "})();"
+  ].join('\n');
+
+  /* HTML do iframe isolado. Origem opaca (sandbox sem allow-same-origin), CSP que
+     só permite workers do próprio documento e nenhuma conexão de rede. O bootstrap
+     cria o Worker a partir do Blob de WORKER_SOURCE e faz a ponte entre a janela
+     pai e o Worker. */
+  function iframeHtml() {
+    return [
+      '<!doctype html><html><head><meta charset="utf-8">',
+      // 'unsafe-eval' é intencional e SÓ existe aqui, dentro da origem opaca do
+      // iframe/Worker: é assim que o Worker compila o código do aluno (new
+      // Function). Isso nunca alcança o realm principal do app. connect-src 'none'
+      // mantém a rede negada; worker-src blob: permite o Worker descartável.
+      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' \'unsafe-eval\' blob:; worker-src blob:; connect-src \'none\'">',
+      '</head><body><script>',
+      '(function(){',
+      '  var src = ', JSON.stringify(WORKER_SOURCE), ';',
+      '  var worker = null;',
+      '  function boot(){',
+      '    var blob = new Blob([src], { type: "text/javascript" });',
+      '    worker = new Worker(URL.createObjectURL(blob));',
+      '    worker.onmessage = function(ev){ parent.postMessage({ __sandbox: true, data: ev.data }, "*"); };',
+      '  }',
+      '  window.addEventListener("message", function(ev){',
+      '    var msg = ev.data;',
+      '    if (!msg || !msg.__sandbox) return;',
+      '    if (msg.command === "post" && worker) worker.postMessage(msg.data);',
+      '  });',
+      '  boot();',
+      '  parent.postMessage({ __sandbox: true, data: { type: "iframe-ready" } }, "*");',
+      '})();',
+      '<\/script></body></html>'
+    ].join('');
+  }
+
+  /* Transport de navegador. Só toca em document/Worker quando chamado, então o
+     carregamento no Node (sem DOM) é seguro. Cada sessão ganha seu próprio iframe;
+     terminate() remove o iframe e, com ele, o Worker. */
+  function createBrowserTransport(config) {
+    if (typeof document === 'undefined' || typeof Worker === 'undefined') {
+      throw new Error('createBrowserTransport exige um navegador com Worker.');
+    }
+    config = config || {};
+    const host = config.host || document.body;
+
+    function open(sessionId, onMessage) {
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('sandbox', 'allow-scripts');
+      iframe.setAttribute('aria-hidden', 'true');
+      iframe.style.display = 'none';
+      iframe.srcdoc = iframeHtml();
+      const queue = [];
+      let ready = false;
+
+      function onWindowMessage(ev) {
+        if (ev.source !== iframe.contentWindow) return;
+        const msg = ev.data;
+        if (!msg || !msg.__sandbox) return;
+        if (msg.data && msg.data.type === 'iframe-ready') {
+          ready = true;
+          while (queue.length) iframe.contentWindow.postMessage({ __sandbox: true, command: 'post', data: queue.shift() }, '*');
+          return;
+        }
+        try { onMessage(msg.data); } catch (_) { /* assinante quebrado não derruba o transport */ }
+      }
+      window.addEventListener('message', onWindowMessage);
+      host.appendChild(iframe);
+
+      return {
+        post(command) {
+          if (!ready) { queue.push(command); return; }
+          iframe.contentWindow.postMessage({ __sandbox: true, command: 'post', data: command }, '*');
+        },
+        terminate() {
+          window.removeEventListener('message', onWindowMessage);
+          if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+        }
+      };
+    }
+    return { open };
+  }
+
+  JS.Sandbox = { WORKER_SOURCE, iframeHtml, createBrowserTransport };
 })();
 
 ;
@@ -43601,7 +44372,9 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       $$('.sp-view').forEach(v => v.classList.toggle('active', v.dataset.view === tab));
       $('#sp-term-actions').classList.toggle('hidden', tab !== 'term');
       $('#sp-file-actions').classList.toggle('hidden', tab !== 'files');
+      $('#sp-js-actions').classList.toggle('hidden', tab !== 'js');
       if (tab === 'files') this.renderFiles();
+      if (tab === 'js' && LX.JSWorkspace) LX.JSWorkspace.onShow(this);
       if (tab === 'notes') {
         const key = this.route.lesson || '_geral';
         $('#notes-area').value = Progress.data.notes[key] || '';
@@ -44147,12 +44920,161 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       $('#fb-prev-body').textContent = content || '(arquivo vazio)';
       $('#fb-prev-close').onclick = () => $('#fb-preview').classList.add('hidden');
       $('#fb-prev-edit').onclick = async () => { await this.term.editor(path); this.previewFile(path); };
+      const runBtn = $('#fb-prev-run');
+      const isJs = /\.(mjs|cjs|js)$/i.test(path);
+      if (runBtn) {
+        runBtn.classList.toggle('hidden', !isJs);
+        runBtn.onclick = () => { if (LX.JSWorkspace) LX.JSWorkspace.openAndRun(this, path); };
+      }
     }
   }
 
   for (const name of ['renderFiles', 'previewFile']) {
     Object.defineProperty(LX.App.prototype, name, Object.getOwnPropertyDescriptor(FileBrowser.prototype, name));
   }
+})();
+
+;
+/* ==== 72-js-workspace.js ==== */
+/* =========================================================================
+   TERMINALIS — controlador do playground JavaScript (Fase 1)
+
+   Liga a interface ao runner isolado (LX.JS). Lê o arquivo do VFS, executa na
+   sandbox de navegador (iframe + Worker) e renderiza os eventos estruturados no
+   painel "JS". Não acessa o domínio do runner nem executa código do aluno aqui:
+   apenas orquestra e desenha. Carregar este módulo no Node é seguro — nada toca
+   em document/Worker no nível de módulo; a sandbox só é criada sob demanda.
+   ========================================================================= */
+'use strict';
+(function () {
+  const { query: $ } = LX.Util;
+  const JSW = {};
+  let app = null;
+  let runner = null;
+  let sessionId = null;
+  let entry = null;
+  let runId = null;
+  let running = false;
+  let bound = false;
+
+  function ensure(a) {
+    app = a || app;
+    if (!runner) {
+      runner = LX.JS.createRunner({ transport: LX.JS.Sandbox.createBrowserTransport() });
+      runner.subscribe(onEvent);
+      sessionId = runner.createSession();
+    }
+    if (!bound) bindControls();
+  }
+
+  function bindControls() {
+    bound = true;
+    const run = $('#js-run'); if (run) run.onclick = () => JSW.run();
+    const cancel = $('#js-cancel'); if (cancel) cancel.onclick = () => JSW.cancel();
+    const clear = $('#js-clear'); if (clear) clear.onclick = () => JSW.clear();
+  }
+
+  function consoleEl() { return $('#js-console'); }
+
+  function append(cls, text, locText) {
+    const el = consoleEl();
+    if (!el) return;
+    const line = document.createElement('div');
+    line.className = 'js-line ' + cls;
+    line.textContent = text;
+    if (locText) {
+      const span = document.createElement('span');
+      span.className = 'js-loc';
+      span.textContent = ' ' + locText;
+      line.appendChild(span);
+    }
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function setRunning(value) {
+    running = value;
+    const run = $('#js-run'); if (run) run.disabled = value;
+    const cancel = $('#js-cancel'); if (cancel) cancel.disabled = !value;
+  }
+
+  function locationOf(payload) {
+    if (!payload || !payload.file) return '';
+    let text = 'em ' + payload.file;
+    if (payload.line != null) text += ':' + payload.line + (payload.column != null ? ':' + payload.column : '');
+    return text;
+  }
+
+  function onEvent(event) {
+    const E = LX.JS.Protocol.EVENTS;
+    const p = event.payload || {};
+    switch (event.type) {
+      case E.RUN_START: append('js-sys', '▸ executando ' + p.entrypoint); break;
+      case E.CONSOLE: append('js-' + p.level, p.text); break;
+      case E.OUTPUT_LIMIT: append('js-sys', '■ limite de saída atingido — restante omitido'); break;
+      case E.UNCAUGHT_ERROR: append('js-err', p.name + ': ' + p.message, locationOf(p)); break;
+      case E.UNHANDLED_REJECTION: append('js-err', 'Promessa rejeitada: ' + p.message, locationOf(p)); break;
+      case E.RUN_TIMEOUT: append('js-sys', '■ tempo esgotado — execução encerrada'); setRunning(false); break;
+      case E.RUN_CANCELLED: append('js-sys', '■ execução cancelada'); setRunning(false); break;
+      case E.RUN_COMPLETE: append('js-sys', '■ concluído'); setRunning(false); break;
+      default: break;
+    }
+  }
+
+  function baseName(path) {
+    const parts = String(path).split('/').filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : String(path);
+  }
+
+  JSW.setEntry = function (path) {
+    entry = path || null;
+    const el = $('#js-entry');
+    if (el) el.textContent = entry || 'nenhum arquivo';
+  };
+
+  JSW.onShow = function (a) {
+    ensure(a);
+    const el = consoleEl();
+    if (el && !el.children.length && !entry) {
+      append('js-sys', 'Abra um arquivo .js em Arquivos e clique em rodar.');
+    }
+  };
+
+  JSW.openAndRun = function (a, path) {
+    ensure(a);
+    JSW.setEntry(path);
+    if (app && typeof app.switchTab === 'function') app.switchTab('js');
+    JSW.run();
+  };
+
+  JSW.run = function () {
+    if (!runner || running) return;
+    if (!entry) { append('js-err', 'Nenhum arquivo selecionado.'); return; }
+    const sh = app.term.sh;
+    let content;
+    try { content = sh.m.fs.readFile(entry, sh.fsopts()); }
+    catch (error) { append('js-err', 'Não foi possível ler ' + entry + ': ' + error.message); return; }
+    const name = baseName(entry);
+    try {
+      runner.putFiles(sessionId, { [name]: content });
+      setRunning(true);
+      runId = runner.run(sessionId, name);
+    } catch (error) {
+      append('js-err', 'Falha ao iniciar: ' + error.message);
+      setRunning(false);
+    }
+  };
+
+  JSW.cancel = function () {
+    if (runner && runId) runner.cancel(runId);
+  };
+
+  JSW.clear = function () {
+    const el = consoleEl();
+    if (el) el.innerHTML = '';
+  };
+
+  LX.JSWorkspace = JSW;
 })();
 
 ;

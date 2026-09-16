@@ -54,6 +54,24 @@
 @keyframes blink { 0%,55% { opacity: 1; } 56%,100% { opacity: 0; } }
 #term-hidden { position: absolute; opacity: 0; width: 1px; height: 1px; left: -9999px; }
 
+/* ---------- playground JavaScript ---------- */
+.js-shell { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--term-bg); }
+#js-console {
+  flex: 1; overflow-y: auto; padding: 12px 16px 16px;
+  font-family: var(--f-mono); font-size: 12.5px; line-height: 1.6;
+  color: var(--term-tx); white-space: pre-wrap; word-break: break-word; min-height: 0;
+}
+.js-line { white-space: pre-wrap; }
+.js-line.js-info { color: var(--term-blue); }
+.js-line.js-warn { color: var(--term-yellow); }
+.js-line.js-error, .js-line.js-err { color: var(--term-red); }
+.js-line.js-debug, .js-line.js-sys { color: var(--term-dim); }
+.js-loc { color: var(--term-dim); }
+.js-entry {
+  font-family: var(--f-mono); font-size: 11.5px; color: var(--tx-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%;
+}
+
 .term-status {
   display: flex; align-items: center; gap: 16px; padding: 9px 14px;
   border-top: 1px solid var(--line); background: var(--surface); font-size: 12px; color: var(--tx-3);
