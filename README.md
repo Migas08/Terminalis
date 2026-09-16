@@ -29,10 +29,12 @@ Inventário conferido em **10 de setembro de 2026**: **78 módulos, 217 aulas, 6
 | Git & GitHub | `g01` a `g34` — 34 capítulos | Implementado; requer Linux |
 | Projeto final de Git & GitHub | `gpf` | Implementado; requer Git & GitHub |
 | Operação integrada | `m25` e `m26` | Implementado; requer projeto final de Docker |
+| JavaScript | Pesquisa técnica e currículo proposto | Curso ainda não implementado |
+| TypeScript | Pesquisa técnica e currículo proposto | Curso ainda não implementado |
 
 A jornada segue **Linux → projeto final de Linux → Docker → projeto final de Docker → operação integrada**. Git & GitHub abre após Linux e tem seu próprio projeto final. Os identificadores dos módulos são internos; a numeração exibida é definida no mapa do curso.
 
-Python para automação, Redes, SQL e Kubernetes estão declarados como trilhas planejadas. As ferramentas de rede e SQL já presentes no simulador não significam que essas trilhas futuras estejam disponíveis.
+JavaScript e TypeScript estão na fase de pesquisa e planejamento: ainda não existem módulos, aulas, tarefas ou um runtime de curso para essas trilhas. Python para automação, Redes, SQL e Kubernetes continuam declarados como trilhas planejadas. As ferramentas já presentes no simulador não significam que essas trilhas futuras estejam disponíveis.
 
 Cada aula possui três tarefas, nesta ordem:
 
@@ -41,6 +43,18 @@ Cada aula possui três tarefas, nesta ordem:
 3. **Desafio:** produzir um resultado no ambiente virtual.
 
 Os guiados podem verificar o histórico de comandos; os desafios práticos verificam o estado do ambiente. O padrão editorial e os exemplos de criação de aulas estão em [tools/PADRAO-TAREFAS.md](tools/PADRAO-TAREFAS.md).
+
+## Próxima fase: JavaScript e TypeScript
+
+A base técnica das duas futuras trilhas foi pesquisada antes da criação de conteúdo:
+
+- [Pesquisa profissional de JavaScript](docs/pesquisa-javascript.txt): linguagem, runtime, browser, Node.js, assíncrono, módulos, segurança, testes, performance e arquitetura.
+- [Pesquisa profissional de TypeScript](docs/pesquisa-typescript.txt): type system, inference, narrowing, generics, tipos derivados, compilador, configuração, runtime boundaries e sistemas grandes.
+- [Proposta inicial das trilhas](docs/proposta-inicial-trilhas-js-ts.txt): currículo, projetos, dependências, APIs necessárias e análise de GAP do simulador.
+
+O próximo passo não é escrever todas as aulas. Primeiro será necessária uma vertical slice segura com editor, runner JavaScript isolado, módulos, console, testes e integração com o VFS. TypeScript deverá acrescentar checker, diagnósticos, emissão e source maps sobre o mesmo runtime JavaScript. O executor reduzido de `node` usado atualmente em imagens Docker não é uma sandbox e não deve ser reutilizado para executar código arbitrário do aluno.
+
+Para transferir contexto a outro agente, consulte [Contexto do projeto para o Claude](docs/CONTEXTO-PROJETO-CLAUDE.md). Para trabalhar exclusivamente nessa nova fase, use o [briefing de implementação JavaScript e TypeScript](docs/BRIEFING-IMPLEMENTACAO-JS-TS-CLAUDE.md).
 
 ## Estrutura
 
@@ -102,6 +116,11 @@ src/
   87-git-visual.js          diagramas de branches, PRs e commits
   88-settings.js            preferências de leitura e terminal
 docs/                       arquitetura e pesquisa técnica preservada
+  CONTEXTO-PROJETO-CLAUDE.md contexto geral e regras para handoff
+  BRIEFING-IMPLEMENTACAO-JS-TS-CLAUDE.md escopo específico da nova fase
+  pesquisa-javascript.txt    base técnica da futura trilha JavaScript
+  pesquisa-typescript.txt    base técnica da futura trilha TypeScript
+  proposta-inicial-trilhas-js-ts.txt currículo e análise de GAP
 test/                       testes do motor, conteúdo e navegador
 tools/                      ferramentas de edição e verificação
 build.py                    montagem do HTML único
