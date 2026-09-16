@@ -1,13 +1,12 @@
 /* Fase 1 do runner JS — teste de interface no navegador real.
 
-   Dirige o playground JavaScript dentro de um Chromium: abre um arquivo do VFS,
-   executa na sandbox (iframe + Worker descartável) e confere console, erros
-   localizados, limite de saída, timeout de laço infinito e — o ponto central —
-   o ISOLAMENTO DE REALM: código do aluno não alcança window, parent, top,
-   document, localStorage nem LX, mesmo capturando o global do Worker.
+   Dirige o playground JavaScript dentro de um Chromium: o aluno PROGRAMA no
+   editor da aba JS (que só existe no curso de JavaScript), roda, e o código é
+   salvo como arquivo no laboratório. Confere console, erro localizado, timeout
+   de laço infinito e — o ponto central — o ISOLAMENTO DE REALM: código do aluno
+   não alcança window, parent, top, document, localStorage nem LX.
 
-   O SDK do Supabase (CDN) é substituído por um stub vazio para o teste rodar sem
-   rede; o app já cai para o modo local quando ele falta. */
+   O SDK do Supabase (CDN) é substituído por um stub vazio para rodar sem rede. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -16,15 +15,18 @@ const { chromium } = require('playwright');
 
 const DIST = path.join(__dirname, '../dist/terminalis.html');
 
+async function runEditor(page, code) {
+  await page.evaluate(() => { LX.JSWorkspace.clear(); });
+  await page.fill('#js-editor', code);
+  await page.click('#js-run');
+}
 async function waitConsole(page, needle, timeout) {
   await page.waitForFunction(
     text => document.querySelector('#js-console') && document.querySelector('#js-console').innerText.includes(text),
     needle, { timeout: timeout || 8000 }
   );
 }
-function consoleText(page) {
-  return page.evaluate(() => document.querySelector('#js-console').innerText);
-}
+const consoleText = page => page.evaluate(() => document.querySelector('#js-console').innerText);
 
 (async () => {
   const server = http.createServer((q, r) => {
@@ -39,7 +41,6 @@ function consoleText(page) {
     browser = await chromium.launch(require('./browser-options'));
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     page.on('pageerror', e => errors.push(e.message));
-    // Sem rede no teste: o SDK do Supabase vira um stub vazio.
     await page.route('**/@supabase/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
     await page.goto('http://127.0.0.1:' + server.address().port);
     await page.evaluate(async () => {
@@ -47,73 +48,70 @@ function consoleText(page) {
       LX.AuthUI.esconder();
       window.__app = new LX.App();
       await __app.start();
-      // O painel lateral (onde vive o playground) só aparece em rota de aula.
       for (const m of LX.COURSE.modules) for (const l of m.lessons) {
         LX.Progress.data.lessons[l.id] = 1;
         for (const t of (l.tasks || [])) LX.Progress.data.tasks[t.id] = 1;
       }
-      __app.goLesson(LX.COURSE.modules[0].lessons[0].id);
-    });
-    assert.equal(await page.evaluate(() => __app.route.view), 'lesson', 'entrou numa aula');
-
-    /* Prepara arquivos JS no VFS do aluno. */
-    await page.evaluate(() => {
-      const fs = __app.machine.fs;
-      fs.writeFile('/home/aluno/ola.js', "console.log('Ola', 1 + 1, { a: [1, 2] });\nconsole.warn('cuidado');");
-      fs.writeFile('/home/aluno/erro.js', "const x = 1;\nthrow new Error('explodiu');");
-      fs.writeFile('/home/aluno/loop.js', 'while (true) {}');
-      fs.writeFile('/home/aluno/escape.js', [
-        "var t = [];",
-        "t.push('window=' + typeof window);",
-        "t.push('parent=' + typeof parent);",
-        "t.push('top=' + typeof top);",
-        "t.push('document=' + typeof document);",
-        "t.push('localStorage=' + typeof localStorage);",
-        "t.push('LX=' + typeof LX);",
-        "t.push('globalDoc=' + typeof (Function('return this')().document));",
-        "console.log(t.join(' '));"
-      ].join('\n'));
     });
 
-    /* ---------- console estruturado ---------- */
-    await page.evaluate(() => LX.JSWorkspace.openAndRun(__app, '/home/aluno/ola.js'));
-    assert.equal(await page.locator('.sp-view[data-view="js"]').isVisible(), true, 'o painel JS abre ao rodar');
-    await waitConsole(page, 'Ola 2 {a: [1, 2]}');
+    /* ---------- a aba JS só aparece no curso de JavaScript ---------- */
+    await page.evaluate(() => __app.goLesson('l1-1'));      // aula de Linux
+    assert.equal(await page.locator('.sp-tab[data-tab="js"]').isVisible(), false, 'aba JS escondida fora do curso JS');
+    await page.evaluate(() => __app.goLesson('js1-1'));      // aula de JavaScript
+    assert.equal(await page.locator('.sp-tab[data-tab="js"]').isVisible(), true, 'aba JS visível no curso JS');
+    await page.click('.sp-tab[data-tab="js"]');
+    assert.equal(await page.locator('#js-editor').isVisible(), true, 'o editor aparece na aba JS');
+
+    /* ---------- programar no editor e rodar ---------- */
+    await runEditor(page, "console.log('Olá', 1 + 1, { a: [1, 2] });\nconsole.warn('cuidado');");
+    await waitConsole(page, 'Olá 2 {a: [1, 2]}');
     await waitConsole(page, 'concluído');
     let text = await consoleText(page);
-    assert.match(text, /executando ola\.js/);
     assert.match(text, /cuidado/, 'console.warn aparece');
-    assert.equal(await page.locator('#js-console .js-warn').count() >= 1, true, 'warn tem estilo próprio');
+    assert.ok(await page.locator('#js-console .js-warn').count() >= 1, 'warn tem estilo próprio');
+
+    /* o programa foi salvo como arquivo no laboratório */
+    const salvo = await page.evaluate(() => __app.term.sh.m.fs.readFile('/home/aluno/js/rascunho.js', __app.term.sh.fsopts()));
+    assert.match(salvo, /console\.log\('Olá'/, 'o editor salvou o código no VFS');
 
     /* ---------- erro com localização ---------- */
-    await page.evaluate(() => { LX.JSWorkspace.clear(); LX.JSWorkspace.openAndRun(__app, '/home/aluno/erro.js'); });
+    await runEditor(page, "const x = 1;\nthrow new Error('explodiu');");
     await waitConsole(page, 'Error: explodiu');
     text = await consoleText(page);
-    assert.match(text, /erro\.js:2/, 'a linha do erro é mostrada');
+    assert.match(text, /linha 2/, 'a linha do erro é mostrada');
 
     /* ---------- ISOLAMENTO DE REALM ---------- */
-    await page.evaluate(() => { LX.JSWorkspace.clear(); LX.JSWorkspace.openAndRun(__app, '/home/aluno/escape.js'); });
+    await runEditor(page, [
+      "var t = [];",
+      "t.push('window=' + typeof window);",
+      "t.push('parent=' + typeof parent);",
+      "t.push('top=' + typeof top);",
+      "t.push('document=' + typeof document);",
+      "t.push('localStorage=' + typeof localStorage);",
+      "t.push('LX=' + typeof LX);",
+      "t.push('globalDoc=' + typeof (Function('return this')().document));",
+      "console.log(t.join(' '));"
+    ].join('\n'));
     await waitConsole(page, 'window=undefined');
     text = await consoleText(page);
     assert.match(text, /window=undefined parent=undefined top=undefined document=undefined localStorage=undefined LX=undefined globalDoc=undefined/,
       'código do aluno não alcança window, parent, top, document, localStorage nem LX');
 
     /* ---------- laço infinito é encerrado e a interface continua viva ---------- */
-    await page.evaluate(() => { LX.JSWorkspace.clear(); LX.JSWorkspace.openAndRun(__app, '/home/aluno/loop.js'); });
+    await runEditor(page, 'while (true) {}');
     await waitConsole(page, 'tempo esgotado', 12000);
-    // A interface responde: trocar de aba e voltar funciona após o timeout.
     await page.evaluate(() => __app.switchTab('term'));
     assert.equal(await page.locator('.sp-view[data-view="term"]').isVisible(), true, 'a UI continua respondendo após o timeout');
-    await page.evaluate(() => __app.switchTab('js'));
+    await page.click('.sp-tab[data-tab="js"]');
 
     /* ---------- ação "rodar" a partir do preview de Arquivos ---------- */
-    await page.evaluate(() => { LX.JSWorkspace.clear(); __app.switchTab('files'); __app.previewFile('/home/aluno/ola.js'); });
-    assert.equal(await page.locator('#fb-prev-run').isVisible(), true, 'o preview de um .js mostra o botão rodar');
+    await page.evaluate(() => { LX.JSWorkspace.clear(); __app.switchTab('files'); __app.previewFile('/home/aluno/js/ola.js'); });
+    assert.equal(await page.locator('#fb-prev-run').isVisible(), true, 'o preview de um .js mostra o botão rodar no curso JS');
     await page.locator('#fb-prev-run').click();
-    await waitConsole(page, 'Ola 2');
+    await waitConsole(page, 'Olá, JavaScript');
 
     assert.deepEqual(errors, [], 'nenhum erro de página');
-    console.log('JavaScript UI: console estruturado, erro localizado, isolamento de realm, timeout de laço infinito, UI viva e ação rodar do preview passaram.');
+    console.log('JavaScript UI: aba condicional ao curso, editor programável que salva arquivo, erro localizado, isolamento de realm, timeout com UI viva e ação rodar do preview passaram.');
   } finally {
     if (browser) await browser.close();
     server.close();
