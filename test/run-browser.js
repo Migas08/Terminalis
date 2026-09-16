@@ -1,2 +1,2 @@
 const path=require('node:path'),{spawnSync}=require('node:child_process');
-for(const test of ['ui','auth','aluno','interface','feedback']){const r=spawnSync(process.execPath,['test/'+test+'.js'],{cwd:path.join(__dirname,'..'),stdio:'inherit'});if(r.status!==0)process.exit(r.status||1);}
+for(const test of ['ui','auth','aluno','interface','feedback','javascript-ui']){const r=spawnSync(process.execPath,['test/'+test+'.js'],{cwd:path.join(__dirname,'..'),stdio:'inherit'});if(r.status!==0)process.exit(r.status||1);}
