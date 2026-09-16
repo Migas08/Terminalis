@@ -108,7 +108,9 @@
   };
 
   W.validate = function (snapshot) {
-    if (!snapshot || snapshot.version !== W.VERSION) throw new Error('Versão de ambiente não suportada. Os dados foram preservados.');
+    // Sobe formatos antigos até a versão atual (rejeita versão mais nova/desconhecida).
+    snapshot = W.migrar(snapshot);
+    if (snapshot.version !== W.VERSION) throw new Error('Versão de ambiente não suportada. Os dados foram preservados.');
     if (new TextEncoder().encode(JSON.stringify(snapshot)).length > W.MAX_BYTES) throw new Error('Snapshot excede o limite de tamanho.');
     data(snapshot); // rejects executable values and prototype pollution keys
     if (!Array.isArray(snapshot.machines) || !snapshot.machines.length || snapshot.machines.length > 64) throw new Error('Snapshot de máquinas inválido.');
@@ -117,7 +119,7 @@
   };
 
   W.importState = function (snapshot) {
-    W.validate(snapshot);
+    snapshot = W.validate(snapshot);   // usa o snapshot já migrado para a versão atual
     // Construct independently: a failed import never replaces the live workspace.
     const machines = snapshot.machines.map(row => {
       const m = new LX.Machine({ container: !!row.environment.container });
