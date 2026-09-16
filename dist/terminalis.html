@@ -639,6 +639,24 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
 @keyframes blink { 0%,55% { opacity: 1; } 56%,100% { opacity: 0; } }
 #term-hidden { position: absolute; opacity: 0; width: 1px; height: 1px; left: -9999px; }
 
+/* ---------- playground JavaScript ---------- */
+.js-shell { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--term-bg); }
+#js-console {
+  flex: 1; overflow-y: auto; padding: 12px 16px 16px;
+  font-family: var(--f-mono); font-size: 12.5px; line-height: 1.6;
+  color: var(--term-tx); white-space: pre-wrap; word-break: break-word; min-height: 0;
+}
+.js-line { white-space: pre-wrap; }
+.js-line.js-info { color: var(--term-blue); }
+.js-line.js-warn { color: var(--term-yellow); }
+.js-line.js-error, .js-line.js-err { color: var(--term-red); }
+.js-line.js-debug, .js-line.js-sys { color: var(--term-dim); }
+.js-loc { color: var(--term-dim); }
+.js-entry {
+  font-family: var(--f-mono); font-size: 11.5px; color: var(--tx-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%;
+}
+
 .term-status {
   display: flex; align-items: center; gap: 16px; padding: 9px 14px;
   border-top: 1px solid var(--line); background: var(--surface); font-size: 12px; color: var(--tx-3);
@@ -1562,6 +1580,7 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
         <button class="sp-tab" data-tab="term" role="tab" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-5-6-5"/><path d="M12 19h8"/></svg><span>Terminal</span></button>
         <button class="sp-tab" data-tab="files" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg><span>Arquivos</span></button>
         <button class="sp-tab" data-tab="notes" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span>Anotações</span></button>
+        <button class="sp-tab" data-tab="js" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-5-6-5"/><path d="M12 19h8"/></svg><span>JS</span></button>
         <div class="sp-tabs-spacer"></div>
         <button class="mini-btn danger sp-reset" id="btn-reset-term" aria-label="Recriar o ambiente" title="Recriar o ambiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span>Reset</span></button>
       </div>
@@ -1575,6 +1594,13 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
         <span class="fb-path" id="fb-crumbs" style="padding:0;border:0"></span>
         <div class="spacer"></div>
         <button class="mini-btn" id="fb-here">ir para o diretório atual</button>
+      </div>
+      <div class="sp-actions hidden" id="sp-js-actions">
+        <span class="js-entry" id="js-entry">nenhum arquivo</span>
+        <div class="spacer"></div>
+        <button class="mini-btn" id="js-run"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z"/></svg>rodar</button>
+        <button class="mini-btn" id="js-cancel" disabled>parar</button>
+        <button class="mini-btn square" id="js-clear" aria-label="Limpar console" title="Limpar console"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
       </div>
 
       <!-- terminal -->
@@ -1602,10 +1628,18 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
         <div class="files-wrap"><div id="fb-list"></div></div>
         <div class="fb-preview hidden" id="fb-preview">
           <div class="h"><span id="fb-prev-name"></span><span class="spacer"></span>
+            <button class="mini-btn hidden" id="fb-prev-run"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z"/></svg>rodar</button>
             <button class="mini-btn" id="fb-prev-edit">editar</button>
             <button class="mini-btn" id="fb-prev-close">fechar</button>
           </div>
           <pre id="fb-prev-body"></pre>
+        </div>
+      </div>
+
+      <!-- playground JavaScript -->
+      <div class="sp-view" data-view="js">
+        <div class="js-shell">
+          <div id="js-console" aria-live="polite"></div>
         </div>
       </div>
 
@@ -15620,7 +15654,11 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   function iframeHtml() {
     return [
       '<!doctype html><html><head><meta charset="utf-8">',
-      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' blob:; worker-src blob:; connect-src \'none\'">',
+      // 'unsafe-eval' é intencional e SÓ existe aqui, dentro da origem opaca do
+      // iframe/Worker: é assim que o Worker compila o código do aluno (new
+      // Function). Isso nunca alcança o realm principal do app. connect-src 'none'
+      // mantém a rede negada; worker-src blob: permite o Worker descartável.
+      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' \'unsafe-eval\' blob:; worker-src blob:; connect-src \'none\'">',
       '</head><body><script>',
       '(function(){',
       '  var src = ', JSON.stringify(WORKER_SOURCE), ';',
@@ -44334,7 +44372,9 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       $$('.sp-view').forEach(v => v.classList.toggle('active', v.dataset.view === tab));
       $('#sp-term-actions').classList.toggle('hidden', tab !== 'term');
       $('#sp-file-actions').classList.toggle('hidden', tab !== 'files');
+      $('#sp-js-actions').classList.toggle('hidden', tab !== 'js');
       if (tab === 'files') this.renderFiles();
+      if (tab === 'js' && LX.JSWorkspace) LX.JSWorkspace.onShow(this);
       if (tab === 'notes') {
         const key = this.route.lesson || '_geral';
         $('#notes-area').value = Progress.data.notes[key] || '';
@@ -44880,12 +44920,161 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       $('#fb-prev-body').textContent = content || '(arquivo vazio)';
       $('#fb-prev-close').onclick = () => $('#fb-preview').classList.add('hidden');
       $('#fb-prev-edit').onclick = async () => { await this.term.editor(path); this.previewFile(path); };
+      const runBtn = $('#fb-prev-run');
+      const isJs = /\.(mjs|cjs|js)$/i.test(path);
+      if (runBtn) {
+        runBtn.classList.toggle('hidden', !isJs);
+        runBtn.onclick = () => { if (LX.JSWorkspace) LX.JSWorkspace.openAndRun(this, path); };
+      }
     }
   }
 
   for (const name of ['renderFiles', 'previewFile']) {
     Object.defineProperty(LX.App.prototype, name, Object.getOwnPropertyDescriptor(FileBrowser.prototype, name));
   }
+})();
+
+;
+/* ==== 72-js-workspace.js ==== */
+/* =========================================================================
+   TERMINALIS — controlador do playground JavaScript (Fase 1)
+
+   Liga a interface ao runner isolado (LX.JS). Lê o arquivo do VFS, executa na
+   sandbox de navegador (iframe + Worker) e renderiza os eventos estruturados no
+   painel "JS". Não acessa o domínio do runner nem executa código do aluno aqui:
+   apenas orquestra e desenha. Carregar este módulo no Node é seguro — nada toca
+   em document/Worker no nível de módulo; a sandbox só é criada sob demanda.
+   ========================================================================= */
+'use strict';
+(function () {
+  const { query: $ } = LX.Util;
+  const JSW = {};
+  let app = null;
+  let runner = null;
+  let sessionId = null;
+  let entry = null;
+  let runId = null;
+  let running = false;
+  let bound = false;
+
+  function ensure(a) {
+    app = a || app;
+    if (!runner) {
+      runner = LX.JS.createRunner({ transport: LX.JS.Sandbox.createBrowserTransport() });
+      runner.subscribe(onEvent);
+      sessionId = runner.createSession();
+    }
+    if (!bound) bindControls();
+  }
+
+  function bindControls() {
+    bound = true;
+    const run = $('#js-run'); if (run) run.onclick = () => JSW.run();
+    const cancel = $('#js-cancel'); if (cancel) cancel.onclick = () => JSW.cancel();
+    const clear = $('#js-clear'); if (clear) clear.onclick = () => JSW.clear();
+  }
+
+  function consoleEl() { return $('#js-console'); }
+
+  function append(cls, text, locText) {
+    const el = consoleEl();
+    if (!el) return;
+    const line = document.createElement('div');
+    line.className = 'js-line ' + cls;
+    line.textContent = text;
+    if (locText) {
+      const span = document.createElement('span');
+      span.className = 'js-loc';
+      span.textContent = ' ' + locText;
+      line.appendChild(span);
+    }
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function setRunning(value) {
+    running = value;
+    const run = $('#js-run'); if (run) run.disabled = value;
+    const cancel = $('#js-cancel'); if (cancel) cancel.disabled = !value;
+  }
+
+  function locationOf(payload) {
+    if (!payload || !payload.file) return '';
+    let text = 'em ' + payload.file;
+    if (payload.line != null) text += ':' + payload.line + (payload.column != null ? ':' + payload.column : '');
+    return text;
+  }
+
+  function onEvent(event) {
+    const E = LX.JS.Protocol.EVENTS;
+    const p = event.payload || {};
+    switch (event.type) {
+      case E.RUN_START: append('js-sys', '▸ executando ' + p.entrypoint); break;
+      case E.CONSOLE: append('js-' + p.level, p.text); break;
+      case E.OUTPUT_LIMIT: append('js-sys', '■ limite de saída atingido — restante omitido'); break;
+      case E.UNCAUGHT_ERROR: append('js-err', p.name + ': ' + p.message, locationOf(p)); break;
+      case E.UNHANDLED_REJECTION: append('js-err', 'Promessa rejeitada: ' + p.message, locationOf(p)); break;
+      case E.RUN_TIMEOUT: append('js-sys', '■ tempo esgotado — execução encerrada'); setRunning(false); break;
+      case E.RUN_CANCELLED: append('js-sys', '■ execução cancelada'); setRunning(false); break;
+      case E.RUN_COMPLETE: append('js-sys', '■ concluído'); setRunning(false); break;
+      default: break;
+    }
+  }
+
+  function baseName(path) {
+    const parts = String(path).split('/').filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : String(path);
+  }
+
+  JSW.setEntry = function (path) {
+    entry = path || null;
+    const el = $('#js-entry');
+    if (el) el.textContent = entry || 'nenhum arquivo';
+  };
+
+  JSW.onShow = function (a) {
+    ensure(a);
+    const el = consoleEl();
+    if (el && !el.children.length && !entry) {
+      append('js-sys', 'Abra um arquivo .js em Arquivos e clique em rodar.');
+    }
+  };
+
+  JSW.openAndRun = function (a, path) {
+    ensure(a);
+    JSW.setEntry(path);
+    if (app && typeof app.switchTab === 'function') app.switchTab('js');
+    JSW.run();
+  };
+
+  JSW.run = function () {
+    if (!runner || running) return;
+    if (!entry) { append('js-err', 'Nenhum arquivo selecionado.'); return; }
+    const sh = app.term.sh;
+    let content;
+    try { content = sh.m.fs.readFile(entry, sh.fsopts()); }
+    catch (error) { append('js-err', 'Não foi possível ler ' + entry + ': ' + error.message); return; }
+    const name = baseName(entry);
+    try {
+      runner.putFiles(sessionId, { [name]: content });
+      setRunning(true);
+      runId = runner.run(sessionId, name);
+    } catch (error) {
+      append('js-err', 'Falha ao iniciar: ' + error.message);
+      setRunning(false);
+    }
+  };
+
+  JSW.cancel = function () {
+    if (runner && runId) runner.cancel(runId);
+  };
+
+  JSW.clear = function () {
+    const el = consoleEl();
+    if (el) el.innerHTML = '';
+  };
+
+  LX.JSWorkspace = JSW;
 })();
 
 ;
