@@ -38,6 +38,16 @@
 
   function erro(campo, msg) { const e = new (LX.ErroAuth || Error)(campo, msg); if (!e.campo) e.campo = campo; return e; }
 
+  /* Erros do Supabase (RLS, tabela/coluna, sessão expirada, payload) não podem
+     sumir em silêncio: sem diagnóstico, uma gravação recusada parece um "salvo".
+     Preserva a interface (get/set devolvem null/false), mas deixa o motivo no
+     console para que o problema seja visível. */
+  function diag(contexto, detalhe) {
+    if (typeof console === 'undefined' || typeof console.warn !== 'function') return;
+    const msg = detalhe && (detalhe.message || detalhe.msg || detalhe.error_description || detalhe.details || detalhe.hint);
+    console.warn('[Workspace] ' + contexto + (msg ? ': ' + msg : ''), detalhe || '');
+  }
+
   /* Traduz mensagens do Supabase para algo legível em português. */
   function traduzir(m) {
     const t = String(m || '').toLowerCase();
@@ -147,15 +157,17 @@
       if (!tab) return null;
       try {
         if (col === 'progresso') {
-          const { data } = await c.from(tab).select('data').eq('user_id', id).maybeSingle();
+          const { data, error } = await c.from(tab).select('data').eq('user_id', id).maybeSingle();
+          if (error) diag('falha ao ler ' + tab, error);
           return data ? data.data : null;
         }
         if (col === 'profiles') {
-          const { data } = await c.from(tab).select('*').eq('id', id).maybeSingle();
+          const { data, error } = await c.from(tab).select('*').eq('id', id).maybeSingle();
+          if (error) diag('falha ao ler ' + tab, error);
           return data || null;
         }
         return null;
-      } catch (e) { return null; }
+      } catch (e) { diag('exceção ao ler ' + tab, e); return null; }
     },
 
     async set(col, id, dados) {
@@ -171,23 +183,26 @@
           const { error } = await c.from(tab).upsert(
             { user_id: id, data: dados, updated_at: new Date().toISOString() },
             { onConflict: 'user_id' });
+          if (error) diag('falha ao gravar ' + tab, error);
           return !error;
         }
         if (col === 'profiles') {
           const { error } = await c.from(tab).upsert(Object.assign({ id }, dados), { onConflict: 'id' });
+          if (error) diag('falha ao gravar ' + tab, error);
           return !error;
         }
         return false;
-      } catch (e) { return false; }
+      } catch (e) { diag('exceção ao gravar ' + tab, e); return false; }
     },
 
     /* -------- workspace com revisão (detecção de conflito real) -------- */
     async getWorkspace(uid) {
       const c = cliente(); if (!c) return null;
       try {
-        const { data } = await c.from('workspaces')
+        const { data, error } = await c.from('workspaces')
           .select('snapshot_version,data,revision,updated_at,device')
           .eq('user_id', uid).maybeSingle();
+        if (error) diag('falha ao ler workspace', error);
         if (!data) return null;
         return {
           version: data.snapshot_version,
@@ -222,6 +237,7 @@
           if (error) {
             const atual = await this.getWorkspace(uid);
             if (atual) return { ok: false, conflito: true, atual };
+            diag('insert do workspace recusado', error);
             return { ok: false, erro: error.message };
           }
           return { ok: true, revision: nova };
@@ -229,13 +245,14 @@
         /* Update condicionado à revisão base — o coração do optimistic lock. */
         const { data, error } = await c.from('workspaces')
           .update(linha).eq('user_id', uid).eq('revision', base).select('revision');
-        if (error) return { ok: false, erro: error.message };
+        if (error) { diag('update do workspace recusado', error); return { ok: false, erro: error.message }; }
         if (!data || !data.length) {
           const atual = await this.getWorkspace(uid);
           return { ok: false, conflito: true, atual };
         }
         return { ok: true, revision: nova };
       } catch (e) {
+        diag('exceção ao gravar workspace', e);
         return { ok: false, erro: String(e && e.message || e) };
       }
     }
