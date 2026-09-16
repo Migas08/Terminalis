@@ -55,6 +55,29 @@
     return doc || null;
   };
 
+  /* Leitura com resultado explícito para decisões irreversíveis (migração):
+     distingue "não existe" de "falha ao ler". Delega ao provider quando ele
+     souber diferenciar; senão faz o melhor esforço (não consegue detectar erro
+     do backend antigo, mas mantém o formato). Não muda o get/getWorkspace. */
+  Store.getWorkspaceResult = async function (uid) {
+    if (this.provider) {
+      if (this.provider.getWorkspaceResult) return this.provider.getWorkspaceResult(uid);
+      const doc = await this.provider.getWorkspace(uid);
+      return { ok: true, encontrado: !!(doc && doc.snapshot), value: doc || null };
+    }
+    const doc = await baseGet('workspaces', uid);
+    return { ok: true, encontrado: !!doc, value: doc || null };
+  };
+  Store.getProgressResult = async function (uid) {
+    if (this.provider) {
+      if (this.provider.getProgressResult) return this.provider.getProgressResult(uid);
+      const doc = await this.provider.get('progresso', uid);
+      return { ok: true, encontrado: !!doc, value: doc || null };
+    }
+    const doc = await baseGet('progresso', uid);
+    return { ok: true, encontrado: !!doc, value: doc || null };
+  };
+
   /* Optimistic locking genérico (local / claude db): grava só se a revisão
      que lemos ainda for a atual. Impede que um dispositivo apague em
      silêncio o trabalho mais novo feito em outro. */
@@ -127,6 +150,7 @@
     getUser() { return LX.Auth ? LX.Auth.usuario : null; },
 
     async getProgress(uid) { return await Store.get('progresso', uid); },
+    async getProgressResult(uid) { return await Store.getProgressResult(uid); },
     async saveProgress(uid, dados) { return await Store.set('progresso', uid, dados); },
 
     async getNotes(uid) { const p = await this.getProgress(uid); return (p && p.notes) || {}; },
@@ -142,6 +166,7 @@
     },
 
     async getWorkspace(uid) { return await Store.getWorkspace(uid); },
+    async getWorkspaceResult(uid) { return await Store.getWorkspaceResult(uid); },
     async saveWorkspace(uid, doc) { return await Store.saveWorkspace(uid, doc); }
   };
 

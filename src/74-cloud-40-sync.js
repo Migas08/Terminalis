@@ -361,16 +361,19 @@
       if (jaFez) return false;
 
       /* O marcador de "migrado" SÓ pode ser gravado quando pudermos afirmar que
-         o estado remoto foi lido, o local foi lido e tudo que precisava migrar
-         foi salvo com sucesso — OU não havia nada a migrar. Se o Supabase falhar
-         (leitura ou gravação), não marcamos: a próxima sessão tenta de novo. */
+         o estado remoto foi LIDO COM SUCESSO, o local foi lido e tudo que
+         precisava migrar foi salvo — OU não havia nada a migrar. A leitura usa
+         *Result (ok/encontrado): um erro de leitura NUNCA é tratado como "não
+         existe". Se o Supabase falhar (leitura ou gravação), não marcamos: a
+         próxima sessão tenta de novo. */
       let migrou = false, houveFalha = false;
 
-      /* Progresso: só migra se a nuvem estiver vazia e houver progresso local. */
+      /* Progresso: só migra se a leitura remota tiver sucesso E estiver vazia. */
       try {
-        const nuvem = await LX.Storage.getProgress(uid);
-        const temNuvem = nuvem && Object.keys(nuvem.lessons || {}).length;
-        if (!temNuvem) {
+        const remoto = await LX.Storage.getProgressResult(uid);
+        if (!remoto.ok) {
+          houveFalha = true;                 // erro de leitura ≠ progresso remoto vazio
+        } else if (!remoto.encontrado || !Object.keys((remoto.value && remoto.value.lessons) || {}).length) {
           const localProg = this._melhorProgressoLocal();
           if (localProg && Object.keys(localProg.lessons || {}).length) {
             const ok = await LX.Storage.saveProgress(uid, localProg);
@@ -383,10 +386,13 @@
         }
       } catch (e) { diagnosticar(`falha ao migrar o progresso local de ${uid}`, e); houveFalha = true; }
 
-      /* Workspace: idem, migra o cache local se a nuvem não tiver nada. */
+      /* Workspace: idem, migra o cache local se a leitura remota tiver sucesso
+         e não houver nada salvo. */
       try {
-        const wsNuvem = await LX.Storage.getWorkspace(uid);
-        if (!wsNuvem || !wsNuvem.snapshot) {
+        const remotoWs = await LX.Storage.getWorkspaceResult(uid);
+        if (!remotoWs.ok) {
+          houveFalha = true;                 // erro de leitura ≠ workspace remoto inexistente
+        } else if (!remotoWs.encontrado || !remotoWs.value || !remotoWs.value.snapshot) {
           const local = this._docLocal(uid);
           if (local && local.snapshot) {
             const r = await LX.Storage.saveWorkspace(uid, { version: local.version, snapshot: local.snapshot, device: LX.Config.dispositivoId(), baseRevision: 0 });
