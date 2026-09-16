@@ -22783,9 +22783,69 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   const MAX_BYTES = 8 * 1024 * 1024;
   const forbidden = new Set(['__proto__', 'prototype', 'constructor']);
 
+  /* --------------------- conteúdo binário / bytes problemáticos ---------------------
+     O snapshot é gravado em JSONB no PostgreSQL, que RECUSA o byte NUL ( )
+     e pares substitutos (surrogates) soltos. Arquivos do VFS podem simular
+     conteúdo binário com esses caracteres. Em vez de transformar TODO arquivo em
+     base64 (caro e ilegível), só as strings que contêm bytes incompatíveis são
+     codificadas — e de forma reversível byte a byte (2 bytes por unidade UTF-16,
+     preservando NUL e surrogates soltos). O marcador { $bin } é transparente:
+     `data` codifica na exportação e `hydrate` decodifica na importação. Snapshots
+     antigos (VERSION 1) nunca contêm { $bin }; continuam sendo lidos sem mudança,
+     então o formato permanece compatível e a VERSION não precisa subir. */
+  const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  function bytesParaBase64(bytes) {
+    let out = '';
+    for (let i = 0; i < bytes.length; i += 3) {
+      const a = bytes[i], b = i + 1 < bytes.length ? bytes[i + 1] : 0, c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+      out += B64[a >> 2] + B64[((a & 3) << 4) | (b >> 4)];
+      out += i + 1 < bytes.length ? B64[((b & 15) << 2) | (c >> 6)] : '=';
+      out += i + 2 < bytes.length ? B64[c & 63] : '=';
+    }
+    return out;
+  }
+  function base64ParaBytes(str) {
+    const limpa = String(str).replace(/[^A-Za-z0-9+/]/g, '');
+    const out = [];
+    for (let i = 0; i < limpa.length; i += 4) {
+      const a = B64.indexOf(limpa[i]), b = B64.indexOf(limpa[i + 1]);
+      const c = i + 2 < limpa.length ? B64.indexOf(limpa[i + 2]) : -1;
+      const d = i + 3 < limpa.length ? B64.indexOf(limpa[i + 3]) : -1;
+      out.push((a << 2) | (b >> 4));
+      if (c >= 0) out.push(((b & 15) << 4) | (c >> 2));
+      if (d >= 0) out.push(((c & 3) << 6) | d);
+    }
+    return out;
+  }
+  function precisaCodificar(s) {
+    if (s.indexOf(' ') !== -1) return true;
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      if (c >= 0xD800 && c <= 0xDBFF) {                 // substituto alto
+        const n = s.charCodeAt(i + 1);
+        if (n >= 0xDC00 && n <= 0xDFFF) { i++; continue; } // par válido
+        return true;                                    // alto solto
+      }
+      if (c >= 0xDC00 && c <= 0xDFFF) return true;        // baixo solto
+    }
+    return false;
+  }
+  function codificarTexto(s) {
+    const bytes = new Uint8Array(s.length * 2);
+    for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); bytes[i * 2] = c & 0xff; bytes[i * 2 + 1] = c >> 8; }
+    return { $bin: bytesParaBase64(bytes) };
+  }
+  function decodificarTexto(b64) {
+    const bytes = base64ParaBytes(b64);
+    let s = '';
+    for (let i = 0; i + 1 < bytes.length; i += 2) s += String.fromCharCode(bytes[i] | (bytes[i + 1] << 8));
+    return s;
+  }
+
   function data(value, depth = 0) {
     if (depth > 100) throw new Error('Estado excede a profundidade permitida.');
-    if (value === null || ['string', 'boolean'].includes(typeof value)) return value;
+    if (value === null || typeof value === 'boolean') return value;
+    if (typeof value === 'string') return precisaCodificar(value) ? codificarTexto(value) : value;
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     if (Array.isArray(value)) return value.map(v => data(v, depth + 1));
     if (value instanceof Map) return { $map: Array.from(value, ([k, v]) => [data(k, depth + 1), data(v, depth + 1)]) };
@@ -22804,6 +22864,7 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   function hydrate(value) {
     if (!value || typeof value !== 'object') return value;
     if (Array.isArray(value)) return value.map(hydrate);
+    if (Object.keys(value).length === 1 && typeof value.$bin === 'string') return decodificarTexto(value.$bin);
     if (Object.keys(value).length === 1 && Array.isArray(value.$map)) return new Map(value.$map.map(([k, v]) => [hydrate(k), hydrate(v)]));
     if (Object.keys(value).length === 1 && Array.isArray(value.$set)) return new Set(value.$set.map(hydrate));
     const out = {};
@@ -43227,6 +43288,10 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       this.term.boot(this.machine);
       this.toast('Ambiente reiniciado');
       if (this.route.view === 'lesson') this.applyLessonSetup();
+      // Recriar a máquina também é uma alteração persistente do workspace: marca
+      // como sujo para que a máquina limpa seja salva e propagada a outros
+      // dispositivos, sem depender de o aluno rodar mais um comando.
+      if (LX.Sync) LX.Sync.marcarSujo('workspace');
     }
 
     /* Recebe um progresso novo (troca de perfil ou sincronização) */
@@ -43241,6 +43306,9 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 
     /* Entrada depois do login: tudo é reconstruído para o usuário novo. */
     async entrarComUsuario() {
+      // Troca de conta: descarta todo o estado de sync do usuário anterior
+      // (revisão, assinatura, conflito, pausa, timers) antes de restaurar o novo.
+      if (LX.Sync) LX.Sync.resetarSessao();
       Progress.load();
       this.openMods = new Set();
       this.trilhaId = null;
@@ -43261,6 +43329,9 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       if (LX.Sync) await LX.Sync.capturarAgora();
       await LX.Auth.gravarAgora(Progress.data);
       await LX.Auth.sair();
+      // A gravação pendente já foi capturada acima; agora zera o estado de sync
+      // para que a próxima conta não herde revisão/conflito/pausa desta sessão.
+      if (LX.Sync) LX.Sync.resetarSessao();
       Progress.replace(null);
       $('#conta-menu').classList.add('hidden');
       try { localStorage.removeItem(this.chaveTrilha()); } catch (e) { }
@@ -44850,15 +44921,11 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       if (!tab) return false;
       try {
         if (col === 'progresso') {
-          /* Mescla fatos locais com o documento remoto antes do upsert para
-             que abas diferentes não apaguem aulas, tarefas ou anotações. */
-          const remoto = await this.get(col, id);
-          if (remoto && LX.ProgressMerge) dados = LX.ProgressMerge.merge(remoto, dados);
-          const { error } = await c.from(tab).upsert(
-            { user_id: id, data: dados, updated_at: new Date().toISOString() },
-            { onConflict: 'user_id' });
-          if (error) diag('falha ao gravar ' + tab, error);
-          return !error;
+          /* Mescla fatos locais com o documento remoto e grava sob trava
+             otimista (ver _salvarProgresso): duas máquinas concluindo aulas
+             diferentes ao mesmo tempo não podem apagar o progresso uma da
+             outra. */
+          return await this._salvarProgresso(id, dados);
         }
         if (col === 'profiles') {
           const { error } = await c.from(tab).upsert(Object.assign({ id }, dados), { onConflict: 'id' });
@@ -44867,6 +44934,59 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         }
         return false;
       } catch (e) { diag('exceção ao gravar ' + tab, e); return false; }
+    },
+
+    /* Núcleo testável da trava otimista do progresso. Recebe um `io` com:
+         io.ler()            -> { data, tag } | null   (tag identifica a versão)
+         io.gravar(m, tag)   -> { ok:true } | { ok:false, conflito:true } | { ok:false }
+       Relê e mescla enquanto a gravação for recusada por conflito (outra
+       máquina gravou entre o GET e o UPDATE). Como o merge é monotônico
+       (união de aulas/tarefas/dias), converge para o conjunto completo. */
+    async _progressoCAS(io, dados) {
+      for (let tentativa = 0; tentativa < 5; tentativa++) {
+        const atual = await io.ler();
+        const base = atual && atual.data;
+        const merged = (base && LX.ProgressMerge) ? LX.ProgressMerge.merge(base, dados) : dados;
+        const r = await io.gravar(merged, atual ? atual.tag : null);
+        if (r && r.ok) return true;
+        if (!r || !r.conflito) return false;   // erro real: não insiste
+      }
+      diag('user_progress: conflitos consecutivos ao gravar', null);
+      return false;
+    },
+
+    async _salvarProgresso(id, dados) {
+      const c = cliente(); if (!c) return false;
+      try {
+        return await this._progressoCAS({
+          ler: async () => {
+            const { data, error } = await c.from('user_progress')
+              .select('data,updated_at').eq('user_id', id).maybeSingle();
+            if (error) { diag('falha ao ler user_progress', error); throw error; }
+            return data ? { data: data.data, tag: data.updated_at } : null;
+          },
+          gravar: async (merged, tag) => {
+            const agora = new Date().toISOString();
+            if (tag === null) {
+              /* Ninguém gravou ainda: insert. Se outra aba inserir primeiro, a
+                 PK colide (23505) — reler e mesclar. Outros erros (RLS, rede)
+                 não viram conflito para não repetir em vão. */
+              const { error } = await c.from('user_progress').insert({ user_id: id, data: merged, updated_at: agora });
+              if (!error) return { ok: true };
+              if (error.code === '23505') return { ok: false, conflito: true };
+              diag('falha ao inserir user_progress', error);
+              return { ok: false };
+            }
+            /* Atualiza só se a linha não mudou desde a leitura (trava otimista
+               por updated_at, sem coluna nova nem service_role). */
+            const { data, error } = await c.from('user_progress')
+              .update({ data: merged, updated_at: agora })
+              .eq('user_id', id).eq('updated_at', tag).select('user_id');
+            if (error) { diag('falha ao gravar user_progress', error); return { ok: false }; }
+            return (data && data.length) ? { ok: true } : { ok: false, conflito: true };
+          }
+        }, dados);
+      } catch (e) { diag('exceção ao gravar user_progress', e); return false; }
     },
 
     /* -------- workspace com revisão (detecção de conflito real) -------- */
@@ -44885,7 +45005,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
           device: data.device || null,
           snapshot: data.data
         };
-      } catch (e) { return null; }
+      } catch (e) { diag('exceção ao ler workspace', e); return null; }
     },
 
     /* Grava só se a revisão base ainda for a atual. Devolve:
@@ -45180,6 +45300,29 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       return this;
     },
 
+    /* Zera TODO o estado da sessão de sincronização. O estado global (revisão,
+       assinatura, conflito, pausa, pendências, timers) pertence a um usuário —
+       não pode vazar para o próximo. Chamado no logout e antes de trocar de
+       conta. NÃO apaga dados persistidos nem backups locais de conflito: só
+       descarta o estado em memória. Não interrompe uma gravação legítima já
+       iniciada (o logout faz capturarAgora() antes de chamar isto). */
+    resetarSessao() {
+      if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+      if (this._timerProg) { clearTimeout(this._timerProg); this._timerProg = null; }
+      this._revisao = 0;
+      this._sujo = false;
+      this._pendente = false;
+      this._flushing = false;
+      this._reflush = false;
+      this._pausado = false;
+      this._conflito = null;
+      this._assinatura = null;
+      this._estado = 'local';
+      /* Fecha o cartão de conflito de outra sessão, se ainda estiver aberto. */
+      if (temDoc) { const el = document.getElementById('sync-conflict'); if (el) el.classList.remove('on'); }
+      return this;
+    },
+
     _temNuvem() {
       return !!(LX.Auth && LX.Auth.usuario) && (Store().modo === 'supabase' || Store().modo === 'nuvem');
     },
@@ -45231,9 +45374,10 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       } catch (e) { return null; }
     },
 
-    _docLocal() {
+    _docLocal(uid) {
+      uid = uid || this._uid();
       let raw = null;
-      try { raw = localStorage.getItem(CACHE_WS + this._uid()); }
+      try { raw = localStorage.getItem(CACHE_WS + uid); }
       catch (e) { /* armazenamento bloqueado: a restauração ainda pode usar a nuvem */ }
       if (!raw) return null;
       try { return JSON.parse(raw); } catch (e) { return null; }
@@ -45374,19 +45518,28 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       uid = uid || this._uid();
       if (!uid) return false;
       this.status('restaurando');
-      let doc = null;
-      try { doc = await LX.Storage.getWorkspace(uid); }
-      catch (e) { diagnosticar(`falha ao buscar workspace remoto de ${uid}; tentando o cache local`, e); doc = null; }
-      /* Sem nuvem ou sem snapshot na nuvem: tenta o cache local desta máquina. */
-      if (!doc || !doc.snapshot) doc = this._melhorLocal(uid, doc);
-      if (!doc || !doc.snapshot) { this._revisao = doc ? (doc.revision || 0) : 0; this.status(this._temNuvem() ? 'salvo' : 'local'); return false; }
+      let remoto = null;
+      try { remoto = await LX.Storage.getWorkspace(uid); }
+      catch (e) { diagnosticar(`falha ao buscar workspace remoto de ${uid}; tentando o cache local`, e); remoto = null; }
+      const local = this._docLocal(uid);
+      const escolha = this.resolverRestauracao(remoto, local);
+      const doc = escolha.doc;
+      if (!doc || !doc.snapshot) { this._revisao = (remoto && remoto.revision) || 0; this.status(this._temNuvem() ? 'salvo' : 'local'); return false; }
       try {
         const restaurado = LX.Workspace.importState(doc.snapshot);
-        this._revisao = doc.revision || 0;
+        this._revisao = Number(doc.revision || 0);
         this._assinatura = this.assinarSnapshot(doc.snapshot);
         if (this.app && this.app.aplicarWorkspaceRestaurado) this.app.aplicarWorkspaceRestaurado(restaurado);
-        this.status(this._temNuvem() ? 'salvo' : 'local');
-        traco('ambiente restaurado revision=' + this._revisao);
+        traco('ambiente restaurado revision=' + this._revisao + ' origem=' + escolha.origem);
+        if (escolha.precisaEnviar) {
+          /* O cache local trazia alterações não enviadas (reload/fechamento
+             durante o debounce). Reenvia agora, mantendo baseRevision para não
+             sobrescrever ninguém indevidamente. */
+          this._sujo = true; this._assinatura = null; this.status('pendente');
+          await this.flushWorkspace();
+        } else {
+          this.status(this._temNuvem() ? 'salvo' : 'local');
+        }
         return true;
       } catch (e) {
         diagnosticar(`snapshot de ${uid} recusado durante a restauração`, e);
@@ -45395,12 +45548,34 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       }
     },
 
-    /* Escolhe entre o doc da nuvem e o cache local o mais recente. */
-    _melhorLocal(uid, docNuvem) {
-      const local = (() => { try { const r = localStorage.getItem(CACHE_WS + uid); return r ? JSON.parse(r) : null; } catch (e) { return null; } })();
-      if (!local || !local.snapshot) return docNuvem || null;
-      if (!docNuvem || !docNuvem.snapshot) return local;
-      return (local.updatedAt || 0) > (docNuvem.updatedAt || 0) ? local : docNuvem;
+    /* Decide, entre o snapshot da nuvem e o cache local desta máquina, qual deve
+       reconstruir o laboratório — e se o resultado precisa ser reenviado. A
+       política é por REVISÃO (nunca escolhe o local só pelo relógio quando as
+       revisões são incompatíveis):
+         · só local          -> usa local; reenvia se houver nuvem (D)
+         · só remoto          -> usa remoto (E)
+         · remoto.rev > local -> outro dispositivo avançou: remoto tem
+                                  precedência; o cache local não o sobrescreve (B)
+         · local.rev > remoto -> estado inconsistente: usa remoto e diagnostica,
+                                  sem sobrescrever a nuvem em silêncio (C)
+         · revisões iguais    -> se o cache local é mais novo E difere de fato,
+                                  ele carrega alterações do último debounce ainda
+                                  não enviadas: usa local e reenvia (A)
+       Devolve { doc, origem:'local'|'remote'|null, precisaEnviar, conflito }. */
+    resolverRestauracao(remoto, local) {
+      const temR = !!(remoto && remoto.snapshot);
+      const temL = !!(local && local.snapshot);
+      const R = (doc, origem, precisaEnviar) => ({ doc: doc || null, origem: doc ? origem : null, precisaEnviar: !!precisaEnviar, conflito: false });
+      if (!temR && !temL) return R(null, null, false);
+      if (temL && !temR) return R(local, 'local', this._temNuvem());
+      if (temR && !temL) return R(remoto, 'remote', false);
+      const rR = Number(remoto.revision || 0), rL = Number(local.revision || 0);
+      if (rR > rL) return R(remoto, 'remote', false);
+      if (rL > rR) { diagnosticar(`cache local à frente da nuvem (revisão ${rL} > ${rR}); a nuvem tem precedência`, null); return R(remoto, 'remote', false); }
+      const maisNovo = (local.updatedAt || 0) > (remoto.updatedAt || 0);
+      const difere = maisNovo && this.assinarSnapshot(local.snapshot) !== this.assinarSnapshot(remoto.snapshot);
+      if (difere) return R(local, 'local', this._temNuvem());
+      return R(remoto, 'remote', false);
     },
 
     /* ------------------------------ migração ------------------------------
@@ -45414,7 +45589,12 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       catch (e) { /* sem marcador local, a migração idempotente pode ser tentada novamente */ }
       if (jaFez) return false;
 
-      let migrou = false;
+      /* O marcador de "migrado" SÓ pode ser gravado quando pudermos afirmar que
+         o estado remoto foi lido, o local foi lido e tudo que precisava migrar
+         foi salvo com sucesso — OU não havia nada a migrar. Se o Supabase falhar
+         (leitura ou gravação), não marcamos: a próxima sessão tenta de novo. */
+      let migrou = false, houveFalha = false;
+
       /* Progresso: só migra se a nuvem estiver vazia e houver progresso local. */
       try {
         const nuvem = await LX.Storage.getProgress(uid);
@@ -45422,28 +45602,33 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         if (!temNuvem) {
           const localProg = this._melhorProgressoLocal();
           if (localProg && Object.keys(localProg.lessons || {}).length) {
-            await LX.Storage.saveProgress(uid, localProg);
-            if (LX.Auth) LX.Auth.progresso = localProg;
-            if (LX.Progress) LX.Progress.replace(localProg);
-            migrou = true;
+            const ok = await LX.Storage.saveProgress(uid, localProg);
+            if (ok) {
+              if (LX.Auth) LX.Auth.progresso = localProg;
+              if (LX.Progress) LX.Progress.replace(localProg);
+              migrou = true;
+            } else { houveFalha = true; }   // gravação recusada: não confirma a migração
           }
         }
-      } catch (e) { diagnosticar(`falha ao migrar o progresso local de ${uid}`, e); }
+      } catch (e) { diagnosticar(`falha ao migrar o progresso local de ${uid}`, e); houveFalha = true; }
 
       /* Workspace: idem, migra o cache local se a nuvem não tiver nada. */
       try {
         const wsNuvem = await LX.Storage.getWorkspace(uid);
         if (!wsNuvem || !wsNuvem.snapshot) {
-          const local = this._docLocal();
+          const local = this._docLocal(uid);
           if (local && local.snapshot) {
             const r = await LX.Storage.saveWorkspace(uid, { version: local.version, snapshot: local.snapshot, device: LX.Config.dispositivoId(), baseRevision: 0 });
-            if (r.ok) { this._revisao = r.revision; migrou = true; }
+            if (r && r.ok) { this._revisao = r.revision; migrou = true; }
+            else { houveFalha = true; }      // conflito ou erro: tenta de novo depois
           }
         }
-      } catch (e) { diagnosticar(`falha ao migrar o workspace local de ${uid}`, e); }
+      } catch (e) { diagnosticar(`falha ao migrar o workspace local de ${uid}`, e); houveFalha = true; }
 
-      try { localStorage.setItem(MIGRADO + uid, String(Date.now())); }
-      catch (e) { /* o marcador é uma otimização; os dados já foram tratados acima */ }
+      if (!houveFalha) {
+        try { localStorage.setItem(MIGRADO + uid, String(Date.now())); }
+        catch (e) { /* o marcador é uma otimização; os dados já foram tratados acima */ }
+      }
       return migrou;
     },
 
@@ -45485,6 +45670,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       const mapa = {
         salvando: ['dot-sync', 'salvando…'],
         salvo: ['dot-ok', 'salvo'],
+        pendente: ['dot-sync', 'pendente — enviando…'],
         offline: ['dot-local', 'offline'],
         erro: ['dot-err', 'erro ao sincronizar'],
         conflito: ['dot-err', 'conflito — escolha uma versão'],
