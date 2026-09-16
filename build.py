@@ -43,6 +43,11 @@ JS_GROUPS = (
         "37-github-service.js",
         "38-github-cli.js",
     )),
+    ("runner JavaScript", (
+        "39-js-protocol.js",
+        "39-js-runner.js",
+        "39-js-sandbox.js",
+    )),
     ("motor Docker", (
         "40-docker.js",
         "41-sql.js",

@@ -22,6 +22,7 @@ O Terminalis é uma aplicação web estática. Não existe um servidor de aplica
 | Máquina Linux | `10-vfs.js` a `34-manpages.js` | Sistema de arquivos, kernel, shell, comandos e manuais |
 | Git | `35-git-core.js`, `36-git-cli.js` | Estado do repositório e interface de comandos |
 | GitHub | `37-github-service.js`, `38-github-cli.js` | Remotos, colaboração, CI didática e comando `gh` |
+| Runner JS/TS | `39-js-protocol.js`, `39-js-runner.js`, `39-js-sandbox.js` | Protocolo, coordenador de sessões e sandbox isolada para executar JavaScript do aluno |
 | Docker | `40-docker.js` a `48-compose.js` | Motor, imagens, YAML, Dockerfile, Compose e CLI |
 | Conteúdo | `50-*` a `68-*`, `80-*` a `86-*` | Catálogo editorial, cenários e verificadores das aulas |
 | Interface | `71-terminal.js`, `72-app.js`, `72-task-ui.js`, `72-file-browser.js`, `73-render.js` | Terminal, navegação, atividades, arquivos e blocos das aulas |
@@ -41,6 +42,18 @@ Senhas locais são derivadas com PBKDF2-SHA256, salt aleatório por conta e o n�
 O SQL de produção está em [docs/SUPABASE_SCHEMA.sql](SUPABASE_SCHEMA.sql). Ele cria as tabelas, índices, trigger de perfil após `auth.users` e políticas RLS de leitura, inserção, atualização e remoção apenas da própria linha. A única função `SECURITY DEFINER` é o trigger de criação de perfil; ela fixa `search_path`, não recebe `user_id` do cliente e tem execução revogada para os papéis públicos.
 
 HTML escrito pelos autores das aulas é renderizado como conteúdo confiável do pacote. Mensagens produzidas a partir do estado do aluno passam por `LX.feedbackHtml`, que escapa texto e libera somente a marcação didática prevista. Dados de formulário e nomes apresentados pela interface devem passar por `LX.Util.escapeHtml` ou por `textContent`.
+
+## Runner JavaScript/TypeScript
+
+A fase JS/TS executa código do aluno **fora do realm da aplicação**. A camada é dividida em três módulos sem dependência de DOM no domínio:
+
+- `39-js-protocol.js` define o contrato do canal: nomes de eventos e comandos, limites numéricos (saída, tamanho de mensagem, número e tamanho de arquivos, tempo de execução), inspeção de console à prova de ciclos e as funções que garantem serialização. Nada de `Error`, função, nó de DOM ou objeto `LX` cru atravessa o canal; chaves `__proto__`/`prototype`/`constructor` são recusadas em qualquer profundidade.
+- `39-js-runner.js` é o coordenador (`LX.JS.createRunner`). Ele gerencia sessões e execuções (`createSession`, `putFiles`, `run`, `cancel`, `resetSession`, `subscribe`, `dispose`), aplica o tempo limite, contabiliza a saída e emite eventos estruturados. Não usa `eval`/`new Function` e não conhece a implementação da sandbox: conversa com a fronteira por um `transport` injetado.
+- `39-js-sandbox.js` fornece `WORKER_SOURCE` (o script do Worker, como string) e `createBrowserTransport`. Em produção, o transport monta um `iframe` `sandbox="allow-scripts"` sem `allow-same-origin` (origem opaca, CSP `connect-src 'none'`) e, dentro dele, um `Worker` descartável criado de um Blob. A mesma `WORKER_SOURCE` é exercida nos testes dentro de um contexto `vm` isolado.
+
+**Modelo de ameaça (Fase 1).** O código do aluno roda apenas dentro do Worker/iframe. Ele não alcança `window`, `LX`, o DOM principal, `localStorage`, cookies, token nem o cliente Supabase; rede e filesystem são capabilities negadas por padrão (não existem nesta fase). Um laço infinito é encerrado pelo coordenador via `terminate()` no estouro do tempo, sem travar a interface. Toda saída passa por um teto de bytes e toda mensagem por validação de esquema e tamanho.
+
+**Limites conhecidos desta fase.** A Fase 1 entrega o núcleo do runner e seus testes de Node; a integração com o editor/terminal, execução assíncrona com timers e microtasks, módulos ESM, o test runner, as capabilities de browser/Node e o TypeScript chegam nas fases seguintes. O escape de realm no navegador (parent DOM, storage) é coberto por Playwright quando a fatia de interface for integrada; nos testes de Node, o contexto `vm` cumpre o papel da fronteira e prova protocolo, limites, negação de capabilities e encerramento.
 
 ## Verificação
 
