@@ -7037,6 +7037,7 @@ Lista informações sobre os ARQUIVOS (do diretório atual por padrão).
             const t = opts.d ? Date.parse(opts.d) : Date.now();
             if (!opts.a) n.mtime = isNaN(t) ? Date.now() : t;
             if (!opts.m) n.atime = isNaN(t) ? Date.now() : t;
+            if (LX.WorkspaceMutation) LX.WorkspaceMutation.markDirty();   // mtime alterado direto: fora dos hooks do FS
           } else if (!opts.c) {
             sh.m.fs.create(path, '', sh.fsopts());
           }
@@ -9761,6 +9762,7 @@ match(), sprintf(), toupper(), tolower(), int(), sqrt().
         else if (/^[0-7]{1,4}$/.test(spec)) node.mode = parseInt(spec, 8);
         else node.mode = applySymbolic(node.mode, spec, node.type === 'dir');
         node.ctime = Date.now();
+        if (LX.WorkspaceMutation) LX.WorkspaceMutation.markDirty();   // metadados alterados direto: fora dos hooks do FS
         if (opts.v || opts['--verbose'] || (opts.c && old !== node.mode))
           io.stdout.write(`mode of '${path}' ${old === node.mode ? 'retained as' : 'changed from'} ${(old & 0o7777).toString(8).padStart(4, '0')} (${modeToRwx(old, node.type).slice(1)})${old === node.mode ? '' : ' to ' + (node.mode & 0o7777).toString(8).padStart(4, '0') + ' (' + modeToRwx(node.mode, node.type).slice(1) + ')'}\n`);
       };
@@ -9822,6 +9824,7 @@ Modo octal: três dígitos (dono, grupo, outros), somando r=4 w=2 x=1
         if (uid !== null) n.uid = uid;
         if (gid !== null) n.gid = gid;
         n.ctime = Date.now();
+        if (LX.WorkspaceMutation) LX.WorkspaceMutation.markDirty();   // dono/grupo alterados direto: fora dos hooks do FS
         if (opts.v || opts['--verbose']) io.stdout.write(`changed ownership of '${path}'\n`);
       };
       for (const f of rest) {
@@ -10079,6 +10082,7 @@ Modo octal: três dígitos (dono, grupo, outros), somando r=4 w=2 x=1
         // recalcula a máscara (bits de grupo do mode), como faz o setfacl real
         if (node.acl && node.acl.length) node.mode = (node.mode & ~0o070) | (aclMask(node) << 3);
         node.ctime = Date.now();
+        if (LX.WorkspaceMutation) LX.WorkspaceMutation.markDirty();   // ACL alterada direto: fora dos hooks do FS
       };
       for (const f of rest) {
         try {
@@ -23147,6 +23151,16 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
       stack: snapshot.stack.map(row => ({ sh: shell(row), label: row.label })),
       label: snapshot.label, history: hydrate(snapshot.history), environment: hydrate(snapshot.environment)
     };
+  };
+
+  /* Reconstruir a VM a partir de um snapshot é um monte de escritas no FS/subsistemas
+     que NÃO representam trabalho novo do aluno. Suspende o dirty tracking durante a
+     importação para não agendar um save falso logo após restaurar. */
+  const _importOriginal = W.importState;
+  W.importState = function (snapshot) {
+    return LX.WorkspaceMutation
+      ? LX.WorkspaceMutation.suspender(() => _importOriginal.call(this, snapshot))
+      : _importOriginal.call(this, snapshot);
   };
 })();
 
@@ -42498,6 +42512,85 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 })();
 
 ;
+/* ==== 70-workspace-mutation.js ==== */
+/* =========================================================================
+   TERMINALIS — LX.WorkspaceMutation: dirty tracking barato do laboratório
+   ---------------------------------------------------------------------
+   Antes, descobrir se um comando alterou o ambiente exigia exportar a VM
+   inteira e comparar assinaturas — a cada comando, inclusive leituras. Aqui
+   um contador de "época" é incrementado apenas nos PONTOS CENTRAIS de mutação.
+   Comandos de leitura (ls, cat, ps, git status, docker ps) não tocam nesses
+   pontos, então o LX.Sync os ignora sem exportar nada.
+
+   Cobertura das mutações persistentes:
+     · conteúdo de arquivos ......... Inode.prototype.write
+     · estrutura do sistema de arq .. métodos mutadores do FileSystem
+     · metadados (chmod/chown/…) .... markDirty() explícito nos poucos comandos
+       que alteram mode/uid/gid direto (o FS não tem um método central p/ isso)
+     · processos/serviços/portas .... métodos centrais da Machine
+     · Docker (engine) .............. métodos centrais do DockerEngine
+     · Git .......................... persistido em arquivo do VFS (write)
+     · estado do shell (cd/export) .. o LX.Sync compara uma assinatura pequena
+       do shell (barata), fora deste contador
+
+   suspender(fn): desliga o rastreamento durante restauração/importação e no
+   append do histórico (que não deve, sozinho, agendar um save) — reconstruir a
+   VM a partir de um snapshot nunca pode gerar "dirty" falso.
+   ========================================================================= */
+'use strict';
+(function () {
+  const MUT = {
+    _epoca: 0,
+    _suspenso: 0,
+    markDirty() { if (this._suspenso === 0) this._epoca++; return this; },
+    epoca() { return this._epoca; },
+    suspenso() { return this._suspenso > 0; },
+    suspender(fn) {
+      this._suspenso++;
+      try { return fn(); }
+      finally { this._suspenso--; }
+    }
+  };
+  LX.WorkspaceMutation = MUT;
+
+  /* Envolve métodos de um protótipo para marcar dirty após a execução com
+     sucesso (se lançar, não marca). Idempotente entre carregamentos. */
+  function envolver(proto, nomes) {
+    if (!proto) return;
+    for (const nome of nomes) {
+      const orig = proto[nome];
+      if (typeof orig !== 'function' || orig.__wsHook) continue;
+      const wrapped = function (...args) {
+        const r = orig.apply(this, args);
+        if (MUT._suspenso === 0) MUT._epoca++;
+        return r;
+      };
+      wrapped.__wsHook = true;
+      proto[nome] = wrapped;
+    }
+  }
+
+  // conteúdo de arquivos (writeFile/appendFile/create/redirects/truncate)
+  envolver(LX.Inode && LX.Inode.prototype, ['write']);
+
+  // estrutura do sistema de arquivos
+  envolver(LX.FileSystem && LX.FileSystem.prototype,
+    ['mkdir', 'mkdirp', 'create', 'writeFile', 'appendFile', 'symlink', 'link',
+      'unlink', 'rmdir', 'rmrf', 'rename', 'copy', 'montarParticao', 'desmontar', 'umount']);
+
+  // subsistemas da máquina fora do VFS (processos, serviços, portas, rede)
+  envolver(LX.Machine && LX.Machine.prototype,
+    ['spawn', 'kill', 'listen', 'unlisten', 'startUnit', 'stopUnit', 'reload',
+      'daemonReload', 'registrarUnidade', 'definirUnidade', 'addRoute', 'delRoute']);
+
+  // Docker: criação/remoção/estado de containers, imagens, volumes e redes
+  envolver(LX.DockerEngine && LX.DockerEngine.prototype,
+    ['criarContainer', 'iniciar', 'parar', 'remover', 'criarVolume', 'removerVolume',
+      'criarRede', 'removerRede', 'removerImagem', 'construir', 'construirImagem',
+      'commit', 'etiquetar', 'puxar', 'empurrar', 'podar', 'prune']);
+})();
+
+;
 /* ==== 71-terminal.js ==== */
 /* =========================================================================
    TERMINALIS — o terminal interativo
@@ -42894,7 +42987,10 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       if (cmd.trim()) {
         this.history.push(cmd);
         if (this.history.length > 500) this.history.shift();
-        try { this.sh.m.fs.appendFile(this.sh.getVar('HISTFILE') || '/home/aluno/.bash_history', cmd + '\n', this.sh.fsopts()); } catch (e) { }
+        // O append do histórico ocorre a cada comando (inclusive leituras); por
+        // si só não deve marcar o workspace como sujo nem agendar um save.
+        const gravarHist = () => { try { this.sh.m.fs.appendFile(this.sh.getVar('HISTFILE') || '/home/aluno/.bash_history', cmd + '\n', this.sh.fsopts()); } catch (e) { } };
+        if (LX.WorkspaceMutation) LX.WorkspaceMutation.suspender(gravarHist); else gravarHist();
       }
       if (!cmd.trim()) { this.prompt(); return; }
       await this.exec(cmd);
@@ -45309,6 +45405,9 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 (function () {
   const temWindow = typeof window !== 'undefined';
   const temDoc = typeof document !== 'undefined';
+  /* Variáveis de shell voláteis: o shell as reescreve a cada comando (inclusive
+     leituras), então não indicam trabalho novo e ficam fora da assinatura. */
+  const VOLATEIS = new Set(['_', '?', 'SECONDS', 'RANDOM', 'SRANDOM', 'LINENO', 'HISTCMD', 'BASHPID', 'EPOCHSECONDS', 'EPOCHREALTIME', 'PIPESTATUS', 'PPID']);
   const CACHE_WS = 'terminalis.cache.workspace/';
   const CACHE_PROG = 'terminalis.cache.progresso/';
   const BACKUP_WS = 'terminalis.backup.workspace/';
@@ -45336,6 +45435,9 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     _timer: null,
     _timerProg: null,
     _estado: 'local',
+    _epocaSnap: -1,           // época de mutação (LX.WorkspaceMutation) do último snapshot
+    _shellSig: null,          // assinatura pequena do shell no último snapshot (cd/export/…)
+    _exportCount: 0,          // instrumentação: nº de exportações completas (métricas/testes)
 
     /* --------------------------- ciclo de vida --------------------------- */
     iniciar(app) {
@@ -45349,8 +45451,16 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         });
         this._ligado = true;
       }
+      this._marcarLimpo();   // o boot criou a VM (época já mexeu); parte de um baseline limpo
       this.status(this._temNuvem() ? 'salvo' : 'local');
       return this;
+    },
+
+    /* Fixa o baseline de "limpo": a próxima leitura só é considerada suja se a
+       época de mutação OU a assinatura do shell mudarem a partir daqui. */
+    _marcarLimpo() {
+      this._epocaSnap = LX.WorkspaceMutation ? LX.WorkspaceMutation.epoca() : 0;
+      this._shellSig = this._assinaturaShell();
     },
 
     /* Zera TODO o estado da sessão de sincronização. O estado global (revisão,
@@ -45370,6 +45480,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       this._pausado = false;
       this._conflito = null;
       this._assinatura = null;
+      this._epocaSnap = -1;
+      this._shellSig = null;
       this._estado = 'local';
       /* Fecha o cartão de conflito de outra sessão, se ainda estiver aberto. */
       if (temDoc) { const el = document.getElementById('sync-conflict'); if (el) el.classList.remove('on'); }
@@ -45390,23 +45502,49 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         this._cacheProgresso();
         return true; // o progresso é gravado pelo LX.Auth (debounce próprio); aqui só cacheamos
       }
-      /* O gancho é chamado após qualquer comando, inclusive ls/pwd/cat. A
-         assinatura evita agendar upload quando o domínio não mudou. */
-      const atual = this.exportarSnapshot();
-      const assinatura = atual ? this.assinarSnapshot(atual) : null;
-      if (assinatura && assinatura === this._assinatura) return false;
-      this._assinatura = assinatura || this._assinatura;
+      /* O gancho é chamado após QUALQUER comando, inclusive ls/pwd/cat. Em vez
+         de exportar a VM inteira toda vez, decide por dois sinais baratos:
+           · a época de mutação (LX.WorkspaceMutation), tocada só por escritas
+             reais no FS/subsistemas/Docker;
+           · a assinatura pequena do shell (cwd/vars/aliases), para cd/export.
+         Leituras não mexem em nenhum dos dois -> retorna sem exportar nada. */
+      const ep = LX.WorkspaceMutation ? LX.WorkspaceMutation.epoca() : (this._epocaSnap + 1);
+      const shellSig = this._assinaturaShell();
+      if (ep === this._epocaSnap && shellSig === this._shellSig) return false;
+      this._epocaSnap = ep;
+      this._shellSig = shellSig;
       this._sujo = true;
-      this._cacheWorkspace();          // cache local imediato (offline-first)
+      this._cacheWorkspace();          // cache local imediato (proteção de reload/offline-first)
       const ms = (LX.Config.sync && LX.Config.sync.workspaceDebounceMs) || 1500;
       if (this._timer) clearTimeout(this._timer);
       this._timer = setTimeout(() => { this._timer = null; this.flushWorkspace(); }, ms);
       return true;
     },
 
+    /* Assinatura pequena e barata do shell ativo (sem o histórico, que muda a
+       cada comando). Capta cd, export, alias, umask, funções — mutações que não
+       passam por um método central hookável. Muito menor que a VM inteira. */
+    _assinaturaShell() {
+      if (!this.app) return '';
+      const term = this.app.term;
+      const sh = (LX.Shell && term instanceof LX.Shell) ? term : (term && term.sh) || null;
+      if (!sh || typeof sh.exportState !== 'function') return '';
+      try {
+        const d = sh.exportState();
+        if (d) {
+          delete d.history; delete d.lastStatus; delete d.pipestatus;   // voláteis: mudam em leituras
+          /* Remove variáveis voláteis que o shell atualiza a cada comando
+             (ex.: `_` = último argumento) — senão toda leitura pareceria suja. */
+          if (d.vars && Array.isArray(d.vars.$map)) d.vars.$map = d.vars.$map.filter(([k]) => !VOLATEIS.has(k));
+        }
+        return JSON.stringify(d);
+      } catch (e) { return ''; }
+    },
+
     /* --------------------------- exportar snapshot --------------------------- */
     exportarSnapshot() {
       if (!this.app || !this.app.machine) return null;
+      this._exportCount++;   // instrumentação de performance (contagem de exportações)
       return LX.Workspace.exportState(this.app.machine, this.app.term || null,
         { trilhaId: this.app.trilhaId || null });
     },
@@ -45462,12 +45600,16 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       try {
         const snap = this.exportarSnapshot();
         if (!snap) { this.status('salvo'); return; }
+        /* Baseline capturado no MOMENTO do export: mutações que chegarem durante
+           o await abaixo continuam detectadas (época/shell já terão avançado). */
+        const epExport = LX.WorkspaceMutation ? LX.WorkspaceMutation.epoca() : this._epocaSnap;
+        const shellExport = this._assinaturaShell();
         const doc = { version: snap.version, snapshot: snap, device: LX.Config.dispositivoId(), baseRevision: this._revisao };
         this._cacheWorkspace();          // offline-first: garante uma cópia local antes da rede
         if (this._offline()) { this._pendente = true; this.status('offline'); return; }
         traco('tentando salvar baseRevision=' + this._revisao);
         const r = await LX.Storage.saveWorkspace(uid, doc);
-        if (r.ok) { this._revisao = r.revision; this._assinatura = this.assinarSnapshot(snap); this._pendente = false; this._sujo = false; this.status('salvo'); traco('salvo revision=' + r.revision); }
+        if (r.ok) { this._revisao = r.revision; this._assinatura = this.assinarSnapshot(snap); this._epocaSnap = epExport; this._shellSig = shellExport; this._pendente = false; this._sujo = false; this.status('salvo'); traco('salvo revision=' + r.revision); }
         else if (r.conflito) { traco('conflito de revisão — sincronização pausada'); this._resolverConflito(r.atual); }
         else { this._pendente = true; this.status('erro'); diagnosticar('falha ao salvar workspace', r.erro ? { message: r.erro } : null); }
       } catch (e) {
@@ -45547,6 +45689,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
           }
           this._revisao = Number(conflito.atual && conflito.atual.revision || this._revisao);
           this._assinatura = this.assinarSnapshot(conflito.atual.snapshot);
+          this._marcarLimpo();   // adotou o remoto: baseline limpo
           this._sujo = false; this._pendente = false; this.status('salvo');
           return true;
         } catch (e) {
@@ -45583,6 +45726,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         this._revisao = Number(doc.revision || 0);
         this._assinatura = this.assinarSnapshot(doc.snapshot);
         if (this.app && this.app.aplicarWorkspaceRestaurado) this.app.aplicarWorkspaceRestaurado(restaurado);
+        this._marcarLimpo();   // acabou de restaurar: parte de um baseline limpo (1º comando não é falso-dirty)
         traco('ambiente restaurado revision=' + this._revisao + ' origem=' + escolha.origem);
         if (escolha.precisaEnviar) {
           /* O cache local trazia alterações não enviadas (reload/fechamento
