@@ -315,6 +315,32 @@ function appReal() {
   const migrou2 = await LX.Sync.migrarLocais('u5');
   assert.ok(!migrou2, 'não migra duas vezes');
 
-  console.log('Cloud: revisão, offline, reload, logout, restauração, snapshots inválidos, conflito e migração passaram.');
+  /* ---------- J. o boot do app liga a sincronização em TODO caminho ----------
+     Regressão real: `iniciarNuvem()` (que faz Sync.iniciar + restaurar) só era
+     chamado em entrarComUsuario (troca de conta). No primeiro login e ao
+     recarregar a página o boot passa por App.start(), então sem esta chamada a
+     VM nunca era salva nem restaurada do Supabase. App.start usa DOM e não roda
+     no harness Node, então garantimos o contrato pela fonte. */
+  {
+    const fs = require('node:fs'), path = require('node:path');
+    const fonte = fs.readFileSync(path.join(__dirname, '..', 'src', '72-app.js'), 'utf8');
+    const corpo = (nome) => {
+      const marca = fonte.indexOf(nome + '() {');   // a definição do método, não uma chamada
+      assert.ok(marca >= 0, 'método ausente em 72-app.js: ' + nome);
+      let i = fonte.indexOf('{', marca), prof = 0, ini = i;
+      for (; i < fonte.length; i++) {
+        if (fonte[i] === '{') prof++;
+        else if (fonte[i] === '}' && --prof === 0) return fonte.slice(ini, i + 1);
+      }
+      throw new Error('não foi possível delimitar ' + nome);
+    };
+    assert.match(corpo('start'), /iniciarNuvem\(\)/, 'App.start deve chamar iniciarNuvem (boot com sessão e primeiro login)');
+    assert.match(corpo('entrarComUsuario'), /iniciarNuvem\(\)/, 'entrarComUsuario deve chamar iniciarNuvem (troca de conta)');
+    const nuvem = corpo('iniciarNuvem');
+    assert.match(nuvem, /LX\.Sync\.iniciar\(/, 'iniciarNuvem deve inicializar o Sync');
+    assert.match(nuvem, /LX\.Sync\.restaurar\(/, 'iniciarNuvem deve restaurar o workspace remoto');
+  }
+
+  console.log('Cloud: revisão, offline, reload, logout, restauração, snapshots inválidos, conflito, migração e boot da nuvem passaram.');
 })().catch(e => { console.error(e); process.exitCode = 1; });
 
