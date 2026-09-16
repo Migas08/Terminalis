@@ -71,6 +71,29 @@
       return this;
     },
 
+    /* Zera TODO o estado da sessão de sincronização. O estado global (revisão,
+       assinatura, conflito, pausa, pendências, timers) pertence a um usuário —
+       não pode vazar para o próximo. Chamado no logout e antes de trocar de
+       conta. NÃO apaga dados persistidos nem backups locais de conflito: só
+       descarta o estado em memória. Não interrompe uma gravação legítima já
+       iniciada (o logout faz capturarAgora() antes de chamar isto). */
+    resetarSessao() {
+      if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+      if (this._timerProg) { clearTimeout(this._timerProg); this._timerProg = null; }
+      this._revisao = 0;
+      this._sujo = false;
+      this._pendente = false;
+      this._flushing = false;
+      this._reflush = false;
+      this._pausado = false;
+      this._conflito = null;
+      this._assinatura = null;
+      this._estado = 'local';
+      /* Fecha o cartão de conflito de outra sessão, se ainda estiver aberto. */
+      if (temDoc) { const el = document.getElementById('sync-conflict'); if (el) el.classList.remove('on'); }
+      return this;
+    },
+
     _temNuvem() {
       return !!(LX.Auth && LX.Auth.usuario) && (Store().modo === 'supabase' || Store().modo === 'nuvem');
     },
@@ -122,9 +145,10 @@
       } catch (e) { return null; }
     },
 
-    _docLocal() {
+    _docLocal(uid) {
+      uid = uid || this._uid();
       let raw = null;
-      try { raw = localStorage.getItem(CACHE_WS + this._uid()); }
+      try { raw = localStorage.getItem(CACHE_WS + uid); }
       catch (e) { /* armazenamento bloqueado: a restauração ainda pode usar a nuvem */ }
       if (!raw) return null;
       try { return JSON.parse(raw); } catch (e) { return null; }
@@ -265,19 +289,28 @@
       uid = uid || this._uid();
       if (!uid) return false;
       this.status('restaurando');
-      let doc = null;
-      try { doc = await LX.Storage.getWorkspace(uid); }
-      catch (e) { diagnosticar(`falha ao buscar workspace remoto de ${uid}; tentando o cache local`, e); doc = null; }
-      /* Sem nuvem ou sem snapshot na nuvem: tenta o cache local desta máquina. */
-      if (!doc || !doc.snapshot) doc = this._melhorLocal(uid, doc);
-      if (!doc || !doc.snapshot) { this._revisao = doc ? (doc.revision || 0) : 0; this.status(this._temNuvem() ? 'salvo' : 'local'); return false; }
+      let remoto = null;
+      try { remoto = await LX.Storage.getWorkspace(uid); }
+      catch (e) { diagnosticar(`falha ao buscar workspace remoto de ${uid}; tentando o cache local`, e); remoto = null; }
+      const local = this._docLocal(uid);
+      const escolha = this.resolverRestauracao(remoto, local);
+      const doc = escolha.doc;
+      if (!doc || !doc.snapshot) { this._revisao = (remoto && remoto.revision) || 0; this.status(this._temNuvem() ? 'salvo' : 'local'); return false; }
       try {
         const restaurado = LX.Workspace.importState(doc.snapshot);
-        this._revisao = doc.revision || 0;
+        this._revisao = Number(doc.revision || 0);
         this._assinatura = this.assinarSnapshot(doc.snapshot);
         if (this.app && this.app.aplicarWorkspaceRestaurado) this.app.aplicarWorkspaceRestaurado(restaurado);
-        this.status(this._temNuvem() ? 'salvo' : 'local');
-        traco('ambiente restaurado revision=' + this._revisao);
+        traco('ambiente restaurado revision=' + this._revisao + ' origem=' + escolha.origem);
+        if (escolha.precisaEnviar) {
+          /* O cache local trazia alterações não enviadas (reload/fechamento
+             durante o debounce). Reenvia agora, mantendo baseRevision para não
+             sobrescrever ninguém indevidamente. */
+          this._sujo = true; this._assinatura = null; this.status('pendente');
+          await this.flushWorkspace();
+        } else {
+          this.status(this._temNuvem() ? 'salvo' : 'local');
+        }
         return true;
       } catch (e) {
         diagnosticar(`snapshot de ${uid} recusado durante a restauração`, e);
@@ -286,12 +319,34 @@
       }
     },
 
-    /* Escolhe entre o doc da nuvem e o cache local o mais recente. */
-    _melhorLocal(uid, docNuvem) {
-      const local = (() => { try { const r = localStorage.getItem(CACHE_WS + uid); return r ? JSON.parse(r) : null; } catch (e) { return null; } })();
-      if (!local || !local.snapshot) return docNuvem || null;
-      if (!docNuvem || !docNuvem.snapshot) return local;
-      return (local.updatedAt || 0) > (docNuvem.updatedAt || 0) ? local : docNuvem;
+    /* Decide, entre o snapshot da nuvem e o cache local desta máquina, qual deve
+       reconstruir o laboratório — e se o resultado precisa ser reenviado. A
+       política é por REVISÃO (nunca escolhe o local só pelo relógio quando as
+       revisões são incompatíveis):
+         · só local          -> usa local; reenvia se houver nuvem (D)
+         · só remoto          -> usa remoto (E)
+         · remoto.rev > local -> outro dispositivo avançou: remoto tem
+                                  precedência; o cache local não o sobrescreve (B)
+         · local.rev > remoto -> estado inconsistente: usa remoto e diagnostica,
+                                  sem sobrescrever a nuvem em silêncio (C)
+         · revisões iguais    -> se o cache local é mais novo E difere de fato,
+                                  ele carrega alterações do último debounce ainda
+                                  não enviadas: usa local e reenvia (A)
+       Devolve { doc, origem:'local'|'remote'|null, precisaEnviar, conflito }. */
+    resolverRestauracao(remoto, local) {
+      const temR = !!(remoto && remoto.snapshot);
+      const temL = !!(local && local.snapshot);
+      const R = (doc, origem, precisaEnviar) => ({ doc: doc || null, origem: doc ? origem : null, precisaEnviar: !!precisaEnviar, conflito: false });
+      if (!temR && !temL) return R(null, null, false);
+      if (temL && !temR) return R(local, 'local', this._temNuvem());
+      if (temR && !temL) return R(remoto, 'remote', false);
+      const rR = Number(remoto.revision || 0), rL = Number(local.revision || 0);
+      if (rR > rL) return R(remoto, 'remote', false);
+      if (rL > rR) { diagnosticar(`cache local à frente da nuvem (revisão ${rL} > ${rR}); a nuvem tem precedência`, null); return R(remoto, 'remote', false); }
+      const maisNovo = (local.updatedAt || 0) > (remoto.updatedAt || 0);
+      const difere = maisNovo && this.assinarSnapshot(local.snapshot) !== this.assinarSnapshot(remoto.snapshot);
+      if (difere) return R(local, 'local', this._temNuvem());
+      return R(remoto, 'remote', false);
     },
 
     /* ------------------------------ migração ------------------------------
@@ -305,7 +360,12 @@
       catch (e) { /* sem marcador local, a migração idempotente pode ser tentada novamente */ }
       if (jaFez) return false;
 
-      let migrou = false;
+      /* O marcador de "migrado" SÓ pode ser gravado quando pudermos afirmar que
+         o estado remoto foi lido, o local foi lido e tudo que precisava migrar
+         foi salvo com sucesso — OU não havia nada a migrar. Se o Supabase falhar
+         (leitura ou gravação), não marcamos: a próxima sessão tenta de novo. */
+      let migrou = false, houveFalha = false;
+
       /* Progresso: só migra se a nuvem estiver vazia e houver progresso local. */
       try {
         const nuvem = await LX.Storage.getProgress(uid);
@@ -313,28 +373,33 @@
         if (!temNuvem) {
           const localProg = this._melhorProgressoLocal();
           if (localProg && Object.keys(localProg.lessons || {}).length) {
-            await LX.Storage.saveProgress(uid, localProg);
-            if (LX.Auth) LX.Auth.progresso = localProg;
-            if (LX.Progress) LX.Progress.replace(localProg);
-            migrou = true;
+            const ok = await LX.Storage.saveProgress(uid, localProg);
+            if (ok) {
+              if (LX.Auth) LX.Auth.progresso = localProg;
+              if (LX.Progress) LX.Progress.replace(localProg);
+              migrou = true;
+            } else { houveFalha = true; }   // gravação recusada: não confirma a migração
           }
         }
-      } catch (e) { diagnosticar(`falha ao migrar o progresso local de ${uid}`, e); }
+      } catch (e) { diagnosticar(`falha ao migrar o progresso local de ${uid}`, e); houveFalha = true; }
 
       /* Workspace: idem, migra o cache local se a nuvem não tiver nada. */
       try {
         const wsNuvem = await LX.Storage.getWorkspace(uid);
         if (!wsNuvem || !wsNuvem.snapshot) {
-          const local = this._docLocal();
+          const local = this._docLocal(uid);
           if (local && local.snapshot) {
             const r = await LX.Storage.saveWorkspace(uid, { version: local.version, snapshot: local.snapshot, device: LX.Config.dispositivoId(), baseRevision: 0 });
-            if (r.ok) { this._revisao = r.revision; migrou = true; }
+            if (r && r.ok) { this._revisao = r.revision; migrou = true; }
+            else { houveFalha = true; }      // conflito ou erro: tenta de novo depois
           }
         }
-      } catch (e) { diagnosticar(`falha ao migrar o workspace local de ${uid}`, e); }
+      } catch (e) { diagnosticar(`falha ao migrar o workspace local de ${uid}`, e); houveFalha = true; }
 
-      try { localStorage.setItem(MIGRADO + uid, String(Date.now())); }
-      catch (e) { /* o marcador é uma otimização; os dados já foram tratados acima */ }
+      if (!houveFalha) {
+        try { localStorage.setItem(MIGRADO + uid, String(Date.now())); }
+        catch (e) { /* o marcador é uma otimização; os dados já foram tratados acima */ }
+      }
       return migrou;
     },
 
@@ -376,6 +441,7 @@
       const mapa = {
         salvando: ['dot-sync', 'salvando…'],
         salvo: ['dot-ok', 'salvo'],
+        pendente: ['dot-sync', 'pendente — enviando…'],
         offline: ['dot-local', 'offline'],
         erro: ['dot-err', 'erro ao sincronizar'],
         conflito: ['dot-err', 'conflito — escolha uma versão'],

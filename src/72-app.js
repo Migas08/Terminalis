@@ -103,6 +103,10 @@
       this.term.boot(this.machine);
       this.toast('Ambiente reiniciado');
       if (this.route.view === 'lesson') this.applyLessonSetup();
+      // Recriar a máquina também é uma alteração persistente do workspace: marca
+      // como sujo para que a máquina limpa seja salva e propagada a outros
+      // dispositivos, sem depender de o aluno rodar mais um comando.
+      if (LX.Sync) LX.Sync.marcarSujo('workspace');
     }
 
     /* Recebe um progresso novo (troca de perfil ou sincronização) */
@@ -117,6 +121,9 @@
 
     /* Entrada depois do login: tudo é reconstruído para o usuário novo. */
     async entrarComUsuario() {
+      // Troca de conta: descarta todo o estado de sync do usuário anterior
+      // (revisão, assinatura, conflito, pausa, timers) antes de restaurar o novo.
+      if (LX.Sync) LX.Sync.resetarSessao();
       Progress.load();
       this.openMods = new Set();
       this.trilhaId = null;
@@ -137,6 +144,9 @@
       if (LX.Sync) await LX.Sync.capturarAgora();
       await LX.Auth.gravarAgora(Progress.data);
       await LX.Auth.sair();
+      // A gravação pendente já foi capturada acima; agora zera o estado de sync
+      // para que a próxima conta não herde revisão/conflito/pausa desta sessão.
+      if (LX.Sync) LX.Sync.resetarSessao();
       Progress.replace(null);
       $('#conta-menu').classList.add('hidden');
       try { localStorage.removeItem(this.chaveTrilha()); } catch (e) { }

@@ -10,6 +10,18 @@
    migração converte a nomenclatura da primeira versão sem apagar os dados.
    A autorização vem das políticas RLS; o navegador nunca envia um user_id
    para decidir de quem são os dados.
+
+   Concorrência (nenhuma alteração de schema necessária):
+     · workspaces.revision  — trava otimista do laboratório: a gravação só vale
+       se a revisão base ainda for a atual (o cliente faz UPDATE ... WHERE
+       revision = base). Impede que um dispositivo apague o trabalho mais novo
+       de outro.
+     · user_progress.updated_at — trava otimista do progresso: o cliente lê o
+       updated_at, mescla (união monotônica de aulas/tarefas/dias) e grava com
+       UPDATE ... WHERE updated_at = <lido>. Se outra máquina gravou no meio, o
+       UPDATE não casa nenhuma linha, o cliente relê e mescla de novo. O trigger
+       user_progress_updated_at (abaixo) renova updated_at a cada escrita, então
+       ele funciona como token de versão — mantenha o trigger e a coluna.
    ========================================================================= */
 
 -- Estrutura canônica

@@ -56,7 +56,9 @@ function providerFalso() {
 function appReal() {
   const s = makeSession(LX);
   const app = { machine: s.m, term: s.sh, trilhaId: null, _restaurado: null };
-  app.aplicarWorkspaceRestaurado = r => { app._restaurado = r; };
+  /* Como o App real: trocar o workspace restaurado troca a máquina/terminal
+     vivos, para que um flush posterior fotografe o ambiente restaurado. */
+  app.aplicarWorkspaceRestaurado = r => { app._restaurado = r; if (r && r.machine) { app.machine = r.machine; app.term = r.shell; } };
   app.toast = () => { };
   return Object.assign(app, { sessao: s });
 }
@@ -315,6 +317,148 @@ function appReal() {
   const migrou2 = await LX.Sync.migrarLocais('u5');
   assert.ok(!migrou2, 'não migra duas vezes');
 
+  /* ---------- M. cache local mais novo (mesma revisão) vence o remoto antigo ----------
+     Reload/fechamento durante o debounce: o cache local tem a mesma revisão da
+     nuvem, mas conteúdo mais novo. Deve restaurar o local e reenviar. */
+  limpar();
+  const provM = providerFalso();
+  LX.Store.provider = provM; LX.Store.modo = 'supabase';
+  LX.Auth.usuario = { uid: 'um' };
+  const antigoM = appReal();
+  await antigoM.sessao.run('echo antigo > /home/aluno/cache.txt');
+  const snapAntigo = LX.Workspace.exportState(antigoM.machine, antigoM.term);
+  provM.mem.workspaces['um'] = { version: snapAntigo.version, revision: 5, updatedAt: 1000, snapshot: snapAntigo };
+  const novoM = appReal();
+  await novoM.sessao.run('echo novo > /home/aluno/cache.txt');
+  const snapNovo = LX.Workspace.exportState(novoM.machine, novoM.term);
+  localStorage.setItem('terminalis.cache.workspace/um', JSON.stringify({ version: snapNovo.version, revision: 5, updatedAt: 5000, snapshot: snapNovo }));
+  const abaM = appReal();
+  LX.Sync.iniciar(abaM); LX.Sync._revisao = 5;
+  assert.ok(await LX.Sync.restaurar('um'), 'restauração com cache local pendente tem sucesso');
+  assert.equal(abaM.machine.fs.readFile('/home/aluno/cache.txt'), 'novo\n', 'o cache local mais novo (mesma revisão) vence o remoto antigo');
+  assert.equal(provM.mem.workspaces['um'].revision, 6, 'a versão local pendente é enviada como revisão 6');
+  assert.equal(LX.Workspace.importState(provM.mem.workspaces['um'].snapshot).machine.fs.readFile('/home/aluno/cache.txt'), 'novo\n', 'o remoto passa a conter o arquivo novo');
+
+  /* ---------- N. remoto com revisão maior nunca é destruído pelo cache local ---------- */
+  limpar();
+  const provN = providerFalso();
+  LX.Store.provider = provN; LX.Store.modo = 'supabase';
+  LX.Auth.usuario = { uid: 'un' };
+  const remotoN = appReal();
+  await remotoN.sessao.run('echo remoto6 > /home/aluno/n.txt');
+  const snapN = LX.Workspace.exportState(remotoN.machine, remotoN.term);
+  provN.mem.workspaces['un'] = { version: snapN.version, revision: 6, updatedAt: 9000, snapshot: snapN };
+  const localN = appReal();
+  await localN.sessao.run('echo local5 > /home/aluno/n.txt');
+  /* cache local mais recente NO RELÓGIO, mas com revisão menor: não pode vencer */
+  localStorage.setItem('terminalis.cache.workspace/un', JSON.stringify({ version: 1, revision: 5, updatedAt: 99999, snapshot: LX.Workspace.exportState(localN.machine, localN.term) }));
+  const abaN = appReal();
+  LX.Sync.iniciar(abaN); LX.Sync._revisao = 5;
+  const escolhaN = LX.Sync.resolverRestauracao(provN.mem.workspaces['un'], LX.Sync._docLocal('un'));
+  assert.equal(escolhaN.origem, 'remote', 'remoto com revisão maior tem precedência mesmo com cache local mais recente no relógio');
+  assert.equal(escolhaN.precisaEnviar, false, 'não reenvia o cache local por cima do remoto mais novo');
+  assert.ok(await LX.Sync.restaurar('un'), 'restauração usa o remoto');
+  assert.equal(abaN.machine.fs.readFile('/home/aluno/n.txt'), 'remoto6\n', 'o remoto mais novo é restaurado');
+  assert.equal(provN.mem.workspaces['un'].revision, 6, 'e o remoto não é sobrescrito');
+
+  /* ---------- N2. reload durante o debounce (com nuvem) volta e sobe ---------- */
+  limpar();
+  const provR3 = providerFalso();
+  LX.Store.provider = provR3; LX.Store.modo = 'supabase';
+  LX.Auth.usuario = { uid: 'ur3' };
+  const antesR3 = appReal();
+  LX.Sync.iniciar(antesR3);
+  await antesR3.sessao.run('echo debounce-nuvem > /home/aluno/r3.txt');
+  assert.equal(LX.Sync.marcarSujo('workspace'), true, 'a alteração agenda o debounce');
+  assert.ok(LX.Sync._timer, 'o envio remoto ainda aguarda o debounce');
+  assert.ok(!provR3.mem.workspaces['ur3'], 'nada foi enviado antes do debounce');
+  clearTimeout(LX.Sync._timer); LX.Sync._timer = null;   // simula reload antes do envio
+  const depoisR3 = appReal();
+  LX.Sync.iniciar(depoisR3); LX.Sync._revisao = 0;
+  assert.ok(await LX.Sync.restaurar('ur3'), 'a nova aba restaura o cache local pendente');
+  assert.equal(depoisR3.machine.fs.readFile('/home/aluno/r3.txt'), 'debounce-nuvem\n', 'o arquivo criado volta');
+  assert.ok(provR3.mem.workspaces['ur3'], 'e é enviado ao Supabase após a restauração');
+
+  /* ---------- O. reset do ambiente é persistido e propagado ---------- */
+  limpar();
+  const provO = providerFalso();
+  LX.Store.provider = provO; LX.Store.modo = 'supabase';
+  LX.Auth.usuario = { uid: 'uo' };
+  const appO = appReal();
+  LX.Sync.iniciar(appO);
+  await appO.sessao.run('echo antigo > /home/aluno/reset-me.txt');
+  LX.Sync._sujo = true;
+  await LX.Sync.flushWorkspace();
+  assert.equal(provO.mem.workspaces['uo'].revision, 1, 'o ambiente inicial é salvo');
+  /* resetEnvironment() troca a máquina por uma limpa e marca sujo (o que o app faz) */
+  const limpaSessao = makeSession(LX);
+  appO.machine = limpaSessao.m; appO.term = limpaSessao.sh;
+  assert.equal(LX.Sync.marcarSujo('workspace'), true, 'o reset marca o workspace como sujo');
+  clearTimeout(LX.Sync._timer); LX.Sync._timer = null;
+  await LX.Sync.flushWorkspace();
+  assert.equal(provO.mem.workspaces['uo'].revision, 2, 'o reset gera uma nova revisão');
+  const restauradaO = LX.Workspace.importState(provO.mem.workspaces['uo'].snapshot);
+  assert.ok(!restauradaO.machine.fs.exists('/home/aluno/reset-me.txt'), 'o arquivo antigo não sobrevive ao reset em outro dispositivo');
+
+  /* ---------- P. troca de usuário zera todo o estado de sync ---------- */
+  limpar();
+  LX.Sync._revisao = 20;
+  LX.Sync._pausado = true;
+  LX.Sync._conflito = { atual: { revision: 20 } };
+  LX.Sync._assinatura = 'assinatura-de-A';
+  LX.Sync._sujo = true; LX.Sync._pendente = true;
+  LX.Sync._timer = setTimeout(() => { throw new Error('timer de A não pode disparar para B'); }, 100000);
+  LX.Sync.resetarSessao();
+  assert.equal(LX.Sync._revisao, 0, 'B começa com a revisão zerada');
+  assert.equal(LX.Sync._pausado, false, 'B não herda a pausa de A');
+  assert.equal(LX.Sync._conflito, null, 'B não herda o conflito de A');
+  assert.equal(LX.Sync._assinatura, null, 'B não herda a assinatura de A');
+  assert.equal(LX.Sync._sujo, false, 'B não herda o "sujo" de A');
+  assert.equal(LX.Sync._pendente, false, 'B não herda a pendência de A');
+  assert.equal(LX.Sync._timer, null, 'o timer de A é cancelado');
+
+  /* ---------- Q. migração que falha não é marcada como concluída (retomável) ---------- */
+  limpar();
+  const provQ = providerFalso();
+  LX.Store.provider = provQ; LX.Store.modo = 'supabase';
+  LX.Auth.usuario = { uid: 'uq' };
+  const origemQ = appReal();
+  await origemQ.sessao.run('echo migrar > /home/aluno/mig.txt');
+  const snapQ = LX.Workspace.exportState(origemQ.machine, origemQ.term);
+  localStorage.setItem('terminalis.cache.workspace/uq', JSON.stringify({ version: snapQ.version, revision: 0, updatedAt: 1, snapshot: snapQ }));
+  const saveQok = provQ.saveWorkspace.bind(provQ);
+  provQ.saveWorkspace = async () => ({ ok: false, erro: 'rede' });   // Supabase indisponível
+  const warnOrigQ = console.warn; const avisosQ = []; console.warn = (...a) => avisosQ.push(a);
+  try { await LX.Sync.migrarLocais('uq'); } finally { console.warn = warnOrigQ; }
+  assert.ok(!localStorage.getItem('terminalis.migrado/uq'), 'falha ao salvar NÃO marca a migração como concluída');
+  assert.ok(!provQ.mem.workspaces['uq'], 'nada foi migrado enquanto o provider falhava');
+  provQ.saveWorkspace = saveQok;                                     // provider volta a funcionar
+  const migQ2 = await LX.Sync.migrarLocais('uq');
+  assert.ok(migQ2, 'na tentativa seguinte a migração acontece');
+  assert.equal(provQ.mem.workspaces['uq'].revision, 1, 'o workspace local é migrado para a nuvem');
+  assert.ok(localStorage.getItem('terminalis.migrado/uq'), 'só então marca como migrado');
+
+  /* ---------- R. progresso concorrente não perde aulas (trava otimista) ----------
+     Simula a corrida real: B lê o remoto ANTES de A gravar; ao gravar, B leva
+     conflito e o _progressoCAS relê e mescla — nenhuma aula desaparece. */
+  limpar();
+  const loja = { versao: 1, data: { lessons: { a: 1 }, tasks: {}, atualizadoEm: 1 } }; // A já gravou
+  let primeiraLeitura = true;
+  const ioR = {
+    ler: async () => {
+      if (primeiraLeitura) { primeiraLeitura = false; return { data: { lessons: {}, tasks: {}, atualizadoEm: 0 }, tag: 0 }; }
+      return { data: JSON.parse(JSON.stringify(loja.data)), tag: loja.versao };
+    },
+    gravar: async (merged, tag) => {
+      if (tag !== loja.versao) return { ok: false, conflito: true };
+      loja.data = JSON.parse(JSON.stringify(merged)); loja.versao++; return { ok: true };
+    }
+  };
+  const progB = { lessons: { b: 1 }, tasks: {}, atualizadoEm: 2 };
+  assert.ok(await LX.SupabaseStore._progressoCAS(ioR, progB), 'a gravação converge apesar do conflito');
+  assert.deepEqual(Object.keys(loja.data.lessons).sort(), ['a', 'b'], 'o remoto final contém as aulas de A e de B');
+  assert.equal(primeiraLeitura, false, 'houve releitura após o conflito (não sobrescreveu às cegas)');
+
   /* ---------- J. o boot do app liga a sincronização em TODO caminho ----------
      Regressão real: `iniciarNuvem()` (que faz Sync.iniciar + restaurar) só era
      chamado em entrarComUsuario (troca de conta). No primeiro login e ao
@@ -339,6 +483,11 @@ function appReal() {
     const nuvem = corpo('iniciarNuvem');
     assert.match(nuvem, /LX\.Sync\.iniciar\(/, 'iniciarNuvem deve inicializar o Sync');
     assert.match(nuvem, /LX\.Sync\.restaurar\(/, 'iniciarNuvem deve restaurar o workspace remoto');
+    /* Regressões desta rodada: o reset do ambiente precisa ser persistido, e a
+       troca de conta / logout precisam zerar o estado de sync do usuário. */
+    assert.match(corpo('resetEnvironment'), /Sync/, 'resetEnvironment deve marcar o workspace como sujo (persistir a máquina limpa)');
+    assert.match(corpo('entrarComUsuario'), /resetarSessao\(\)/, 'a troca de conta deve resetar a sessão de sync');
+    assert.match(corpo('sair'), /resetarSessao\(\)/, 'o logout deve resetar a sessão de sync');
   }
 
   console.log('Cloud: revisão, offline, reload, logout, restauração, snapshots inválidos, conflito, migração e boot da nuvem passaram.');
