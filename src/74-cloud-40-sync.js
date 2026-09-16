@@ -187,8 +187,12 @@
       } catch (e) { return null; }
     },
 
+    /* Cache local SÍNCRONO (espelho no localStorage) — caminho rápido usado na
+       resolução de restauração. O IndexedDB é consultado à parte, de forma
+       assíncrona, quando o espelho está vazio (ver restaurar). */
     _docLocal(uid) {
       uid = uid || this._uid();
+      if (LX.LocalWorkspaceStore) return LX.LocalWorkspaceStore._localCache(uid);
       let raw = null;
       try { raw = localStorage.getItem(CACHE_WS + uid); }
       catch (e) { /* armazenamento bloqueado: a restauração ainda pode usar a nuvem */ }
@@ -199,8 +203,10 @@
       try {
         const snap = this.exportarSnapshot();
         if (!snap) return;
-        localStorage.setItem(CACHE_WS + this._uid(), JSON.stringify(
-          { version: snap.version, revision: this._revisao, updatedAt: Date.now(), snapshot: snap }));
+        const doc = { version: snap.version, revision: this._revisao, updatedAt: Date.now(), snapshot: snap };
+        /* Espelho síncrono no localStorage + cópia no IndexedDB (camada isolada). */
+        if (LX.LocalWorkspaceStore) LX.LocalWorkspaceStore.setCurrent(this._uid(), doc);
+        else localStorage.setItem(CACHE_WS + this._uid(), JSON.stringify(doc));
       } catch (e) { diagnosticar('não foi possível atualizar o cache do workspace', e); }
     },
     _cacheProgresso() {
@@ -262,8 +268,13 @@
       try {
         const snap = this.exportarSnapshot();
         localSnapshot = snap;
-        if (snap) localStorage.setItem(BACKUP_WS + this._uid() + '.' + Date.now(),
-          JSON.stringify({ version: snap.version, updatedAt: Date.now(), snapshot: snap }));
+        if (snap) {
+          const docBackup = { version: snap.version, updatedAt: Date.now(), snapshot: snap };
+          /* saveBackup grava síncrono no localStorage (com retenção) e espelha
+             no IndexedDB. Nada é perdido em silêncio. */
+          if (LX.LocalWorkspaceStore) LX.LocalWorkspaceStore.saveBackup(this._uid(), docBackup);
+          else localStorage.setItem(BACKUP_WS + this._uid() + '.' + Date.now(), JSON.stringify(docBackup));
+        }
       } catch (e) { diagnosticar('não foi possível criar o backup local do conflito', e); }
       this._conflito = { atual: atual || null, localSnapshot };
       this._pausado = true;
@@ -335,11 +346,17 @@
     async restaurar(uid) {
       uid = uid || this._uid();
       if (!uid) return false;
+      /* Migra cache/backups legados do localStorage para o IndexedDB (idempotente). */
+      if (LX.LocalWorkspaceStore) { try { await LX.LocalWorkspaceStore.migrarLegado(uid); } catch (e) { } }
       this.status('restaurando');
       let remoto = null;
       try { remoto = await LX.Storage.getWorkspace(uid); }
       catch (e) { diagnosticar(`falha ao buscar workspace remoto de ${uid}; tentando o cache local`, e); remoto = null; }
-      const local = this._docLocal(uid);
+      let local = this._docLocal(uid);
+      /* Espelho local vazio (ex.: localStorage limpo): tenta o IndexedDB. */
+      if ((!local || !local.snapshot) && LX.LocalWorkspaceStore) {
+        try { local = (await LX.LocalWorkspaceStore.getCurrent(uid)) || local; } catch (e) { }
+      }
       const escolha = this.resolverRestauracao(remoto, local);
       const doc = escolha.doc;
       if (!doc || !doc.snapshot) { this._revisao = (remoto && remoto.revision) || 0; this.status(this._temNuvem() ? 'salvo' : 'local'); return false; }
