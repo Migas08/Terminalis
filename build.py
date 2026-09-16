@@ -147,6 +147,9 @@ JS_GROUPS = (
     ("configurações", (
         "88-settings.js",
     )),
+    ("curso JavaScript", (
+        "89-js-course.js",
+    )),
 )
 
 CSS_FILES = (
