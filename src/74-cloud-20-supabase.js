@@ -151,15 +151,27 @@
       return ({ progresso: 'user_progress', workspaces: 'workspaces', profiles: 'profiles' })[col] || null;
     },
 
+    /* Progresso com resultado explícito (mesma distinção do workspace). */
+    async getProgressResult(id) {
+      const c = cliente(); if (!c) return { ok: false, encontrado: false, value: null, error: 'sem cliente' };
+      try {
+        const { data, error } = await c.from('user_progress').select('data').eq('user_id', id).maybeSingle();
+        if (error) { diag('falha ao ler user_progress', error); return { ok: false, encontrado: false, value: null, error }; }
+        if (!data) return { ok: true, encontrado: false, value: null };
+        return { ok: true, encontrado: true, value: data.data };
+      } catch (e) { diag('exceção ao ler user_progress', e); return { ok: false, encontrado: false, value: null, error: e }; }
+    },
+
     async get(col, id) {
       const c = cliente(); if (!c) return null;
       const tab = this._tabela(col);
       if (!tab) return null;
       try {
         if (col === 'progresso') {
-          const { data, error } = await c.from(tab).select('data').eq('user_id', id).maybeSingle();
-          if (error) diag('falha ao ler ' + tab, error);
-          return data ? data.data : null;
+          /* Contrato antigo preservado: data | null (null para ausência OU
+             falha). A migração usa getProgressResult para diferenciar. */
+          const r = await this.getProgressResult(id);
+          return r.ok && r.encontrado ? r.value : null;
         }
         if (col === 'profiles') {
           const { data, error } = await c.from(tab).select('*').eq('id', id).maybeSingle();
@@ -244,23 +256,39 @@
       } catch (e) { diag('exceção ao gravar user_progress', e); return false; }
     },
 
-    /* -------- workspace com revisão (detecção de conflito real) -------- */
-    async getWorkspace(uid) {
-      const c = cliente(); if (!c) return null;
+    /* -------- workspace com revisão (detecção de conflito real) --------
+       Leitura com resultado EXPLÍCITO. Distingue três casos que antes eram
+       todos `null` — o que é perigoso para decisões irreversíveis (migração):
+         { ok:true,  encontrado:true,  value }   registro existe
+         { ok:true,  encontrado:false, value:null } não existe (leitura ok)
+         { ok:false, encontrado:false, value:null, error } falha na leitura
+       Erro NUNCA vira "não encontrado". O diagnóstico fica aqui (camada única). */
+    async getWorkspaceResult(uid) {
+      const c = cliente(); if (!c) return { ok: false, encontrado: false, value: null, error: 'sem cliente' };
       try {
         const { data, error } = await c.from('workspaces')
           .select('snapshot_version,data,revision,updated_at,device')
           .eq('user_id', uid).maybeSingle();
-        if (error) diag('falha ao ler workspace', error);
-        if (!data) return null;
+        if (error) { diag('falha ao ler workspace', error); return { ok: false, encontrado: false, value: null, error }; }
+        if (!data) return { ok: true, encontrado: false, value: null };
         return {
-          version: data.snapshot_version,
-          revision: data.revision || 0,
-          updatedAt: data.updated_at ? Date.parse(data.updated_at) : 0,
-          device: data.device || null,
-          snapshot: data.data
+          ok: true, encontrado: true, value: {
+            version: data.snapshot_version,
+            revision: data.revision || 0,
+            updatedAt: data.updated_at ? Date.parse(data.updated_at) : 0,
+            device: data.device || null,
+            snapshot: data.data
+          }
         };
-      } catch (e) { diag('exceção ao ler workspace', e); return null; }
+      } catch (e) { diag('exceção ao ler workspace', e); return { ok: false, encontrado: false, value: null, error: e }; }
+    },
+
+    /* Contrato antigo preservado: workspace | null (null tanto para ausência
+       quanto para falha — o restore normal ainda cai no cache local nesses
+       casos). Só a migração usa getWorkspaceResult para não confundir os dois. */
+    async getWorkspace(uid) {
+      const r = await this.getWorkspaceResult(uid);
+      return r.ok && r.encontrado ? r.value : null;
     },
 
     /* Grava só se a revisão base ainda for a atual. Devolve:

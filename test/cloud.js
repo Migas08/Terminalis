@@ -35,10 +35,21 @@ function limpar() {
 function providerFalso() {
   const mem = { progresso: {}, workspaces: {} };
   return {
-    mem, falhar: false,
+    mem, falhar: false, falharLeituraWs: false, falharLeituraProg: false,
     _tabela: c => ({ progresso: 'user_progress', workspaces: 'workspaces', profiles: 'profiles' }[c] || null),
     async get(col, id) { return col === 'progresso' ? (mem.progresso[id] || null) : null; },
     async set(col, id, d) { if (col === 'progresso') mem.progresso[id] = JSON.parse(JSON.stringify(d)); return true; },
+    /* Leitura com resultado explícito: distingue ausência de erro. */
+    async getProgressResult(id) {
+      if (this.falharLeituraProg) return { ok: false, encontrado: false, value: null, error: 'rede' };
+      const doc = mem.progresso[id] || null;
+      return { ok: true, encontrado: !!doc, value: doc };
+    },
+    async getWorkspaceResult(uid) {
+      if (this.falharLeituraWs) return { ok: false, encontrado: false, value: null, error: 'rede' };
+      const doc = mem.workspaces[uid] || null;
+      return { ok: true, encontrado: !!(doc && doc.snapshot), value: doc };
+    },
     async getWorkspace(uid) { return mem.workspaces[uid] || null; },
     async saveWorkspace(uid, doc) {
       if (this.falhar) return { ok: false, erro: 'rede' };
@@ -458,6 +469,111 @@ function appReal() {
   assert.ok(await LX.SupabaseStore._progressoCAS(ioR, progB), 'a gravação converge apesar do conflito');
   assert.deepEqual(Object.keys(loja.data.lessons).sort(), ['a', 'b'], 'o remoto final contém as aulas de A e de B');
   assert.equal(primeiraLeitura, false, 'houve releitura após o conflito (não sobrescreveu às cegas)');
+
+  /* ---------- S. leitura com resultado explícito: ausência ≠ erro ----------
+     A migração não pode confundir "não existe" com "não consegui ler". */
+
+  // S1: workspace remoto inexistente -> ok true, encontrado false
+  limpar();
+  const provS = providerFalso();
+  LX.Store.provider = provS; LX.Store.modo = 'supabase'; LX.Auth.usuario = { uid: 's1' };
+  let res = await LX.Storage.getWorkspaceResult('s1');
+  assert.ok(res.ok === true && res.encontrado === false && res.value === null, 'S1: workspace inexistente é ok+não encontrado');
+
+  // S2: workspace remoto existente -> ok true, encontrado true, value
+  provS.mem.workspaces['s1'] = { version: 1, revision: 2, updatedAt: 1, snapshot: { x: 1 } };
+  res = await LX.Storage.getWorkspaceResult('s1');
+  assert.ok(res.ok === true && res.encontrado === true && res.value && res.value.snapshot.x === 1, 'S2: workspace existente vem com value');
+
+  // S3: erro ao ler workspace -> ok false (NUNCA parece "não encontrado")
+  provS.falharLeituraWs = true;
+  res = await LX.Storage.getWorkspaceResult('s1');
+  assert.ok(res.ok === false && res.encontrado === false, 'S3: erro de leitura é ok:false, não "não encontrado"');
+  provS.falharLeituraWs = false;
+
+  // S4: erro ao ler progresso -> ok false
+  provS.falharLeituraProg = true;
+  const resP = await LX.Storage.getProgressResult('s1');
+  assert.ok(resP.ok === false, 'S4: erro ao ler progresso é ok:false');
+  provS.falharLeituraProg = false;
+
+  // S5: migração sem dados (remoto não existe, local não existe) -> MIGRADO pode ser criado
+  limpar();
+  const provS5 = providerFalso(); LX.Store.provider = provS5; LX.Store.modo = 'supabase'; LX.Auth.usuario = { uid: 's5' };
+  const mig5 = await LX.Sync.migrarLocais('s5');
+  assert.equal(mig5, false, 'S5: nada a migrar');
+  assert.ok(localStorage.getItem('terminalis.migrado/s5'), 'S5: sem dados e leitura ok -> pode marcar migrado');
+
+  // S6: migração com workspace local -> migrado + MIGRADO
+  limpar();
+  const provS6 = providerFalso(); LX.Store.provider = provS6; LX.Store.modo = 'supabase'; LX.Auth.usuario = { uid: 's6' };
+  const o6 = appReal(); await o6.sessao.run('echo local > /home/aluno/s6.txt');
+  const snap6 = LX.Workspace.exportState(o6.machine, o6.term);
+  localStorage.setItem('terminalis.cache.workspace/s6', JSON.stringify({ version: snap6.version, revision: 0, updatedAt: 1, snapshot: snap6 }));
+  assert.ok(await LX.Sync.migrarLocais('s6'), 'S6: migra o workspace local');
+  assert.equal(provS6.mem.workspaces['s6'].revision, 1, 'S6: workspace foi para a nuvem');
+  assert.ok(localStorage.getItem('terminalis.migrado/s6'), 'S6: marca migrado após sucesso');
+
+  // S7: falha no GET workspace -> MIGRADO NÃO criado (mesmo sem nada local)
+  limpar();
+  const provS7 = providerFalso(); LX.Store.provider = provS7; LX.Store.modo = 'supabase'; LX.Auth.usuario = { uid: 's7' };
+  provS7.falharLeituraWs = true;
+  const warn7 = console.warn; console.warn = () => {};
+  try { await LX.Sync.migrarLocais('s7'); } finally { console.warn = warn7; }
+  assert.ok(!localStorage.getItem('terminalis.migrado/s7'), 'S7: erro no GET workspace não marca migrado');
+
+  // S8: falha no GET progresso -> MIGRADO NÃO criado
+  limpar();
+  const provS8 = providerFalso(); LX.Store.provider = provS8; LX.Store.modo = 'supabase'; LX.Auth.usuario = { uid: 's8' };
+  provS8.falharLeituraProg = true;
+  const warn8 = console.warn; console.warn = () => {};
+  try { await LX.Sync.migrarLocais('s8'); } finally { console.warn = warn8; }
+  assert.ok(!localStorage.getItem('terminalis.migrado/s8'), 'S8: erro no GET progresso não marca migrado');
+
+  // S9: falha no SAVE -> MIGRADO NÃO criado
+  limpar();
+  const provS9 = providerFalso(); LX.Store.provider = provS9; LX.Store.modo = 'supabase'; LX.Auth.usuario = { uid: 's9' };
+  const o9 = appReal(); await o9.sessao.run('echo x > /home/aluno/s9.txt');
+  const snap9 = LX.Workspace.exportState(o9.machine, o9.term);
+  localStorage.setItem('terminalis.cache.workspace/s9', JSON.stringify({ version: snap9.version, revision: 0, updatedAt: 1, snapshot: snap9 }));
+  provS9.saveWorkspace = async () => ({ ok: false, erro: 'rede' });
+  await LX.Sync.migrarLocais('s9');
+  assert.ok(!localStorage.getItem('terminalis.migrado/s9'), 'S9: falha no SAVE não marca migrado');
+
+  // S10: retry -> primeira sessão GET falha (sem marcar), segunda funciona e marca
+  limpar();
+  const provS10 = providerFalso(); LX.Store.provider = provS10; LX.Store.modo = 'supabase'; LX.Auth.usuario = { uid: 's10' };
+  const o10 = appReal(); await o10.sessao.run('echo y > /home/aluno/s10.txt');
+  const snap10 = LX.Workspace.exportState(o10.machine, o10.term);
+  localStorage.setItem('terminalis.cache.workspace/s10', JSON.stringify({ version: snap10.version, revision: 0, updatedAt: 1, snapshot: snap10 }));
+  provS10.falharLeituraWs = true;
+  const warn10 = console.warn; console.warn = () => {};
+  try { await LX.Sync.migrarLocais('s10'); } finally { console.warn = warn10; }
+  assert.ok(!localStorage.getItem('terminalis.migrado/s10'), 'S10: 1ª sessão (GET falha) não marca');
+  provS10.falharLeituraWs = false;                       // Supabase volta
+  assert.ok(await LX.Sync.migrarLocais('s10'), 'S10: 2ª sessão migra');
+  assert.equal(provS10.mem.workspaces['s10'].revision, 1, 'S10: workspace migrado na retentativa');
+  assert.ok(localStorage.getItem('terminalis.migrado/s10'), 'S10: marca migrado só após o sucesso');
+
+  // S11: restore normal com Supabase falhando + cache local válido
+  limpar();
+  const provS11 = providerFalso(); LX.Store.provider = provS11; LX.Store.modo = 'supabase'; LX.Auth.usuario = { uid: 's11' };
+  const o11 = appReal(); await o11.sessao.run('echo offline > /home/aluno/s11.txt');
+  const snap11 = LX.Workspace.exportState(o11.machine, o11.term);
+  localStorage.setItem('terminalis.cache.workspace/s11', JSON.stringify({ version: snap11.version, revision: 3, updatedAt: 10, snapshot: snap11 }));
+  provS11.getWorkspace = async () => { throw new Error('Supabase indisponível'); };  // restore: getWorkspace falha
+  provS11.saveWorkspace = async () => { throw new Error('Supabase indisponível'); }; // e a gravação também
+  provS11.falharLeituraWs = true;                                                     // migração: leitura falha
+  const abaS11 = appReal(); LX.Sync.iniciar(abaS11); LX.Sync._revisao = 3;
+  const warn11 = console.warn; console.warn = () => {};
+  let okRestore;
+  try {
+    await LX.Sync.migrarLocais('s11');
+    okRestore = await LX.Sync.restaurar('s11');
+  } finally { console.warn = warn11; }
+  assert.ok(okRestore, 'S11: restore normal usa o cache local quando o Supabase falha');
+  assert.equal(abaS11.machine.fs.readFile('/home/aluno/s11.txt'), 'offline\n', 'S11: VM local é restaurada');
+  assert.ok(!localStorage.getItem('terminalis.migrado/s11'), 'S11: falha do Supabase não marca migração falsamente como concluída');
 
   /* ---------- J. o boot do app liga a sincronização em TODO caminho ----------
      Regressão real: `iniciarNuvem()` (que faz Sync.iniciar + restaurar) só era
