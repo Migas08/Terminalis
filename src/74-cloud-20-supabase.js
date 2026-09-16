@@ -176,15 +176,11 @@
       if (!tab) return false;
       try {
         if (col === 'progresso') {
-          /* Mescla fatos locais com o documento remoto antes do upsert para
-             que abas diferentes não apaguem aulas, tarefas ou anotações. */
-          const remoto = await this.get(col, id);
-          if (remoto && LX.ProgressMerge) dados = LX.ProgressMerge.merge(remoto, dados);
-          const { error } = await c.from(tab).upsert(
-            { user_id: id, data: dados, updated_at: new Date().toISOString() },
-            { onConflict: 'user_id' });
-          if (error) diag('falha ao gravar ' + tab, error);
-          return !error;
+          /* Mescla fatos locais com o documento remoto e grava sob trava
+             otimista (ver _salvarProgresso): duas máquinas concluindo aulas
+             diferentes ao mesmo tempo não podem apagar o progresso uma da
+             outra. */
+          return await this._salvarProgresso(id, dados);
         }
         if (col === 'profiles') {
           const { error } = await c.from(tab).upsert(Object.assign({ id }, dados), { onConflict: 'id' });
@@ -193,6 +189,59 @@
         }
         return false;
       } catch (e) { diag('exceção ao gravar ' + tab, e); return false; }
+    },
+
+    /* Núcleo testável da trava otimista do progresso. Recebe um `io` com:
+         io.ler()            -> { data, tag } | null   (tag identifica a versão)
+         io.gravar(m, tag)   -> { ok:true } | { ok:false, conflito:true } | { ok:false }
+       Relê e mescla enquanto a gravação for recusada por conflito (outra
+       máquina gravou entre o GET e o UPDATE). Como o merge é monotônico
+       (união de aulas/tarefas/dias), converge para o conjunto completo. */
+    async _progressoCAS(io, dados) {
+      for (let tentativa = 0; tentativa < 5; tentativa++) {
+        const atual = await io.ler();
+        const base = atual && atual.data;
+        const merged = (base && LX.ProgressMerge) ? LX.ProgressMerge.merge(base, dados) : dados;
+        const r = await io.gravar(merged, atual ? atual.tag : null);
+        if (r && r.ok) return true;
+        if (!r || !r.conflito) return false;   // erro real: não insiste
+      }
+      diag('user_progress: conflitos consecutivos ao gravar', null);
+      return false;
+    },
+
+    async _salvarProgresso(id, dados) {
+      const c = cliente(); if (!c) return false;
+      try {
+        return await this._progressoCAS({
+          ler: async () => {
+            const { data, error } = await c.from('user_progress')
+              .select('data,updated_at').eq('user_id', id).maybeSingle();
+            if (error) { diag('falha ao ler user_progress', error); throw error; }
+            return data ? { data: data.data, tag: data.updated_at } : null;
+          },
+          gravar: async (merged, tag) => {
+            const agora = new Date().toISOString();
+            if (tag === null) {
+              /* Ninguém gravou ainda: insert. Se outra aba inserir primeiro, a
+                 PK colide (23505) — reler e mesclar. Outros erros (RLS, rede)
+                 não viram conflito para não repetir em vão. */
+              const { error } = await c.from('user_progress').insert({ user_id: id, data: merged, updated_at: agora });
+              if (!error) return { ok: true };
+              if (error.code === '23505') return { ok: false, conflito: true };
+              diag('falha ao inserir user_progress', error);
+              return { ok: false };
+            }
+            /* Atualiza só se a linha não mudou desde a leitura (trava otimista
+               por updated_at, sem coluna nova nem service_role). */
+            const { data, error } = await c.from('user_progress')
+              .update({ data: merged, updated_at: agora })
+              .eq('user_id', id).eq('updated_at', tag).select('user_id');
+            if (error) { diag('falha ao gravar user_progress', error); return { ok: false }; }
+            return (data && data.length) ? { ok: true } : { ok: false, conflito: true };
+          }
+        }, dados);
+      } catch (e) { diag('exceção ao gravar user_progress', e); return false; }
     },
 
     /* -------- workspace com revisão (detecção de conflito real) -------- */
@@ -211,7 +260,7 @@
           device: data.device || null,
           snapshot: data.data
         };
-      } catch (e) { return null; }
+      } catch (e) { diag('exceção ao ler workspace', e); return null; }
     },
 
     /* Grava só se a revisão base ainda for a atual. Devolve:
