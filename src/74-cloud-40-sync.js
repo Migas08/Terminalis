@@ -37,6 +37,9 @@
     const detalhe = erro && erro.message ? ': ' + erro.message : '';
     console.warn('[Terminalis Sync] ' + contexto + detalhe, erro);
   }
+  function traco(msg) {
+    if (typeof console !== 'undefined' && typeof console.info === 'function') console.info('[Workspace] ' + msg);
+  }
 
   const Sync = {
     app: null,
@@ -156,10 +159,11 @@
         const doc = { version: snap.version, snapshot: snap, device: LX.Config.dispositivoId(), baseRevision: this._revisao };
         this._cacheWorkspace();          // offline-first: garante uma cópia local antes da rede
         if (this._offline()) { this._pendente = true; this.status('offline'); return; }
+        traco('tentando salvar baseRevision=' + this._revisao);
         const r = await LX.Storage.saveWorkspace(uid, doc);
-        if (r.ok) { this._revisao = r.revision; this._assinatura = this.assinarSnapshot(snap); this._pendente = false; this._sujo = false; this.status('salvo'); }
-        else if (r.conflito) { this._resolverConflito(r.atual); }
-        else { this._pendente = true; this.status('erro'); }
+        if (r.ok) { this._revisao = r.revision; this._assinatura = this.assinarSnapshot(snap); this._pendente = false; this._sujo = false; this.status('salvo'); traco('salvo revision=' + r.revision); }
+        else if (r.conflito) { traco('conflito de revisão — sincronização pausada'); this._resolverConflito(r.atual); }
+        else { this._pendente = true; this.status('erro'); diagnosticar('falha ao salvar workspace', r.erro ? { message: r.erro } : null); }
       } catch (e) {
         this._pendente = true; this.status('erro');
         diagnosticar(`falha ao enviar workspace de ${uid} na revisão ${this._revisao}`, e);
@@ -273,6 +277,7 @@
         this._assinatura = this.assinarSnapshot(doc.snapshot);
         if (this.app && this.app.aplicarWorkspaceRestaurado) this.app.aplicarWorkspaceRestaurado(restaurado);
         this.status(this._temNuvem() ? 'salvo' : 'local');
+        traco('ambiente restaurado revision=' + this._revisao);
         return true;
       } catch (e) {
         diagnosticar(`snapshot de ${uid} recusado durante a restauração`, e);

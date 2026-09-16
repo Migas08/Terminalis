@@ -66,7 +66,7 @@
       this.sessionStart = Date.now();
     }
 
-    start() {
+    async start() {
       Progress.load();
       this.avaliarProgressao(false);
       this.pintarConta();
@@ -77,6 +77,11 @@
       this.renderRail();
       this.startClock();
       try { this.trilhaId = localStorage.getItem(this.chaveTrilha()) || null; } catch (e) { }
+      // Liga a sincronização em nuvem e restaura o laboratório salvo. Precisa
+      // rodar tanto aqui (boot com sessão ativa e primeiro login) quanto em
+      // entrarComUsuario (troca de conta) — sem isto, no fluxo normal a VM
+      // nunca é salva nem restaurada do Supabase.
+      await this.iniciarNuvem();
       const last = Progress.data.lastLesson;
       if (last && this.findLesson(last)) { this.trilhaId = (LX.trilhaDe(this.findLesson(last).mod.id) || {}).id || this.trilhaId; this.goLesson(last); }
       else if (this.trilhaId && LX.trilhaPorId(this.trilhaId)) this.goRoadmap();

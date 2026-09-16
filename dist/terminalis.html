@@ -43190,7 +43190,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       this.sessionStart = Date.now();
     }
 
-    start() {
+    async start() {
       Progress.load();
       this.avaliarProgressao(false);
       this.pintarConta();
@@ -43201,6 +43201,11 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       this.renderRail();
       this.startClock();
       try { this.trilhaId = localStorage.getItem(this.chaveTrilha()) || null; } catch (e) { }
+      // Liga a sincronização em nuvem e restaura o laboratório salvo. Precisa
+      // rodar tanto aqui (boot com sessão ativa e primeiro login) quanto em
+      // entrarComUsuario (troca de conta) — sem isto, no fluxo normal a VM
+      // nunca é salva nem restaurada do Supabase.
+      await this.iniciarNuvem();
       const last = Progress.data.lastLesson;
       if (last && this.findLesson(last)) { this.trilhaId = (LX.trilhaDe(this.findLesson(last).mod.id) || {}).id || this.trilhaId; this.goLesson(last); }
       else if (this.trilhaId && LX.trilhaPorId(this.trilhaId)) this.goRoadmap();
@@ -44707,6 +44712,16 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 
   function erro(campo, msg) { const e = new (LX.ErroAuth || Error)(campo, msg); if (!e.campo) e.campo = campo; return e; }
 
+  /* Erros do Supabase (RLS, tabela/coluna, sessão expirada, payload) não podem
+     sumir em silêncio: sem diagnóstico, uma gravação recusada parece um "salvo".
+     Preserva a interface (get/set devolvem null/false), mas deixa o motivo no
+     console para que o problema seja visível. */
+  function diag(contexto, detalhe) {
+    if (typeof console === 'undefined' || typeof console.warn !== 'function') return;
+    const msg = detalhe && (detalhe.message || detalhe.msg || detalhe.error_description || detalhe.details || detalhe.hint);
+    console.warn('[Workspace] ' + contexto + (msg ? ': ' + msg : ''), detalhe || '');
+  }
+
   /* Traduz mensagens do Supabase para algo legível em português. */
   function traduzir(m) {
     const t = String(m || '').toLowerCase();
@@ -44816,15 +44831,17 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       if (!tab) return null;
       try {
         if (col === 'progresso') {
-          const { data } = await c.from(tab).select('data').eq('user_id', id).maybeSingle();
+          const { data, error } = await c.from(tab).select('data').eq('user_id', id).maybeSingle();
+          if (error) diag('falha ao ler ' + tab, error);
           return data ? data.data : null;
         }
         if (col === 'profiles') {
-          const { data } = await c.from(tab).select('*').eq('id', id).maybeSingle();
+          const { data, error } = await c.from(tab).select('*').eq('id', id).maybeSingle();
+          if (error) diag('falha ao ler ' + tab, error);
           return data || null;
         }
         return null;
-      } catch (e) { return null; }
+      } catch (e) { diag('exceção ao ler ' + tab, e); return null; }
     },
 
     async set(col, id, dados) {
@@ -44840,23 +44857,26 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
           const { error } = await c.from(tab).upsert(
             { user_id: id, data: dados, updated_at: new Date().toISOString() },
             { onConflict: 'user_id' });
+          if (error) diag('falha ao gravar ' + tab, error);
           return !error;
         }
         if (col === 'profiles') {
           const { error } = await c.from(tab).upsert(Object.assign({ id }, dados), { onConflict: 'id' });
+          if (error) diag('falha ao gravar ' + tab, error);
           return !error;
         }
         return false;
-      } catch (e) { return false; }
+      } catch (e) { diag('exceção ao gravar ' + tab, e); return false; }
     },
 
     /* -------- workspace com revisão (detecção de conflito real) -------- */
     async getWorkspace(uid) {
       const c = cliente(); if (!c) return null;
       try {
-        const { data } = await c.from('workspaces')
+        const { data, error } = await c.from('workspaces')
           .select('snapshot_version,data,revision,updated_at,device')
           .eq('user_id', uid).maybeSingle();
+        if (error) diag('falha ao ler workspace', error);
         if (!data) return null;
         return {
           version: data.snapshot_version,
@@ -44891,6 +44911,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
           if (error) {
             const atual = await this.getWorkspace(uid);
             if (atual) return { ok: false, conflito: true, atual };
+            diag('insert do workspace recusado', error);
             return { ok: false, erro: error.message };
           }
           return { ok: true, revision: nova };
@@ -44898,13 +44919,14 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         /* Update condicionado à revisão base — o coração do optimistic lock. */
         const { data, error } = await c.from('workspaces')
           .update(linha).eq('user_id', uid).eq('revision', base).select('revision');
-        if (error) return { ok: false, erro: error.message };
+        if (error) { diag('update do workspace recusado', error); return { ok: false, erro: error.message }; }
         if (!data || !data.length) {
           const atual = await this.getWorkspace(uid);
           return { ok: false, conflito: true, atual };
         }
         return { ok: true, revision: nova };
       } catch (e) {
+        diag('exceção ao gravar workspace', e);
         return { ok: false, erro: String(e && e.message || e) };
       }
     }
@@ -45124,6 +45146,9 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     const detalhe = erro && erro.message ? ': ' + erro.message : '';
     console.warn('[Terminalis Sync] ' + contexto + detalhe, erro);
   }
+  function traco(msg) {
+    if (typeof console !== 'undefined' && typeof console.info === 'function') console.info('[Workspace] ' + msg);
+  }
 
   const Sync = {
     app: null,
@@ -45243,10 +45268,11 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         const doc = { version: snap.version, snapshot: snap, device: LX.Config.dispositivoId(), baseRevision: this._revisao };
         this._cacheWorkspace();          // offline-first: garante uma cópia local antes da rede
         if (this._offline()) { this._pendente = true; this.status('offline'); return; }
+        traco('tentando salvar baseRevision=' + this._revisao);
         const r = await LX.Storage.saveWorkspace(uid, doc);
-        if (r.ok) { this._revisao = r.revision; this._assinatura = this.assinarSnapshot(snap); this._pendente = false; this._sujo = false; this.status('salvo'); }
-        else if (r.conflito) { this._resolverConflito(r.atual); }
-        else { this._pendente = true; this.status('erro'); }
+        if (r.ok) { this._revisao = r.revision; this._assinatura = this.assinarSnapshot(snap); this._pendente = false; this._sujo = false; this.status('salvo'); traco('salvo revision=' + r.revision); }
+        else if (r.conflito) { traco('conflito de revisão — sincronização pausada'); this._resolverConflito(r.atual); }
+        else { this._pendente = true; this.status('erro'); diagnosticar('falha ao salvar workspace', r.erro ? { message: r.erro } : null); }
       } catch (e) {
         this._pendente = true; this.status('erro');
         diagnosticar(`falha ao enviar workspace de ${uid} na revisão ${this._revisao}`, e);
@@ -45360,6 +45386,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         this._assinatura = this.assinarSnapshot(doc.snapshot);
         if (this.app && this.app.aplicarWorkspaceRestaurado) this.app.aplicarWorkspaceRestaurado(restaurado);
         this.status(this._temNuvem() ? 'salvo' : 'local');
+        traco('ambiente restaurado revision=' + this._revisao);
         return true;
       } catch (e) {
         diagnosticar(`snapshot de ${uid} recusado durante a restauração`, e);
