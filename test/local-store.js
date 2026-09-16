@@ -30,7 +30,10 @@ const localStorage = LX.__localStorage;
   for (let i = 1; i <= 7; i++) LWS.saveBackup('u2', { version: 1, updatedAt: i, snapshot: { n: i } }, 'u2.' + i);
   const bk = LWS.listBackupsLocal('u2');
   assert.equal(bk.length, 5, 'mantém no máximo 5 backups por usuário');
-  assert.deepEqual(bk.map(b => b.doc.snapshot.n), [3, 4, 5, 6, 7], 'os 5 mais recentes sobrevivem, o recém-criado nunca é apagado');
+  // O motor roda num realm de vm (harness); um array vindo de lá tem outro
+  // Array.prototype e deepStrictEqual compara protótipos. Comparo como string
+  // para checar só os valores, sem o ruído de realm.
+  assert.equal(bk.map(b => b.doc.snapshot.n).join(','), '3,4,5,6,7', 'os 5 mais recentes sobrevivem, o recém-criado nunca é apagado');
   await LWS.deleteBackup('u2.7');
   assert.equal(LWS.listBackupsLocal('u2').length, 4, 'deleteBackup remove um backup');
 
