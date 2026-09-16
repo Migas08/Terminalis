@@ -1,0 +1,963 @@
+PESQUISA TÉCNICA — TYPESCRIPT PROFISSIONAL
+Base de conhecimento para a futura trilha TypeScript do Terminalis
+
+Data de corte: 16 de setembro de 2026
+Versão estável observada: TypeScript 7.0.2
+Linha de compatibilidade programática: TypeScript 6.0.3
+Base JavaScript: ECMAScript 2026; runtime de referência Node.js 26.8.2
+
+ESCOPO E MODELO MENTAL
+
+Este documento não é curso nem afirma que tipos executam em produção.
+TypeScript analisa programas JavaScript acrescidos de sintaxe e relações de
+tipos, produz diagnósticos e, conforme configuração, emite JavaScript e
+declarations. O runtime executa JavaScript. Segurança de dados externos,
+autorização, invariantes persistidas e testes continuam necessários.
+
+Em julho de 2026 o TypeScript 7.0 tornou-se estável. É um port nativo em Go,
+com parsing, checking, emit e language server paralelizáveis e ganhos grandes
+em bases extensas. Porém 7.0 não expõe API programática estável. Ferramentas
+que embutem compiler/language-service API ainda podem precisar do pacote de
+compatibilidade TypeScript 6.0. A semântica ensinada mira 7.0; a integração
+futura do Terminalis deve tratar essa transição como decisão de arquitetura.
+
+============================================================
+1. MODELO MENTAL: ANÁLISE ESTÁTICA PRAGMÁTICA
+============================================================
+
+Tipos são apagados na emissão, salvo sintaxe TypeScript que historicamente
+gera JavaScript, como alguns enums, namespaces e parameter properties. O
+checker não acompanha objeto em runtime. “as User” não converte nem valida.
+
+O sistema é estrutural: compatibilidade depende principalmente dos membros,
+não do nome declarado. Isso combina com duck typing do JavaScript, mas torna
+tipos acidentalmente compatíveis. Brands privadas ou phantom fields podem
+adicionar distinção nominal quando o domínio exige.
+
+TypeScript é deliberadamente não totalmente sound. Exemplos incluem any,
+assertions, array variance, refinamentos invalidados por efeitos e acesso
+indexado sem opção estrita. O objetivo é produtividade e modelagem útil do
+JavaScript existente, não prova formal de ausência de erro.
+
+Inference deduz tipos; contextual typing usa o local esperado; widening
+generaliza literal mutável; narrowing refina por controle de fluxo. Essas
+quatro forças explicam mais que memorizar annotations.
+
+Como isso aparece em sistemas reais
+
+- IDE e CI detectam contratos quebrados antes do deploy.
+- Boundary parser transforma unknown validado em tipo de domínio.
+- Tipos reduzem estados inválidos, mas transação e regra runtime permanecem.
+
+============================================================
+2. TIPOS FUNDAMENTAIS
+============================================================
+
+string, number, boolean, bigint e symbol correspondem a primitivos; evite
+wrappers String, Number, Boolean. Arrays usam T[] ou Array<T>; tuple descreve
+posições e comprimentos, com elementos opcionais/rest. readonly T[] e readonly
+tuple impedem mutação por aquela referência, não congelam valor em runtime.
+
+“object” aceita não-primitivos. “Object” descreve operações comuns e aceita
+mais do que normalmente se deseja. “{}” significa qualquer valor não nullish,
+não objeto vazio. Um record sem campos é raramente um contrato útil.
+
+any desliga verificação e contamina operações seguintes. unknown aceita
+qualquer entrada, mas exige narrowing para uso. never é conjunto vazio e marca
+caminho impossível, função que não retorna ou exhaustiveness. void descreve
+retorno cujo valor não deve ser usado; callback “() => void” pode aceitar
+função que retorna algo, pois o chamador ignora o resultado.
+
+undefined e null ficam distintos com strictNullChecks. Optional property
+indica ausência possível; “prop?: T” não é idêntico a “prop: T | undefined”,
+especialmente com exactOptionalPropertyTypes.
+
+============================================================
+3. INFERENCE, WIDENING, AS CONST E SATISFIES
+============================================================
+
+“let x = 'ok'” normalmente alarga para string porque x pode mudar; “const x”
+preserva literal em binding simples, mas propriedades de objeto continuam
+mutáveis e alargam. “as const” impede widening e torna estrutura profundamente
+readonly na expressão, sem congelar runtime.
+
+Contextual typing tipa callback a partir do método/variável esperado. Best
+common type procura tipo compatível entre candidatos; união explícita pode ser
+melhor que resultado amplo. Return inference é ótima para implementação local,
+mas export público e boundary complexo ganham estabilidade com annotation.
+
+“satisfies” verifica se expressão é atribuível a contrato preservando o tipo
+inferido específico. Annotation muda o tipo visto da variável para o contrato;
+assertion manda o checker aceitar; satisfies valida sem apagar precisão.
+
+Exemplo conceitual:
+
+    const routes = {
+      home: "/",
+      user: "/users"
+    } satisfies Record<string, string>;
+
+As chaves continuam “home” | “user”. Use annotation quando consumidores devem
+ver apenas interface; satisfies para configuração literal que deve ser
+verificada e manter literais; assertion apenas quando há conhecimento externo
+que o checker não representa.
+
+============================================================
+4. UNIONS, INTERSECTIONS E ESTADOS
+============================================================
+
+Union “A | B” contém valores de qualquer membro e só permite operações seguras
+para todos até narrowing. Intersection “A & B” exige simultaneamente ambos;
+em primitivos incompatíveis pode virar never. Intersection de objetos não é
+merge runtime e conflitos podem gerar propriedade never.
+
+Discriminated union usa tag literal estável:
+
+    type Load =
+      | { state: "loading" }
+      | { state: "success"; data: Data }
+      | { state: "error"; error: AppError };
+
+Isso impede combinações como loading=true com data e error simultâneos.
+Switch exaustivo atribui default a never ou chama assertNever. Ao adicionar
+variante, pontos incompletos falham no build.
+
+Como isso aparece em sistemas reais
+
+- Estado de request, job, pagamento e conexão vira máquina explícita.
+- Eventos versionados usam union discriminada.
+- Result<T,E> separa sucesso esperado de falha modelada.
+
+============================================================
+5. NARROWING E CONTROL-FLOW ANALYSIS
+============================================================
+
+typeof refina primitivos; instanceof usa construtor/runtime; “key in value”
+refina membros; igualdade correlaciona valores; truthiness exclui falsy, mas
+pode apagar string vazia válida. Array.isArray é guard apropriado para arrays.
+Após assignment ou retorno, o checker atualiza o tipo pelo fluxo.
+
+Predicate “value is T” promete ao checker que implementação é correta; bug no
+guard cria falsa segurança. Assertion function “asserts value is T” lança ou
+refina. Prefira guard pequeno testado, e parser que devolve valor validado
+quando transformação/erros são relevantes.
+
+Narrowing pode ser invalidado conceitualmente por callback ou função que muta
+objeto; copie valor local imutável ou modele efeitos. Discriminant mutável é
+perigoso. Use readonly nos campos que sustentam refinamento.
+
+============================================================
+6. INTERFACE E TYPE ALIAS
+============================================================
+
+Interface nomeia principalmente formas de objeto e pode ser estendida e
+reaberta por declaration merging. Type alias nomeia qualquer tipo: union,
+tuple, primitive alias, conditional e object. Interface extends compõe com
+diagnósticos geralmente claros; intersection combina mecanicamente e pode
+ocultar conflito.
+
+Para public API extensível intencionalmente, interface pode permitir module
+augmentation. Para união fechada e transformações, type é natural. Não use
+regra estética “sempre interface”. Declaration merging acidental é risco:
+escopo de módulo e nomes específicos evitam colisões globais.
+
+============================================================
+7. FUNÇÕES, OVERLOADS E VARIANCE
+============================================================
+
+Function type “(x: T) => R” descreve chamada. Interface/type pode ter call
+signature com propriedades e construct signature “new (...)”. Parâmetro
+opcional deve vir quando implementação realmente aceita ausência; callback
+com parâmetro opcional significa que o chamador pode omiti-lo, não que
+implementações podem ignorar dado sempre presente. Rest usa tuple para listas
+precisas.
+
+Overload expõe signatures públicas e uma implementation signature ampla,
+invisível ao chamador. Prefira union/generic quando relação pode ser expressa;
+overload é útil quando retornos mudam por forma da entrada. Ordene do específico
+ao geral.
+
+Generic function relaciona posições. Um type parameter usado uma vez talvez
+deva ser tipo direto. O this parameter falso tipa receiver sem emitir JS.
+
+Com strictFunctionTypes, parâmetros de funções são checados contravariantemente
+em posições relevantes; métodos mantêm bivariance por compatibilidade. Retornos
+são covariantes. Callback estreito não pode receber valor mais amplo. Void em
+callback significa retorno ignorado, razão pela qual uma função que retorna
+valor pode ser passada.
+
+============================================================
+8. GENERICS E DESIGN DE RELAÇÕES
+============================================================
+
+Generic captura relação, não “qualquer coisa”. “identity<T>(x:T):T” preserva
+entrada; constraint “T extends HasId” permite operações do contrato sem perder
+tipo concreto. Múltiplos parâmetros devem representar relações independentes.
+Default generic ajuda API pública quando existe escolha comum compatível.
+
+Inference flui de argumentos e contexto; anotações demais podem travá-la.
+“K extends keyof T” liga chave ao objeto; “T[K]” liga retorno à chave. Generic
+class compartilha parâmetro entre métodos/estado; static side não acessa type
+parameter da instância. Generic interface pode parametrizar toda API ou método.
+
+Evite:
+
+- T que aparece apenas no retorno: permite “fabricar” tipo sem evidência;
+- constraint “T extends any” inútil;
+- cinco parâmetros com defaults interdependentes;
+- generic para função que sempre usa string;
+- exposição de detalhes internos que impedem evolução.
+
+Como isso aparece em sistemas reais
+
+- SDK relaciona endpoint, request e response.
+- Repository liga Entity e Id.
+- Collection preserva tipo do elemento.
+- Event map liga nome de evento ao payload.
+
+============================================================
+9. KEYOF, TYPEOF E INDEXED ACCESS
+============================================================
+
+keyof T produz união das chaves conhecidas. Em index signature de string pode
+incluir string | number, pois chaves numéricas viram strings em objetos.
+typeof em type context captura tipo de valor declarado; não é typeof runtime.
+“keyof typeof constants” deriva união das chaves de um objeto real.
+
+T[K] consulta tipo da propriedade e distribui sobre união de chaves válida.
+Exemplo:
+
+    function get<T, K extends keyof T>(obj: T, key: K): T[K] {
+      return obj[key];
+    }
+
+Isso preserva correlação que “key: string” perderia. Não crie API dinâmica
+apenas porque o tipo consegue; às vezes método explícito comunica melhor.
+
+============================================================
+10. MAPPED TYPES
+============================================================
+
+Mapped type itera PropertyKey:
+
+    type Optional<T> = { [K in keyof T]?: T[K] };
+
+Modifiers “readonly” e “?” podem ser adicionados/removidos com +/-. Key
+remapping usa “as”, template literals e never para renomear/filtrar.
+
+Implementações conceituais:
+
+    type MyPartial<T> = { [K in keyof T]?: T[K] };
+    type MyRequired<T> = { [K in keyof T]-?: T[K] };
+    type MyReadonly<T> = { readonly [K in keyof T]: T[K] };
+    type MyPick<T,K extends keyof T> = { [P in K]: T[P] };
+    type MyOmit<T,K extends PropertyKey> =
+      MyPick<T, Exclude<keyof T,K>>;
+
+Mapped types conservam modifiers homomorficamente em vários casos. O resultado
+é compile-time; Partial não valida patch nem torna nested fields opcionais.
+
+============================================================
+11. CONDITIONAL TYPES E INFER
+============================================================
+
+“T extends U ? X : Y” escolhe tipo por atribuibilidade. Quando T é naked type
+parameter e recebe union, distribui por membro. Envolver em tuple, “[T] extends
+[U]”, evita distribuição. never desaparece em unions e conditional
+distributivo sobre never pode surpreender.
+
+infer declara variável extraída no ramo verdadeiro:
+
+    type Element<T> = T extends readonly (infer U)[] ? U : never;
+    type AsyncValue<T> = T extends PromiseLike<infer U>
+      ? AsyncValue<U> : T;
+
+Nested conditionals são úteis para adapters e libraries, mas nomes auxiliares
+e testes de tipo devem manter legibilidade. Se mensagem de erro vira página de
+instanciações, troque parte da magia por annotation/API explícita.
+
+============================================================
+12. TEMPLATE LITERAL TYPES
+============================================================
+
+Template literal type combina unions em strings, útil para event names, paths
+e propriedades derivadas. Uppercase, Lowercase, Capitalize e Uncapitalize são
+intrinsics do compilador, não funções runtime. Exemplo conceitual:
+
+    type EventOf<T> = {
+      [K in keyof T & string as "on" + Capitalize<K>]:
+        (value: T[K]) => void
+    };
+
+Combinação cartesiana explode rapidamente. Para strings vindas de usuário,
+tipo não valida runtime. Use união finita para protocolo interno; parser/schema
+para entrada.
+
+============================================================
+13. UTILITY TYPES
+============================================================
+
+Partial torna propriedades opcionais; Required remove opcional; Readonly
+impede assignment superficial; Record<K,V> mapeia chaves; Pick/Omit selecionam
+chaves; Exclude/Extract filtram union; NonNullable remove null/undefined.
+
+Parameters e ConstructorParameters obtêm tuples de argumentos da última
+signature aplicável; ReturnType obtém retorno; InstanceType obtém instância de
+construtor; Awaited modela await recursivo/thenables. ThisParameterType extrai
+this; OmitThisParameter remove-o; ThisType fornece marcador contextual em
+object literals quando noImplicitThis está ativo.
+
+Utilities não substituem tipos de domínio. “Partial<User>” para update pode
+permitir alterar id/role indevidamente. Defina UpdateProfileInput explicitamente
+quando a regra importa.
+
+============================================================
+14. CLASSES
+============================================================
+
+public é default; protected permite classe/subclasses no checker; private de
+TypeScript é restrição estática e pode existir como propriedade comum emitida.
+“#private” é campo privado JavaScript com brand runtime. readonly impede
+assignment após inicialização pelo checker, sem freeze.
+
+Parameter property declara/inicializa membro no constructor; concisa, mas
+mistura parâmetros e shape emitido. abstract exige subclass implementation
+sem impedir reflexão runtime por si. implements verifica instance side; não
+altera classe. override e noImplicitOverride protegem contra rename da base.
+static pertence ao constructor; generic da instância não está disponível ali.
+
+Herança preserva regras JavaScript de super e campos. TypeScript estrutural
+pode considerar classes compatíveis, exceto private/protected exigirem origem
+compatível. Prefira composição quando subclass precisa conhecer detalhes ou
+viola substituição.
+
+============================================================
+15. MÓDULOS, ESM/CJS E RESOLUÇÃO
+============================================================
+
+Arquivo com import/export é módulo. “import type” e “export type” tornam
+intenção de apagamento explícita. verbatimModuleSyntax preserva imports/exports
+não marcados como type e evita reescrita surpreendente; exige coerência com
+runtime.
+
+“module” controla output; “moduleResolution” controla como specifiers viram
+arquivos e types. Node16/NodeNext modelam regras Node por package type/extensão
+e exports; NodeNext acompanha comportamento atual de Node, podendo mudar.
+Bundler aceita padrões resolvidos por bundlers e não deve ser usado para código
+executado diretamente pelo Node sem alinhamento.
+
+package.json exports limita entrypoints; “types” aponta declaration principal;
+typesVersions oferece variações por versões antigas do TS, com complexidade.
+Path aliases do tsconfig orientam checker, não reescrevem import runtime.
+Prefira package imports “#...” ou configuração equivalente no runtime.
+
+Declaration files descrevem JS; dependem da mesma resolução da publicação.
+Teste pacote empacotado em ESM e CJS realmente suportados. Dual package hazard
+pode duplicar singleton e tipos.
+
+============================================================
+16. TSC E PIPELINE
+============================================================
+
+Pipeline conceitual: ler config e grafo → scanner/parser cria syntax trees →
+binder cria símbolos/escopos → resolver encontra módulos/types → checker
+calcula relações e diagnósticos → transform/emit gera JS, .d.ts e source maps.
+Implementação exata difere no TS 7 nativo, mas fases ajudam diagnóstico.
+
+tsconfig encontra projeto. “files” é allowlist explícita; include usa padrões;
+exclude filtra descoberta, mas arquivo importado ainda entra. extends herda
+config e caminhos relativos são resolvidos conforme arquivo de origem.
+
+incremental persiste informações para builds seguintes. composite impõe
+condições para project references e declaration. References separam projetos,
+permitem build ordenado e cache; fronteira ruim cria centenas de projetos
+minúsculos ou ciclos.
+
+declaration emite .d.ts; declarationMap liga declaration ao source; sourceMap
+liga JS a TS. noEmit permite checker puro. “tsc --build” opera referências;
+“--noEmitOnError” controla emissão em erro, mas pipeline de produção normalmente
+não deve publicar com diagnóstico.
+
+TypeScript 7 paraleliza parsing/checking/emit e project builds. Flags 7.0 como
+checkers/builders ajustam workers; mais workers aumentam memória. Meça CI.
+
+============================================================
+17. TSCONFIG PROFISSIONAL
+============================================================
+
+Baseline recomendada para projeto novo moderno, adaptada ao host:
+
+    {
+      "compilerOptions": {
+        "strict": true,
+        "noImplicitOverride": true,
+        "noUncheckedIndexedAccess": true,
+        "exactOptionalPropertyTypes": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitReturns": true,
+        "verbatimModuleSyntax": true,
+        "isolatedModules": true,
+        "skipLibCheck": true
+      }
+    }
+
+strict agrega noImplicitAny, strictNullChecks, strictFunctionTypes,
+strictBindCallApply, strictPropertyInitialization, useUnknownInCatchVariables
+e afins. No TS 7 strict já é default, mas explicitar documenta intenção.
+
+noUncheckedIndexedAccess adiciona undefined a index access não provado.
+exactOptionalPropertyTypes distingue ausência de undefined. noPropertyAccessFromIndexSignature
+força bracket quando nome só vem de index signature. noImplicitReturns e
+noFallthroughCasesInSwitch detectam fluxos suspeitos. allowUnreachableCode e
+allowUnusedLabels devem preferir erro/undefined conforme política, não silenciar.
+
+isolatedModules garante que cada arquivo pode ser transformado isoladamente,
+essencial para transpilers. verbatimModuleSyntax obriga separar types/values.
+target seleciona sintaxe emitida e libs default; lib escolhe declarações de
+APIs disponíveis, não polyfills. types limita pacotes globais carregados.
+
+skipLibCheck pula checagem interna de .d.ts, acelera e contorna duplicação, mas
+não torna declarations corretas; mantenha CI específico de biblioteca quando
+publica tipos. module/moduleResolution precisam refletir runtime.
+
+Mudanças TS 6/7: strict default true; module default esnext; target passou a
+versão ECMAScript estável anterior a esnext; types deve ser explícito em muitos
+projetos. Config profissional fixa escolhas críticas em vez de depender de
+defaults móveis.
+
+============================================================
+18. DECLARATION FILES
+============================================================
+
+.d.ts contém somente contratos. “declare” afirma que implementação existe em
+outro lugar. “declare global” amplia escopo global a partir de módulo; “declare
+module” descreve/augmenta módulo. Ambient declaration incorreta mente para todo
+consumidor.
+
+@types no DefinitelyTyped fornece tipos quando pacote não os inclui. A versão
+do pacote de tipos deve acompanhar API runtime. Para biblioteca JS, comece pela
+estrutura real de exports: função, class, module, global ou plugin. Use templates
+oficiais, teste consumo e gere declarations do JSDoc/TS quando possível.
+
+Não publique internals acidentalmente no retorno inferido. Public types devem
+usar nomes exportáveis e dependências acessíveis. Module augmentation é para
+extensão real do contrato, não correção local silenciosa.
+
+============================================================
+19. COMPATIBILIDADE E VARIANCE
+============================================================
+
+Compatibilidade estrutural permite objeto com membros extras onde subconjunto
+é pedido. Excess property check é verificação especial de object literal
+“fresco”; armazenar em variável pode permitir extras. Não confunda com runtime
+strip nem validação.
+
+Covariance permite substituir produtor de subtipo; contravariance, consumidor
+de supertipo; invariance exige exato; bivariance aceita ambas as direções.
+Mutabilidade torna arrays genericamente perigosos: atribuições historicamente
+permitidas podem inserir valor inválido. readonly arrays dão modelo covariante
+mais seguro.
+
+Function parameters sob strictFunctionTypes são contravariantes para function
+properties, com exceções pragmáticas de métodos. Retorno é covariante. Classes
+com private/protected dependem da origem desses membros, adicionando aspecto
+nominal.
+
+============================================================
+20. GENERICS AVANÇADOS
+============================================================
+
+Recursive types modelam árvores/JSON. Recursive conditional types percorrem
+estruturas, mas precisam caso base e profundidade razoável. Variadic tuples
+preservam listas em compose, bind e middleware. Constraints avançadas ligam
+chaves, constructors e shapes; F-bounded patterns existem, mas mensagens
+podem se degradar.
+
+TypeScript não possui higher-kinded types nativos. Simulações com registries e
+interfaces aumentam ceremony; use apenas em library com ganho concreto.
+Phantom parameter aparece só no tipo para estado/unidade. Brand cruza-seção
+abaixo.
+
+Regra: mantenha “type tests” para abstrações, meça checker e ofereça tipos
+intermediários nomeados. Se equipe não consegue explicar o tipo e seu erro,
+ele não é uma abstração profissional.
+
+============================================================
+21. BRANDED E OPAQUE-LIKE TYPES
+============================================================
+
+Structural typing faz UserId e OrderId, ambos string, compatíveis. Brand inclui
+campo impossível/unique symbol:
+
+    declare const userIdBrand: unique symbol;
+    type UserId = string & { readonly [userIdBrand]: "UserId" };
+
+Crie brand apenas em factory/parser que valida ou controla origem. Assertion
+espalhada derrota a proteção. Brand não existe no JSON e precisa ser reconstruída
+na boundary. Opaque type verdadeiro exige módulo esconder símbolo/factory.
+
+Trade-offs: previne troca de unidades/IDs e documenta invariantes; aumenta
+conversões e pode complicar interoperabilidade. Para campo já discriminado em
+objeto, brand pode ser redundante.
+
+============================================================
+22. MODELAGEM DE ESTADO
+============================================================
+
+Faça estados inválidos irrepresentáveis com discriminated unions. State
+machine define estados, eventos e transições; reducer puro pode retornar novo
+estado. Result:
+
+    type Result<T,E> =
+      | { ok: true; value: T }
+      | { ok: false; error: E };
+
+Option/Maybe pode ser “T | undefined” quando ausência simples; união nomeada
+compensa quando há operações/semântica. Não crie monad por moda.
+
+Estado persistido ainda pode estar corrompido/antigo: parseie e migre antes de
+tratar como union. Exhaustiveness protege evolução interna; version field
+protege evolução serializada.
+
+Como isso aparece em sistemas reais
+
+- Checkout impede “pago e cancelado sem reembolso” na mesma forma.
+- Job separa queued/running/succeeded/failed e campos próprios.
+- UI elimina booleans independentes loading/error/hasData.
+
+============================================================
+23. ERROS TIPADOS
+============================================================
+
+TypeScript não declara checked exceptions. Uma função “(): T” pode lançar
+qualquer valor; catch recebe unknown sob opção strict e deve refinar.
+“instanceof Error” cobre Errors do realm atual, mas integrações podem rejeitar
+string/objeto. Normalize na boundary.
+
+Custom Error é útil para código/cause/details seguros. Result é adequado para
+falha esperada que chamador deve tratar; exception para quebra excepcional ou
+API idiomática existente. Não misture Result e throw sem contrato.
+
+Union de erros não prova que nenhuma outra exception ocorrerá. Infraestrutura,
+bugs e AbortError continuam. Handler final normaliza resposta/log sem vazar
+stack ou segredo.
+
+============================================================
+24. RUNTIME VALIDATION E PARSER BOUNDARIES
+============================================================
+
+Toda entrada externa começa como unknown: JSON, body HTTP, banco, env,
+localStorage, message queue e postMessage. “JSON.parse(text) as User” é mentira
+estática. Validação verifica; parsing idealmente converte e retorna tipo ou
+erro estruturado (“parse, don’t validate”).
+
+Estratégias:
+
+- guards manuais para schemas pequenos e estáveis;
+- assertion functions para falhar;
+- biblioteca de schema que infere tipo e valida runtime;
+- geração de validator a partir de schema/contrato;
+- codecs separados quando representação difere do domínio.
+
+Nenhuma estratégia deve duplicar type e schema sem teste de equivalência.
+Valide profundidade, tamanhos e formatos para segurança, não só propriedades.
+Banco também é boundary: migration antiga, query raw e coluna nullable podem
+violar expectativa.
+
+Como isso aparece em sistemas reais
+
+- Config é parseada uma vez no startup.
+- Adapter HTTP converte DTO validado em command de domínio.
+- Consumer valida event version antes de dispatch.
+
+============================================================
+25. ASSERTIONS E NON-NULL
+============================================================
+
+“value as T” escolhe interpretação permitida pelo checker; não converte.
+Angle-bracket syntax é equivalente fora de TSX. “value!” remove null/undefined
+estaticamente. Double assertion “value as unknown as T” atravessa relação e
+deve ser último recurso documentado.
+
+Justificáveis: limitação conhecida de API DOM após checagem, integração sem
+types após validação externa, fixture controlada. Perigosas: input de rede,
+lookup que pode falhar, ordem assíncrona, migration. Prefira narrowing,
+parser, invariant function ou redesenho.
+
+============================================================
+26. SATISFIES EM PROFUNDIDADE
+============================================================
+
+Annotation contextualiza e passa a expor o tipo anotado. Assertion pula uma
+parte da verificação e muda o tipo observado. satisfies verifica assignability
+sem substituir o tipo resultante da expressão.
+
+Casos fortes: tabela exhaustiva “Record<Route, Config>”, configuração com
+literais preservados, registry de handlers, mapas de mensagens. satisfies
+detecta chave ausente/extra conforme tipo e freshness, mas não torna objeto
+readonly; combine com as const quando necessário e entenda a ordem.
+
+Não use satisfies como validator. Seu efeito termina na compilação.
+
+============================================================
+27. DECORATORS EM 2026
+============================================================
+
+TypeScript suporta decorators padronizados desde 5.0 com semântica baseada na
+proposta TC39. Eles diferem dos legacy decorators habilitados por
+experimentalDecorators, especialmente assinatura, ordem, emit e metadata.
+emitDecoratorMetadata pertence ao ecossistema legado e depende de reflect
+metadata; não é metadata padrão automática.
+
+Em setembro de 2026, decorators ECMAScript permanecem Stage 2.7 no tracking do
+TC39, portanto não fazem parte de ES2026. TypeScript pode suportar sintaxe antes
+da padronização final. Não misture exemplos legacy e standard na mesma seção.
+Bibliotecas de DI/framework podem exigir legado; registre configuração e custo
+de migração.
+
+Decorator é metaprogramação com ordem e inicialização sutis. Use quando
+framework/infraestrutura obtém ganho claro; função/factory explícita é mais
+simples para regra de domínio.
+
+============================================================
+28. AUTORIA DE BIBLIOTECAS
+============================================================
+
+Defina public API por exports; não exponha arquivo interno. Gere .d.ts, maps se
+úteis e teste pacote instalado, não só source. ESM/CJS devem refletir arquivos
+reais e conditions. “types”/exports precisam apontar corretamente; typesVersions
+apenas se suporte a compiladores antigos justificar.
+
+Tipos públicos são contrato SemVer. Tornar propriedade required, estreitar
+parâmetro, alargar retorno, alterar inference/default generic ou remover export
+pode quebrar. Parâmetros aceitam tipos amplos e retornos oferecem precisão;
+evite unions enormes e conditional types que vazem implementação.
+
+Teste matriz de versões suportadas do TS e Node/bundlers. Não publique .ts cru
+esperando que Node/bundler do consumidor adivinhe config. O type stripping
+nativo do Node não lê tsconfig nem executa sintaxe não apagável.
+
+============================================================
+29. MONOREPOS
+============================================================
+
+Project references + composite criam grafo compilável, declarations entre
+projetos e build incremental. Shared tsconfig deve ser pequeno e extensível por
+ambiente; DOM e Node globals não devem vazar para todos. Packages precisam de
+exports e dependências declaradas, evitando import relativo cruzando fronteira.
+
+Path alias não resolve runtime. Use workspaces/package names ou package imports.
+Ciclo de packages indica boundary ruim. Build order deriva do grafo; cache
+remoto só é correto se inputs incluem config, compiler, env relevante e lock.
+
+TS 7 pode construir referências em paralelo via builders; excesso aumenta
+memória. Compare um projeto gigante, poucos domínios ou muitos packages por
+dados, não ideologia.
+
+============================================================
+30. BACKEND TYPESCRIPT
+============================================================
+
+DTO representa boundary e deve ser validado. Entity/model de domínio expressa
+invariantes, não espelha automaticamente tabela. Service coordena caso de uso;
+repository retorna domínio quando abstração existe; driver type não deve vazar.
+Config nasce de parser de env. Erros usam código/cause e tradução na borda.
+
+API contracts podem ser schema-first, code-first ou compartilhados, mas o
+cliente nunca deve confiar apenas em type. Transação, autorização, isolamento
+e idempotência são runtime. Tipar query não garante que migration aplicada é a
+mesma.
+
+Evite DI framework obrigatório para tudo; constructor/factory injection é
+testável. Async return deve ser Promise explícita na API pública. Use
+AsyncLocalStorage com cuidado para trace/request context, não para dependências
+ocultas.
+
+============================================================
+31. FRONTEND TYPESCRIPT
+============================================================
+
+DOM APIs retornam tipos amplos/nullables porque markup pode mudar.
+querySelector generic/assertion não prova que elemento existe; cheque e refine.
+HTMLElement é base; elementos específicos oferecem membros. Event target pode
+ser EventTarget/null; currentTarget e listener tipado costumam ser mais seguros.
+
+API data é unknown até validação. State usa unions discriminadas; async
+cancelamento evita resposta antiga sobrescrever nova. Form values são strings
+até parse. Não use non-null em todo selector para silenciar arquitetura.
+
+Generics são úteis em componentes/collections independentes de framework, mas
+inferência e public API clara importam mais que “componente mega-genérico”.
+
+============================================================
+32. TYPE-LEVEL PROGRAMMING
+============================================================
+
+Conditional, mapped, infer, recursive e template literal types formam linguagem
+de transformação. Bons usos: preservar correlação numa library, derivar eventos
+de schema estático, remover duplicação segura. Maus usos: validar regra runtime,
+emular parser arbitrário, produzir erro ininteligível ou mostrar virtuosismo.
+
+Princípio de saída: se tipo derivado é mais difícil de manter que dois tipos
+explícitos e um teste, prefira o simples. Limite profundidade, nomeie passos,
+documente exemplos positivos/negativos e verifique tempo do checker.
+
+============================================================
+33. PERFORMANCE DO COMPILADOR
+============================================================
+
+Custos comuns: unions enormes/cartesianas, conditional distributivo recursivo,
+intersections profundas, inference sobre overloads, declaration emit de tipos
+anônimos gigantes, grafo global e duplicação de libraries. Simplifique tipos,
+exporte aliases nomeados, evite gerar milhares de strings e separe projetos por
+boundaries reais.
+
+incremental e project references reduzem trabalho repetido. skipLibCheck acelera
+dependências, com trade-off. TS 7 nativo reduz muito tempo e memória em projetos
+grandes, mas paralelismo pode aumentar pico; checkers/builders devem ser medidos
+no hardware de CI.
+
+Use extended diagnostics/trace quando disponível na versão e compare cold/warm.
+Performance do editor e do build podem ter causas distintas.
+
+============================================================
+34. MIGRAÇÃO JAVASCRIPT PARA TYPESCRIPT
+============================================================
+
+Migração incremental:
+
+1. Fixar runtime, module system e build atuais.
+2. Adicionar tsconfig explícito; allowJs inclui JS.
+3. Ativar checkJs por pastas ou “// @ts-check”.
+4. Corrigir globals/modules e adicionar JSDoc em boundaries.
+5. Renomear folhas para .ts, preservando output/imports.
+6. Reduzir any e ativar strict flags por orçamento.
+7. Validar entradas e separar domínio.
+8. Medir build/editor; criar project references apenas quando necessário.
+
+Não altere módulos, bundler, arquitetura e tipos ao mesmo tempo. Baseline com
+testes de caracterização. “any temporário” precisa owner/issue; unknown força
+tratamento. TypeScript 6 é ponte útil para ajustar deprecações antes do 7.
+
+============================================================
+35. JAVASCRIPT COM JSDOC
+============================================================
+
+checkJs oferece análise sem mudar runtime. @typedef nomeia forma; @param e
+@returns documentam contrato; @template cria generic. Import types pode
+referenciar declarations. É adequado a scripts, libs JS e migração gradual.
+
+JSDoc fica verboso em conditional/mapped types e pode divergir da função.
+TypeScript 7 removeu/alterou suporte a padrões Closure legados e exige sintaxe
+mais alinhada a TS; não baseie curso novo nesses padrões antigos. Escolha .ts
+quando modelagem e refactor predominam; JSDoc quando manter JS distribuído é
+requisito.
+
+============================================================
+36. TESTES DE RUNTIME E DE TIPOS
+============================================================
+
+Teste runtime verifica comportamento emitido. Type test verifica assignability,
+inference e diagnósticos de public API. “@ts-expect-error” exige que a próxima
+linha produza erro; se deixar de produzir, o teste falha. “@ts-ignore” silencia
+sem essa garantia e deve ser raro, com justificativa.
+
+Fixtures positivas/negativas devem rodar nas versões suportadas. Snapshot de
+mensagem completa é frágil; teste código/local ou ferramenta adequada. Compile
+o pacote consumidor e execute JS gerado. Tipo perfeito com implementação errada
+continua bug.
+
+============================================================
+37. ANTI-PATTERNS
+============================================================
+
+- any everywhere: desliga o produto; use unknown/boundary.
+- as everywhere: transfere bugs para runtime.
+- non-null “!” em todo acesso: esconde lifecycle.
+- enum sem necessidade: pode emitir JS/interop; compare union/as const.
+- mega generic: inference e erros ruins.
+- interface vazia: em estrutural pode aceitar quase tudo.
+- prefixo I por hábito: ruído sem distinção semântica.
+- tipos duplicados: divergem; derive quando relação é estável.
+- type desconectado do runtime: JSON.parse as User.
+- enum versus union sem analisar emit, reverse mapping e extensão.
+- type gymnastics: custo sem ganho de domínio.
+- ignorar strictNullChecks: ausência vira bugs difusos.
+- ts-ignore: dívida invisível; prefira expect-error testado.
+- exportar tudo: congela internals como API.
+- paths como se fossem runtime aliases.
+
+============================================================
+38. TYPESCRIPT EM SISTEMAS GRANDES
+============================================================
+
+Organize tipos perto do ownership. Domain types representam decisões internas;
+boundary types representam wire/storage; public types formam API versionada.
+Mapeamento explícito entre eles evita um “User” universal com campos opcionais.
+Evite global declarations; módulos e augmentation deliberada.
+
+Dependency boundaries devem existir no grafo de imports e packages, não apenas
+em pastas. Contracts entre serviços são schemas versionados; compartilhar
+pacote de tipos não garante deploy sincronizado. Compatibility inclui leitores
+antigos e mensagens armazenadas.
+
+Escala exige build incremental, cache correto, project graph sem ciclos,
+ownership de public APIs e política de atualização. Type tests protegem SDK;
+runtime tests protegem integração; observabilidade confirma produção.
+
+Como isso aparece em sistemas reais
+
+- Monorepo separa domínio, adapters e apps por packages com exports mínimos.
+- API mantém wire schema v1/v2 e converte para um modelo interno.
+- Migration de tipo é rollout coordenado, não só commit que compila.
+
+============================================================
+39. TYPESCRIPT ATUAL EM 2026
+============================================================
+
+TypeScript 7.0.2 é o latest estável consultado em 16/09/2026. O 7.0 foi lançado
+em 08/07/2026, reescrito em Go, usa LSP e paralelismo; benchmarks oficiais
+relatam tipicamente 8–12x em builds grandes. Esses números não são promessa
+universal.
+
+Limitação crítica: 7.0 não expõe API programática estável. Ferramentas que
+embutem compiler/language service, plugins e alguns ecossistemas de templates
+podem ficar em TypeScript 6.0. O pacote @typescript/typescript6 oferece tsc6 e
+API 6.0 lado a lado. A equipe esperava nova API no 7.1; como 7.1 não era estável
+na data de corte, não é assumido.
+
+O TS 7 alinha comportamento com 6.0, remove opções/padrões depreciados e usa
+defaults modernos. O curso deve ensinar semântica estável do type system e
+isolar notas de versão. A integração Terminalis deve inicialmente avaliar:
+
+- executar CLI/WASM/serviço do TS 7 se houver distribuição browser suportada;
+- usar API 6.0 em Web Worker para diagnostics/transpile enquanto 7.1 não chega;
+- nunca chamar type stripping do Node de type checking;
+- fixar versão e mostrar versão nos exercícios.
+
+============================================================
+JAVASCRIPT VS TYPESCRIPT
+============================================================
+
+Use JavaScript quando toolchain mínimo, script pequeno, ambiente dinâmico ou
+distribuição JS direta têm mais valor e testes/JSDoc cobrem risco. TypeScript
+compensa quando há equipe, domínio rico, refactors, API pública, múltiplos
+módulos, vida longa e custo alto de integração incorreta.
+
+Custos do TypeScript: compilador/language server, configuração, build, upgrades,
+tipos de dependências, aprendizagem e modelagem. Tipos excessivos também criam
+dívida. Benefícios: feedback antecipado, navegação/refactor, documentação
+executável parcial e estados inválidos menos representáveis.
+
+Limites:
+
+- TS não substitui testes: lógica e efeitos continuam.
+- TS não substitui validação runtime: dados externos não carregam tipos.
+- TS não impede bug de autorização, concorrência, unidade ou algoritmo.
+- Assertions/any podem furar o sistema.
+- Em projeto pequeno, custo pode não pagar; checkJs é meio-termo.
+- Em sistema grande, ganho depende de strictness, boundaries, build e ownership;
+  simplesmente renomear .js para .ts com any não entrega o valor.
+
+============================================================
+SÍNTESE PARA A FUTURA TRILHA
+============================================================
+
+Sequência conceitual recomendada:
+
+JavaScript e modelo do checker
+→ inference, unions e narrowing
+→ funções, objects e generics
+→ tipos derivados
+→ módulos, tsconfig e tsc
+→ boundaries runtime e error/state modeling
+→ backend/frontend e bibliotecas
+→ monorepos, performance, migração e sistemas grandes.
+
+O aluno profissional deve explicar o que é apagado, preservar relações com
+generics, modelar estado, validar unknown, configurar resolução conforme o
+runtime, publicar declarations estáveis, interpretar diagnósticos e reconhecer
+quando um tipo sofisticado piora o sistema.
+
+============================================================
+FONTES PRINCIPAIS CONSULTADAS
+============================================================
+
+ECMAScript
+
+- ECMA-262, ECMAScript 2026:
+  https://262.ecma-international.org/
+- Draft vivo:
+  https://tc39.es/ecma262/
+
+MDN
+
+- JavaScript Guide/Reference e runtime semantics:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript
+- Web APIs/DOM:
+  https://developer.mozilla.org/en-US/docs/Web/API
+
+Node.js
+
+- Node.js 26.8.2 API:
+  https://nodejs.org/docs/latest-v26.x/api/
+- Modules: TypeScript — type stripping estável e limitações:
+  https://nodejs.org/api/typescript.html
+- Packages/ESM/CommonJS:
+  https://nodejs.org/api/packages.html
+
+TypeScript
+
+- Handbook:
+  https://www.typescriptlang.org/docs/handbook/intro.html
+- TypeScript Reference e Declaration Reference:
+  https://www.typescriptlang.org/docs/
+- TSConfig Reference:
+  https://www.typescriptlang.org/tsconfig/
+- Utility Types:
+  https://www.typescriptlang.org/docs/handbook/utility-types.html
+- Type Compatibility:
+  https://www.typescriptlang.org/docs/handbook/type-compatibility.html
+- Project References:
+  https://www.typescriptlang.org/docs/handbook/project-references.html
+- TypeScript 6.0 release notes:
+  https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html
+- Announcing TypeScript 7.0:
+  https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/
+- TypeScript 7.0.2 no npm:
+  https://www.npmjs.com/package/typescript
+- Repositórios oficiais:
+  https://github.com/microsoft/TypeScript
+  https://github.com/microsoft/typescript-go
+
+TC39
+
+- Processo e propostas:
+  https://tc39.es/process-document/
+  https://github.com/tc39/proposals
+- Decorators proposal tracking:
+  https://github.com/tc39/proposal-decorators
+
+Web standards
+
+- HTML Standard:
+  https://html.spec.whatwg.org/
+- DOM Standard:
+  https://dom.spec.whatwg.org/
+
+Outras fontes oficiais
+
+- DefinitelyTyped:
+  https://github.com/DefinitelyTyped/DefinitelyTyped
+- npm package.json:
+  https://docs.npmjs.com/cli/configuring-npm/package-json
+- Semantic Versioning:
+  https://semver.org/
+
+CONTAGEM EDITORIAL
+
+39 capítulos principais mais comparação JavaScript × TypeScript. Cobertura
+explícita: type system, inference, generics, narrowing, mapped/conditional
+types, modules, tsconfig, declarations, runtime boundaries, architecture,
+large projects, migration, compiler performance e estado atual.
+

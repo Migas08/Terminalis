@@ -1,0 +1,684 @@
+PROPOSTA INICIAL — TRILHAS PROFISSIONAIS DE JAVASCRIPT E TYPESCRIPT
+Análise curricular e de GAP do Terminalis
+
+Data de corte: 16 de setembro de 2026
+Natureza: recomendação; nenhum módulo, aula, tarefa, UI ou dependência criado
+
+============================================================
+1. RESUMO EXECUTIVO
+============================================================
+
+Recomenda-se criar duas trilhas relacionadas, mas autônomas:
+
+JAVASCRIPT
+
+Fundamentos e modelo de execução
+↓
+Valores, funções e objetos
+↓
+Coleções, protocolos e módulos
+↓
+Assíncrono e concorrência
+↓
+Browser e Web APIs
+↓
+Node.js, I/O e HTTP
+↓
+Testes, segurança e observabilidade
+↓
+Arquitetura, performance e produção
+↓
+Projeto final
+
+TYPESCRIPT
+
+Modelo do type system
+↓
+Inference, narrowing e estados
+↓
+Generics e tipos derivados
+↓
+Módulos, tsc e tsconfig
+↓
+Runtime boundaries
+↓
+Arquitetura de aplicações
+↓
+Bibliotecas, monorepos e escala
+↓
+Migração e performance
+↓
+Projeto final
+
+A trilha TypeScript deve requerer a parte central de JavaScript. Ensinar TS sem
+closures, prototypes, modules, promises e runtime produz alunos capazes de
+silenciar o checker, não de construir sistemas.
+
+O Terminalis já possui VFS, terminal, editor textual, shell, rede/HTTP
+simulados, SQL, Docker, Git/GitHub, persistência do workspace, registro de
+conteúdo e verificadores. Isso é uma base valiosa. Falta o núcleo específico:
+runner JavaScript isolado, module loader, scheduler observável, shims de APIs,
+test runner e pipeline TypeScript.
+
+Recomendação arquitetural: não ampliar o LX.rodarNode atual para executar código
+arbitrário de aluno. Criar um subsistema de execução isolado, com protocolo de
+mensagens e capabilities explícitas. O runner atual usa new Function no realm
+do aplicativo e não constitui sandbox.
+
+============================================================
+2. INVENTÁRIO DO TERMINALIS ATUAL
+============================================================
+
+Componentes reaproveitáveis
+
+- src/10-vfs.js: filesystem em memória com paths, inodes, links, permissões,
+  leitura/escrita e diretórios.
+- src/20-shell-lex.js a src/22-shell-run.js: shell, streams, redirecionamentos,
+  pipelines, jobs e integração de comandos.
+- src/33-net.js: rede e requisições HTTP simuladas.
+- src/41-sql.js: bancos e queries simulados.
+- src/50-content-00-core.js: módulos, aulas, cenários e helpers de verificação.
+- src/71-terminal.js: terminal, overlays e editor textarea persistindo no VFS.
+- src/72-file-browser.js: navegação, preview e edição de arquivos do VFS.
+- src/49-workspace-*.js: snapshot versionado e restauração do laboratório.
+- src/35-* a 38-* e 84-* a 87-*: Git/GitHub e fluxo colaborativo didático.
+- test/: harness Node e testes de motor/conteúdo/browser.
+
+Execução JavaScript existente
+
+src/42-imgbin.js registra “node” e “npm” apenas dentro de imagens. O runner:
+
+- usa new Function;
+- injeta console, process, require, module, exports e __dirname;
+- expõe require parcial de os, fs e path;
+- lê/escreve o VFS;
+- captura console síncrono;
+- simula Node 22.14.0 e npm 10.9.2;
+- npm install apenas cria node_modules fictício;
+- npm run delega a linha ao shell.
+
+Limites para um curso profissional:
+
+- código pode alcançar globalThis do aplicativo;
+- loop infinito/alto consumo roda no agente principal;
+- não há deadline/memory budget robustos;
+- não há module graph ESM/CJS completo;
+- callbacks/promises/timers não são drenados por scheduler didático;
+- console assíncrono não tem lifecycle confiável;
+- Buffer, streams, events, HTTP, crypto e worker_threads não existem;
+- require é uma allowlist mínima, sem packages;
+- stack trace é fixa;
+- versão simulada diverge do baseline 2026;
+- não há debugger, cobertura nem test runner.
+
+Conclusão: útil para inspecionar containers nas aulas atuais; inadequado como
+executor geral e inseguro como sandbox de código não confiável.
+
+============================================================
+3. ARQUITETURA FUTURA RECOMENDADA
+============================================================
+
+Fluxo JavaScript
+
+editor/VFS
+→ snapshot dos arquivos e configuração
+→ coordenador de execução
+→ sandbox de origem opaca + Worker dedicado
+→ module loader e capability adapters
+→ console/eventos/diagnósticos estruturados
+→ terminal, painel de testes e verificador da tarefa
+
+Fluxo TypeScript
+
+editor/VFS
+→ worker de linguagem/type checker
+→ diagnósticos por arquivo/linha/coluna
+→ emit/transpile controlado
+→ source map
+→ mesmo runner JavaScript
+→ resultado e testes
+
+Princípios
+
+1. Isolamento: código do aluno não recebe window, DOM do Terminalis,
+   localStorage, credenciais ou namespace LX.
+2. Capabilities: fs, fetch, timers e outras APIs são fornecidas explicitamente
+   pelo cenário. Negado por padrão.
+3. Terminabilidade: Worker descartável, deadline, limite de mensagens/saída e
+   quotas. Infinite loop deve ser encerrável sem travar a UI.
+4. Determinismo didático: clock/random/rede podem ser reais ou fakes conforme
+   aula, e a escolha aparece ao aluno.
+5. Observabilidade: console, rejection, exception, tasks, modules e testes viram
+   eventos estruturados, não texto impossível de verificar.
+6. Um motor: TS emite JS e usa o mesmo runner; não criar semântica runtime
+   distinta.
+7. Versão fixa: cada exercício declara ECMAScript, Node e TypeScript alvo.
+8. Segurança em profundidade: CSP, origem opaca, sem allow-same-origin, worker,
+   protocolo serializável e teardown.
+
+Possível estratégia de sandbox no browser
+
+- iframe sandboxed com allow-scripts e origem opaca, sem allow-same-origin;
+- dentro dele, Worker descartável para cada run ou sessão controlada;
+- MessageChannel com schema e IDs de request;
+- CSP “default-src 'none'” e rede apenas por adapter;
+- nenhum objeto do aplicativo transferido;
+- timeout no coordenador e terminate no Worker;
+- limite de console, payload, arquivo e número de operações;
+- VFS acessado por RPC allowlisted, nunca por referência direta.
+
+Web Worker sozinho reduz bloqueio de UI, mas Blob Worker normalmente herda
+origem e não é uma fronteira completa de segurança. iframe opaco + Worker dá
+defesa adicional. Para código verdadeiramente hostil e garantias fortes, browser
+client-side continua limitado; um runner server-side/VM/isolado seria outro
+produto e exige threat model próprio.
+
+TypeScript em 2026
+
+- TypeScript 7.0.2 é baseline curricular.
+- 7.0 não fornece API programática estável.
+- Para diagnostics in-browser imediato, a opção prática de curto prazo pode ser
+  TypeScript 6.0.3 em worker, alinhado ao checker 7, enquanto se avalia a API
+  do 7.1+.
+- Alternativa é executar CLI nativo/WASM se houver distribuição oficial e
+  licença/tamanho/compatibilidade adequados no momento da implementação.
+- Não usar type stripping do Node como checker: ele apenas remove tipos e
+  ignora tsconfig.
+
+Não adicionar dependências nesta fase. Fazer uma prova técnica futura comparando
+tamanho do bundle, tempo de inicialização, diagnostics incrementais, API,
+licença e funcionamento offline.
+
+============================================================
+4. MATRIZ DE GAP — DOCUMENTAÇÃO REAL × TERMINALIS
+============================================================
+
+Legenda
+
+✅ já suporta: base suficiente, exigindo no máximo conteúdo/cenário.
+🟡 precisa ampliar: há componente reaproveitável, mas falta semântica importante.
+🔴 subsistema novo: não há base segura/correta para a experiência.
+
+Editor e experiência
+
+✅ Arquivos de texto e diretórios no VFS.
+✅ Editor básico e explorador de arquivos.
+✅ Terminal, histórico, saída e navegação.
+✅ Persistência/snapshot do workspace.
+🟡 Highlight, indentação JS/TS, line numbers e go-to-diagnostic.
+🟡 Projeto multi-arquivo e ações Run/Test/Type-check.
+🔴 Language service, completions, hover, rename e diagnostics incrementais.
+🔴 Source-map navigation de JS emitido para TS.
+
+Linguagem JavaScript
+
+🟡 Expressões/funções/objetos síncronos executam no runner Node reduzido.
+🔴 Sandbox seguro e terminável para código arbitrário.
+🔴 ESM graph, live bindings, ciclos, dynamic import e top-level await.
+🔴 CommonJS realista com cache/resolução por arquivo.
+🔴 Event loop didático com task/microtask/timers visíveis.
+🔴 Promises assíncronas controladas e unhandled rejection.
+🔴 Workers, message passing, SharedArrayBuffer e Atomics.
+🔴 Profiling, heap/GC visualization e memory leak laboratory.
+
+Browser e Web APIs
+
+🔴 DOM isolado de treino; o DOM do aplicativo nunca deve ser exposto.
+🔴 Event propagation/capture/bubble em documento do laboratório.
+🟡 URL/URLSearchParams podem usar implementação nativa dentro da sandbox.
+🟡 fetch pode adaptar LX.httpRequest, mas precisa Request/Response/Headers,
+   status, body, abort e política de origem.
+🔴 Web Streams com backpressure.
+🔴 WebSocket, Web Worker, Service Worker e BroadcastChannel simulados.
+🟡 localStorage/IndexedDB didáticos sobre storage isolado/versionado.
+🟡 Web Crypto pode usar crypto.subtle na sandbox com exercícios controlados.
+🟡 Performance API/clock precisam modo real e determinístico.
+
+Node.js
+
+🟡 process, os, fs e path possuem subset.
+🟡 fs pode ser ampliado sobre VFS com promises, handles, errors e streams.
+🔴 Buffer/typed bytes completos.
+🔴 EventEmitter e core events.
+🔴 Readable/Writable/Duplex/Transform, pipeline e backpressure.
+🟡 HTTP server/client pode adaptar motor de rede, mas precisa lifecycle/stream.
+🔴 HTTPS/TLS conceitual com certificados/sockets simulados.
+🔴 child_process, worker_threads e cluster.
+🔴 AsyncLocalStorage/context propagation.
+🟡 crypto pode mapear Web Crypto e operações didáticas.
+🟡 timers existem no browser, mas precisam isolamento e fake clock.
+🟡 npm/package.json/scripts têm subset; falta dependency graph e semver.
+🔴 package resolution/exports/imports/conditional exports.
+
+Testes, qualidade e produção
+
+✅ Infraestrutura interna permite verificadores de tarefa.
+✅ Git/GitHub simulado permite fluxo de commits e PRs didáticos.
+🔴 Test runner do aluno com suites, assertions, hooks e async.
+🔴 Fake timers e mocks/spies.
+🔴 Type tests e expected diagnostics.
+🟡 HTTP/SQL/Docker permitem integration scenarios se ligados ao runner.
+🔴 Coverage.
+🟡 Structured logging pode reutilizar terminal/eventos, com schema.
+🔴 Metrics/traces/AsyncLocalStorage laboratory.
+🟡 Graceful shutdown e sinais podem adaptar kernel/processos simulados.
+
+TypeScript
+
+🔴 Parser/checker real e diagnostics.
+🔴 tsconfig resolution e project graph.
+🔴 Emit/declarations/source maps.
+🔴 Language service.
+🔴 Project references/incremental build laboratory.
+🔴 .d.ts authoring/consumption e package type resolution.
+🟡 Runtime de JS pós-emit depende do runner novo.
+🔴 Comparador TypeScript 6 × 7 para migração/performance.
+
+============================================================
+5. CURRÍCULO PROPOSTO — JAVASCRIPT
+============================================================
+
+JS01 — O que executa JavaScript
+
+Objetivo: distinguir linguagem, engine e host e prever contextos de execução.
+Assuntos: ECMAScript, parser/AST, bytecode/JIT conceitual, stack, heap, GC,
+execution context, lexical environment, strict mode.
+Dificuldade: iniciante → intermediário.
+Dependências: uso básico do Terminalis.
+Projeto prático: “raio-X do runtime”, com programa que registra chamadas,
+escopos e lifecycle e responde previsões antes de executar.
+APIs do simulador: runner isolado; console estruturado; visualização de stack,
+bindings e heap conceitual; step budget.
+
+JS02 — Valores, coerção e contratos de dados
+
+Objetivo: dominar tipos, identidade, equality e conversões sem decorar trivia.
+Assuntos: primitivos, object, descriptors, Number/BigInt/Symbol, typeof,
+instanceof, ===/==/Object.is, ToPrimitive/Boolean/Number/String/PropertyKey.
+Dificuldade: iniciante → intermediário.
+Dependências: JS01.
+Projeto prático: normalizador de dados de configuração com casos NaN, -0,
+nullish e chaves.
+APIs: runner; console; fixtures JSON; assertion library.
+
+JS03 — Escopo, funções e closures
+
+Objetivo: escrever APIs funcionais e explicar this/closures/lifecycle.
+Assuntos: var/let/const, TDZ, declarations/expressions/arrows, parameters,
+this, call/apply/bind, new/new.target, recursion, factories, memoization.
+Dificuldade: intermediário.
+Dependências: JS02.
+Projeto prático: cache LRU limitado e event handlers removíveis.
+APIs: runner; fake clock; memory/retention hints; tests.
+
+JS04 — Objetos, prototypes, classes e composição
+
+Objetivo: entender lookup e escolher composição/herança.
+Assuntos: [[Prototype]], descriptors, create/hasOwn/in, freeze/seal, class,
+extends/super, private fields, factories, mixins.
+Dificuldade: intermediário.
+Dependências: JS03.
+Projeto prático: sistema de plugins com Strategy e Adapter.
+APIs: multi-file modules; inspector de object/prototype/descriptors; tests.
+
+JS05 — Coleções, iteradores e transformação
+
+Objetivo: processar dados com semântica e custo conhecidos.
+Assuntos: arrays densos/esparsos, map/filter/reduce, métodos imutáveis, Map,
+Set, WeakMap, clone, iterator/generator/async iterator e lazy evaluation.
+Dificuldade: intermediário.
+Dependências: JS04.
+Projeto prático: pipeline lazy de paginação e deduplicação.
+APIs: async scheduler; fixtures grandes; iterator visualizer; memory limits.
+
+JS06 — Módulos e design de pacotes
+
+Objetivo: organizar grafo sem ciclos e publicar superfície estável.
+Assuntos: ESM, live bindings, ciclos, dynamic import, top-level await, CJS,
+package type/exports/imports, resolution, tree shaking conceitual.
+Dificuldade: intermediário → avançado.
+Dependências: JS04.
+Projeto prático: SDK multi-módulo com public API e adapter CJS.
+APIs: module loader ESM/CJS; VFS multi-file; package resolver; graph viewer.
+
+JS07 — Assíncrono, event loop e concorrência
+
+Objetivo: prever ordem, controlar concorrência e cancelar.
+Assuntos: callbacks, promises/combinators, async/await, task/microtask, browser
+versus Node, AbortController, timeout, race, pool, backpressure.
+Dificuldade: intermediário → avançado.
+Dependências: JS03 e JS05.
+Projeto prático: agregador de APIs com limite, retry, timeout e cancelamento.
+APIs: scheduler determinístico; fake clock; fetch simulado; timeline; fault
+injection.
+
+JS08 — JavaScript no browser
+
+Objetivo: construir cliente seguro sem depender de framework.
+Assuntos: DOM typing conceitual, events/delegation, Fetch, Request/Response,
+URL, FormData/Blob/File, storage, workers, performance e Web Crypto.
+Dificuldade: intermediário.
+Dependências: JS07.
+Projeto prático: cliente offline de chamados com busca, abort e cache.
+APIs: DOM sandbox; events; fetch adapter; IndexedDB/localStorage isolados;
+worker; network panel.
+
+JS09 — Node.js, arquivos e streams
+
+Objetivo: escrever CLI e processamento incremental.
+Assuntos: process/env, fs/path/url/os/crypto, Buffer, EventEmitter, streams,
+pipeline/backpressure, timers, signals e AsyncLocalStorage.
+Dificuldade: intermediário → avançado.
+Dependências: JS06 e JS07; trilha Linux recomendada.
+Projeto prático: CLI que transforma logs grandes em relatório sem carregar tudo.
+APIs: Node capability layer; VFS async; Buffer; streams; signals; CLI argv.
+
+JS10 — HTTP, backend e persistência
+
+Objetivo: implementar serviço modular com boundaries corretas.
+Assuntos: HTTP streaming, JSON/multipart, status/headers/cookies, REST,
+idempotência, paginação, rate limit, authn/authz, middleware, services/repos.
+Dificuldade: avançado.
+Dependências: JS09; SQL recomendada quando existir.
+Projeto prático: API de jobs com idempotency key e repository SQL.
+APIs: HTTP server/client simulado; router mínimo; SQL adapter; cookie/auth
+fixtures; concurrent requests.
+
+JS11 — Testes, segurança e observabilidade
+
+Objetivo: provar comportamento e operar falhas com segurança.
+Assuntos: unit/integration/E2E/contract, fakes/mocks/timers, XSS/CSRF/CORS/CSP,
+injection, pollution, ReDoS, secrets/JWT, logs/metrics/traces.
+Dificuldade: avançado.
+Dependências: JS08 e JS10.
+Projeto prático: endurecer/testar um serviço vulnerável e instrumentá-lo.
+APIs: test runner; fake clock; security fixtures; logger, metrics e trace
+viewer; vulnerability assertions.
+
+JS12 — Arquitetura, performance e produção
+
+Objetivo: evoluir sistema grande com métricas e boundaries.
+Assuntos: cohesion/coupling, DIP, functional core, ports/adapters, modular
+monolith, events, patterns, profiling, GC/leaks, packages, build, deploy,
+health/readiness e graceful shutdown.
+Dificuldade: avançado/profissional.
+Dependências: JS11 e Git.
+Projeto prático: modularizar e otimizar aplicação com SLO e incident report.
+APIs: profiler didático; heap snapshots conceituais; process lifecycle;
+feature flags; CI/release scenario.
+
+JSPF — Projeto final JavaScript
+
+Objetivo: entregar sistema completo sem passo a passo.
+Assuntos: SDK + API + worker/queue + persistência + testes + segurança +
+observabilidade + performance.
+Dificuldade: profissional.
+Dependências: JS01–JS12.
+Projeto prático: plataforma de processamento de arquivos/logs com API,
+streaming, cancelamento, retries, painel browser e runbook.
+APIs: todos os subsistemas acima, Git/PR e critérios de aceite verificáveis.
+
+Total sugerido: 12 módulos + 1 projeto final. Um módulo pode conter várias
+aulas; esta proposta não define ainda quantidade ou conteúdo editorial final.
+
+============================================================
+6. CURRÍCULO PROPOSTO — TYPESCRIPT
+============================================================
+
+TS01 — TypeScript não é runtime
+
+Objetivo: formar o modelo de checker, erasure e structural typing.
+Assuntos: compile-time, emit, inference, widening, contextual typing,
+soundness pragmática, any/unknown/never/void/null.
+Dificuldade: intermediário.
+Dependências: JS01–JS04.
+Projeto prático: remover falsos contratos de uma base JS pequena.
+APIs: checker; diagnostics; side-by-side TS/JS emit.
+
+TS02 — Unions, narrowing e estados válidos
+
+Objetivo: modelar fluxos exaustivos.
+Assuntos: unions/intersections, discriminants, control-flow, guards,
+assertion functions, exhaustiveness, Result/Option/state machines.
+Dificuldade: intermediário.
+Dependências: TS01.
+Projeto prático: workflow de pagamento/job sem estados impossíveis.
+APIs: checker; type inspector; type tests; state visualizer.
+
+TS03 — Funções, objetos, interfaces e classes
+
+Objetivo: desenhar contratos idiomáticos.
+Assuntos: call/construct signatures, overloads, variance, interface/type,
+merging, class modifiers, private versus #private, override.
+Dificuldade: intermediário.
+Dependências: TS02.
+Projeto prático: adapters intercambiáveis com testes de substituição.
+APIs: checker; emit; runtime JS; diagnostics comparáveis.
+
+TS04 — Generics e APIs type-safe
+
+Objetivo: expressar relações sem generics ornamentais.
+Assuntos: constraints/defaults/inference, keyof/typeof/T[K], generic
+functions/classes/interfaces, event maps, SDK/repository.
+Dificuldade: intermediário → avançado.
+Dependências: TS03.
+Projeto prático: cliente HTTP tipado por mapa de endpoints.
+APIs: multi-file checker; hover/type expansion; runtime fetch simulado.
+
+TS05 — Tipos derivados e limites da metaprogramação
+
+Objetivo: usar mapped/conditional/template/infer com legibilidade.
+Assuntos: modifiers/remapping, distribuição, infer, utilities, recursive and
+variadic tuples, brands, type-level performance.
+Dificuldade: avançado.
+Dependências: TS04.
+Projeto prático: registry de eventos com payloads e brands de IDs.
+APIs: type tests; diagnostic snapshots; checker metrics.
+
+TS06 — tsc, tsconfig e módulos reais
+
+Objetivo: alinhar compilação e resolução ao runtime.
+Assuntos: pipeline, files/include/exclude/extends, strict flags, target/lib,
+module/NodeNext/Bundler, verbatimModuleSyntax, isolatedModules, source maps,
+incremental/composite/references.
+Dificuldade: avançado.
+Dependências: TS04 e JS06.
+Projeto prático: workspace ESM com dois projetos e build incremental.
+APIs: tsconfig loader; project graph; resolver; emit/source maps; build cache.
+
+TS07 — Runtime boundaries e erros
+
+Objetivo: converter unknown em domínio válido.
+Assuntos: JSON/HTTP/DB/env/storage/queue, schema/parser, DTO/domain mapping,
+assertions perigosas, typed errors, Result versus exceptions.
+Dificuldade: avançado.
+Dependências: TS02 e JS10.
+Projeto prático: ingestão versionada de eventos externos.
+APIs: schema/validator escolhido futuramente; fixtures inválidas; HTTP/SQL;
+error viewer.
+
+TS08 — Aplicações frontend e backend
+
+Objetivo: aplicar tipos nas bordas sem framework obrigatório.
+Assuntos: DOM/events/null, API data/state; DTO/entity/service/repository,
+config/errors, async context e contracts.
+Dificuldade: avançado.
+Dependências: TS06 e TS07.
+Projeto prático: app cliente + API compartilhando schema, não confiança.
+APIs: DOM sandbox; HTTP; SQL; checker; runtime.
+
+TS09 — Bibliotecas, declarations e migração
+
+Objetivo: publicar contrato estável e migrar legado.
+Assuntos: .d.ts, ambient/module/global, @types, exports/types/typesVersions,
+ESM/CJS, SemVer de tipos, allowJs/checkJs/JSDoc, migração incremental.
+Dificuldade: avançado/profissional.
+Dependências: TS06.
+Projeto prático: migrar e publicar uma biblioteca JS com declarations.
+APIs: declaration emit; package resolver; consumer fixtures; matrix TS 6/7.
+
+TS10 — Monorepos, escala e compilador moderno
+
+Objetivo: operar TypeScript em sistemas grandes.
+Assuntos: project references, packages, boundaries, API versioning,
+incremental/paralelismo, large unions, diagnostics, TS 7 nativo, API 6/7.
+Dificuldade: profissional.
+Dependências: TS05, TS06 e TS09.
+Projeto prático: decompor monorepo lento, medir e preservar contratos.
+APIs: build graph; timings/memory; parallel settings; cache; type tests.
+
+TSPF — Projeto final TypeScript
+
+Objetivo: entregar sistema tipado de ponta a ponta sem confundir tipos e dados.
+Assuntos: schemas, domain states, SDK, API, workers, declarations, tests,
+build incremental e migration.
+Dificuldade: profissional.
+Dependências: TS01–TS10 e projeto final JS.
+Projeto prático: SDK e plataforma de jobs versionada, com cliente, backend,
+eventos, Result/errors e pacote público.
+APIs: checker/emit/runner completos, HTTP/SQL/queue, test runner, Git/PR/CI.
+
+Total sugerido: 10 módulos + 1 projeto final.
+
+============================================================
+7. PRIORIDADES DO MOTOR
+============================================================
+
+Fase A — fundação segura (bloqueadora)
+
+1. Protocolo Runner com eventos estruturados.
+2. iframe de origem opaca + Worker descartável.
+3. Console, exception/rejection, timeout e quotas.
+4. VFS RPC com capability e paths confinados.
+5. ESM multi-arquivo mínimo.
+6. Test runner mínimo com assertions e async.
+
+Fase B — JavaScript profissional
+
+1. Scheduler/fake clock e timeline task/microtask.
+2. fetch Request/Response/Headers/Abort sobre rede simulada.
+3. DOM sandbox e events.
+4. Node fs/path/process/Buffer/events/streams.
+5. HTTP server/client ligado à rede e SQL.
+6. Observabilidade e fault injection.
+
+Fase C — TypeScript
+
+1. Checker em worker e diagnostics.
+2. tsconfig virtual, module resolution e libs selecionadas.
+3. Emit/source maps e execução no runner.
+4. Type tests e declaration emit.
+5. Project graph/incremental/performance.
+6. Avaliar API TypeScript 7.1+ e migrar do fallback 6.0 quando madura.
+
+Fase D — escala
+
+1. workers/concurrency lab;
+2. package/npm resolver didático;
+3. profiler/memory lab;
+4. monorepo/project references;
+5. browser storage/service worker/WebSocket;
+6. CI didática JS/TS.
+
+============================================================
+8. DECISÕES E RISCOS
+============================================================
+
+Executar JavaScript real versus interpretar
+
+Recomendação: executar engine real do browser em sandbox para linguagem,
+instrumentando apenas boundaries. Escrever interpretador ECMAScript completo é
+um projeto enorme e divergiria da especificação. Para visualizações internas,
+use exercícios instrumentados/AST, não substitua o runtime inteiro.
+
+Node real versus shims
+
+No browser não existe Node completo. Um capability layer cobre aulas iniciais e
+integra o VFS, mas não promete compatibilidade total. Conteúdo deve rotular
+“simulação Terminalis”. Aulas avançadas de sockets, child_process e native
+addons podem usar laboratório conceitual ou ficar para ambiente externo.
+
+Dependências e single-file
+
+Compiler, parser/editor e source maps podem aumentar muito dist/terminalis.html.
+Avaliar lazy loading, assets separados/cacheados e modo offline. A exigência de
+HTML único conflita com um compiler nativo/WASM grande; decisão de produto
+precisa preceder implementação.
+
+Segurança
+
+O risco principal é confundir isolamento de Worker com sandbox. Código do aluno
+é não confiável e deve ser incapaz de ler sessão Supabase/localStorage ou
+alterar Terminalis. CSP e origem opaca são requisitos, não refinamentos.
+
+Versões
+
+ECMAScript evolui anualmente, Node a cada seis meses e TypeScript rapidamente.
+Cada trilha precisa metadata de baseline e notas de compatibilidade. Exercícios
+não devem depender de Current quando LTS não suporta, salvo capítulo rotulado.
+
+============================================================
+9. ASSUNTOS DELIBERADAMENTE DEIXADOS PARA CURSOS FUTUROS
+============================================================
+
+- Frameworks específicos: React, Vue, Angular, Svelte, Express, Nest, Fastify.
+- Bundler específico em profundidade: webpack/Rollup/Vite plugins.
+- Desenvolvimento de engine, bytecode ou JIT interno.
+- Node native addons, N-API, C++ e FFI.
+- WebAssembly em profundidade.
+- Electron, mobile e desktop.
+- Service Worker/PWA avançado.
+- WebRTC, WebGPU, Canvas/WebGL.
+- Microfrontends.
+- GraphQL/gRPC específicos.
+- Broker real específico: Kafka, RabbitMQ, NATS.
+- ORM específico.
+- Criptografia aplicada avançada.
+- Exploit development.
+- TypeScript compiler API avançada, transforms e language-service plugins,
+  até a API pós-7.0 estabilizar.
+- Framework decorators/metadata legados como eixo principal.
+- Type-level puzzles sem aplicação.
+
+Esses temas podem virar especializações depois que a base JS/TS, HTTP, SQL,
+Git e operação estiver madura.
+
+============================================================
+10. CRITÉRIOS PARA AUTORIZAR A IMPLEMENTAÇÃO FUTURA
+============================================================
+
+Antes de criar cursos:
+
+1. Threat model aprovado para execução de código.
+2. Spike prova que loop infinito não trava a UI e código não acessa LX/sessão.
+3. ESM multi-arquivo, console async, errors e VFS passam testes.
+4. Baseline de tamanho/tempo para compiler TS.
+5. Decisão documentada TS 6 API versus TS 7.1+.
+6. Matriz de APIs disponível por módulo.
+7. Versionamento de workspace inclui arquivos/config do runner.
+8. Test runner consegue produzir verificações estruturadas.
+9. Conteúdo distingue real, simulado e conceitual.
+10. Uma vertical slice completa (editor → run/test → feedback → persistência)
+    é validada antes de produzir dezenas de aulas.
+
+============================================================
+11. RESULTADO DA ANÁLISE
+============================================================
+
+O Terminalis pode suportar as trilhas, e sua VFS + terminal + rede + SQL +
+Docker + Git formam um laboratório singularmente bom para mostrar sistemas
+reais. A implementação segura não é apenas “adicionar botão Executar”.
+
+O menor núcleo correto é:
+
+runner isolado
++ module loader
++ scheduler observável
++ capability adapters
++ test runner
++ checker/emitter TypeScript.
+
+Depois disso, os módulos podem crescer verticalmente sem duplicar motores. Até
+lá, a pesquisa técnica deve permanecer documentação e não ser convertida em
+aulas que prometam APIs inexistentes.
+

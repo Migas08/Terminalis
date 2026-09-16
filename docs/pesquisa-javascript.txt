@@ -1,0 +1,960 @@
+PESQUISA TÉCNICA — JAVASCRIPT PROFISSIONAL
+Base de conhecimento para a futura trilha JavaScript do Terminalis
+
+Data de corte: 16 de setembro de 2026
+Referência normativa: ECMAScript 2026, ECMA-262, 17ª edição
+Runtime de servidor observado: Node.js 26.8.2 Current; Node.js 24.21.0 LTS
+
+ESCOPO E CRITÉRIO
+
+Este documento não é uma sequência de aulas. É uma síntese técnica para orientar
+currículo, simulador, exemplos e avaliações. A linguagem ECMAScript é separada das
+APIs oferecidas por navegador, Node.js e Terminalis. Uma construção estar na
+especificação não garante suporte em todo runtime; uma API existir no navegador
+não a transforma em parte da linguagem.
+
+As explicações usam o modelo abstrato da especificação quando ele esclarece
+semântica observável. AST, bytecode, JIT, hidden classes e coleta geracional são
+estratégias de implementação, não garantias de ECMA-262. Otimização deve ser
+dirigida por medição no runtime de produção.
+
+============================================================
+1. LINGUAGEM, ENGINE E RUNTIME
+============================================================
+
+ECMAScript é a especificação padronizada pela Ecma e evoluída no TC39. JavaScript
+é o nome do ecossistema e de suas implementações. Uma engine analisa o texto,
+produz alguma representação intermediária e executa a semântica da linguagem.
+V8, SpiderMonkey e JavaScriptCore podem usar AST, bytecode, intérpretes e vários
+compiladores JIT, mas ECMA-262 não exige esse pipeline.
+
+Runtime é o conjunto engine + host. O host define o objeto global e integra
+filas, relógio, I/O e APIs. Browsers oferecem DOM, Fetch, Workers e o event loop
+descrito pelo HTML Standard. Node oferece processos, filesystem, sockets,
+streams e um loop apoiado em libuv. “JavaScript é single-threaded” é uma
+simplificação: um agente executa um job por vez, mas hosts realizam I/O
+concorrente e podem criar outros agentes com Workers.
+
+Cada execução ocorre em execution contexts empilhados. O contexto guarda o
+reino, o ambiente léxico, o ambiente de variáveis e dados da função. Um
+Lexical Environment encadeia Environment Records; resolução de identificador
+percorre essa cadeia. Isso explica escopo, closures e TDZ sem recorrer ao mito
+de que declarações “sobem fisicamente”.
+
+A pilha representa chamadas ativas; o heap é uma explicação útil para objetos
+com vida independente da chamada, não uma divisão normativa. Objetos alcançáveis
+por raízes do runtime permanecem vivos. Coleta de lixo não é determinística e
+não deve ser usada para fechar arquivo, socket ou transação.
+
+Strict mode elimina comportamentos perigosos: assignment a identificador não
+declarado falha, “this” em função simples permanece undefined, alguns erros
+silenciosos viram exceptions e sintaxe legada é proibida. Módulos e corpos de
+class já são strict. Código novo deve usar módulos, não depender apenas de uma
+diretiva textual.
+
+Como isso aparece em sistemas reais
+
+- Stack trace reflete a cadeia de chamadas, mas async boundaries exigem
+  rastreamento do host.
+- Um request lento não bloqueia por ser assíncrono; CPU intensiva no mesmo
+  agente bloqueia o loop.
+- Conhecer host evita atribuir fetch, setTimeout ou process à linguagem.
+
+============================================================
+2. VALORES, TIPOS E COERÇÃO
+============================================================
+
+Os tipos primitivos são Undefined, Null, Boolean, Number, BigInt, String e
+Symbol. Todo restante é Object. Primitivos são imutáveis; acessar método de
+string envolve conversão conceitual temporária, não transforma a string em
+objeto persistente. Number usa IEEE 754 binary64: NaN não é igual a si mesmo,
++0 e -0 são iguais por ===, e inteiros só são exatos até
+Number.MAX_SAFE_INTEGER. BigInt cobre inteiros arbitrários, mas não mistura
+aritmética implicitamente com Number e não é serializado por JSON por padrão.
+Symbol produz chaves únicas; Symbol.for usa um registry global do agente.
+
+Objetos têm identidade. Duas estruturas iguais continuam !== se são objetos
+distintos. A variável guarda um valor de referência; passar um objeto para uma
+função copia esse valor. Mutações são visíveis por aliases, mas reatribuir o
+parâmetro não reatribui a variável chamadora.
+
+Cada propriedade tem descriptor de dados, com value e writable, ou accessor,
+com get e set; ambos incluem enumerable e configurable. Assignment, iteração,
+spread e serialização observam combinações diferentes desses atributos.
+
+Operadores de inspeção:
+
+- typeof é adequado para primitivos e functions, mas typeof null é “object”
+  por legado; arrays e objetos comuns também são “object”.
+- instanceof consulta Symbol.hasInstance ou percorre a cadeia prototipal;
+  falha como teste nominal entre realms e não valida forma.
+- Object.prototype.toString pode distinguir vários built-ins, mas
+  Symbol.toStringTag permite personalização.
+- === não coage tipos; NaN !== NaN e +0 === -0.
+- Object.is trata NaN como igual a NaN e distingue +0 de -0.
+- == executa Abstract Equality Comparison. Seu uso exige domínio completo das
+  conversões; “x == null” é um idioma deliberado para null ou undefined, mas
+  regras de equipe normalmente preferem comparações explícitas.
+
+Conversões abstratas:
+
+- ToPrimitive usa Symbol.toPrimitive e depois valueOf/toString conforme hint.
+- ToBoolean torna falsos apenas false, 0, -0, 0n, NaN, string vazia, null e
+  undefined; arrays e objetos sempre são verdadeiros.
+- ToNumber interpreta strings, null como 0 e undefined como NaN; Symbol lança.
+- ToString tem regras próprias; String(Symbol()) funciona, concatenação
+  implícita com Symbol não.
+- ToPropertyKey converte para Symbol ou String. A chave numérica 1 e “1”
+  designam a mesma propriedade comum.
+
+“[] == false” ocorre porque o objeto vira string vazia, depois 0, enquanto
+false vira 0. “null == undefined” é uma regra específica, não uma conversão
+geral para zero. NaN propaga resultados inválidos e deve ser testado com
+Number.isNaN. Infinity é Number válido e pode surgir por overflow/divisão.
+
+Recomendação: valide entradas, converta na fronteira com Number, BigInt ou
+String, e mantenha invariantes internas sem coerção surpresa.
+
+============================================================
+3. VARIÁVEIS, ESCOPO, TDZ E CLOSURES
+============================================================
+
+“var” tem escopo de função ou global, permite redeclaração e é inicializado
+com undefined durante a criação do contexto. “let” e “const” têm escopo de
+bloco e existem desde o início do bloco, mas ficam não inicializados na
+Temporal Dead Zone até a declaração. “const” impede reatribuição do binding,
+não mutação do objeto. Em script clássico, um var global pode criar propriedade
+no objeto global; bindings globais lexicais não são equivalentes. Em módulo,
+declarações são locais ao módulo.
+
+Hoisting é vocabulário pedagógico. O modelo preciso é a instanciação das
+declarações antes da avaliação: function declarations normalmente recebem a
+função; var recebe undefined; bindings lexicais ficam inacessíveis. Ordem ainda
+importa para efeitos e inicialização.
+
+Closure é uma função mais acesso ao ambiente léxico onde foi criada. O ambiente
+persiste enquanto alcançável. Aplicações: estado privado de factory, callback
+com contexto, memoização, módulo e handler. Riscos: capturar cache ilimitado,
+DOM removido, buffers ou request inteiro mantém o grafo vivo. Em loops, let
+cria binding por iteração; var compartilha um.
+
+Como isso aparece em sistemas reais
+
+- Factory pode encapsular contador ou política sem class.
+- Handler deve capturar apenas IDs necessários, não um objeto de request enorme.
+- Cache em closure precisa de limite, expiração ou WeakMap conforme ownership.
+
+============================================================
+4. FUNÇÕES, THIS E CONSTRUÇÃO
+============================================================
+
+Function declaration participa da instanciação do escopo. Function expression
+pode ser nomeada para stack traces e recursão. Arrow é léxica para this,
+arguments, super e new.target; não possui [[Construct]] nem prototype próprio.
+IIFE isola código legado, mas módulos são a fronteira moderna. Higher-order
+functions recebem ou devolvem funções; callbacks representam inversão de
+controle. Recursão deve considerar profundidade da pilha; tail-call optimization
+não pode ser presumida entre engines.
+
+Parâmetros default são avaliados a cada chamada, em escopo próprio. Rest coleta
+argumentos em Array real. “arguments” é array-like, tem semântica histórica de
+aliasing em funções não strict e deve ceder lugar a rest. Destructuring em
+parâmetros é expressivo, mas um options object com default vazio costuma ser
+mais evolutivo do que parâmetros posicionais.
+
+Resolução de this depende da forma de chamada:
+
+1. “new F()”: this é o objeto recém-criado, salvo se F devolver objeto.
+2. “obj.f()”: this é a base obj no Reference da chamada.
+3. “f.call(x)” / apply / bind: binding explícito; bind cria wrapper estável.
+4. chamada simples: undefined em strict, objeto global em script sloppy.
+5. arrow: captura this do contexto externo e ignora call/apply para esse fim.
+
+Extrair “const f = obj.f” perde a base. Call aceita argumentos individuais;
+apply aceita array-like; bind não executa imediatamente. “new.target” informa
+se a função foi construída. O operador new cria objeto ligado a
+Constructor.prototype, chama a função e aplica a regra de retorno. Classes
+fazem essa intenção explícita.
+
+Generators suspendem execução em yield e implementam iterador. Async functions
+sempre devolvem Promise; throw vira rejeição. Uma função declarada async não
+torna trabalho CPU-bound paralelo.
+
+============================================================
+5. OBJETOS, PROTÓTIPOS E CLASSES
+============================================================
+
+Todo objeto comum possui slot interno [[Prototype]], que pode ser null. A
+propriedade “prototype” de uma função construtora é só o objeto que new usará
+como [[Prototype]] das instâncias. Lookup procura propriedade própria e depois
+segue a cadeia. “Object.hasOwn(obj, key)” testa apenas a própria e funciona com
+objetos sem Object.prototype; “key in obj” inclui herdadas.
+
+Object.create(proto, descriptors) cria com protótipo explícito. Alterar
+protótipo de objetos existentes com Object.setPrototypeOf costuma prejudicar
+invariantes e otimização; prefira escolher na criação. Object.defineProperty
+controla descriptors e, se atributos forem omitidos, usa false para flags.
+
+Object.preventExtensions impede novas propriedades; seal também torna as
+existentes não configuráveis; freeze também torna data properties não
+graváveis. Tudo é raso: objetos referenciados continuam mutáveis. Accessors
+podem executar efeitos mesmo num objeto frozen.
+
+Class é sintaxe e semântica sobre objetos/protótipos, com diferenças relevantes:
+strict automático, métodos não enumeráveis, TDZ, obrigação de new e campos
+definidos por instância. extends liga cadeias estática e de instância. super()
+inicializa this em classe derivada; super.method resolve pelo protótipo da
+classe definidora. Private fields “#x” são verificados por brand em runtime,
+não propriedades de string. Static fields/blocks inicializam estado da classe.
+
+Composição delega capacidades explícitas e reduz hierarquias rígidas. Herança
+serve quando há substituição semântica e contrato estável. Mixins copiam ou
+compõem comportamento, mas podem produzir colisões e dependências ocultas.
+Factories são excelentes quando construção varia sem exigir identidade de
+classe.
+
+Como isso aparece em sistemas reais
+
+- DTOs normalmente são dados simples; entidades podem proteger invariantes.
+- Plugins implementam Strategy/Adapter em vez de herança profunda.
+- Map é preferível a objeto-dicionário quando chaves não são apenas strings,
+  ordem/tamanho importam ou o conteúdo não é uma “record”.
+
+============================================================
+6. ARRAYS, MAP, SET E CÓPIAS
+============================================================
+
+Array é objeto exótico com índices inteiros de string e propriedade length.
+Gravar no índice 10 pode elevar length e criar buracos, não valores undefined.
+Métodos tratam holes de modos diferentes; arrays densos são mais previsíveis.
+“delete a[i]” cria hole; splice remove e desloca.
+
+map transforma preservando comprimento; filter seleciona; reduce acumula e
+precisa de valor inicial quando array vazio é possível; flat/flatMap achatam
+profundidade controlada; find/findIndex retornam primeiro caso; some/every
+curto-circuitam. sort muta e, sem comparator, compara strings; comparator deve
+ser puro, consistente e retornar sinal. toSorted, toReversed e toSpliced
+produzem cópia rasa sem mutar. slice copia intervalo; splice muta; concat e
+spread fazem cópia rasa.
+
+Map preserva ordem de inserção e aceita qualquer chave por identidade. Set
+mantém valores únicos. WeakMap exige objetos/símbolos não registrados como
+chaves e não é enumerável, permitindo metadados cuja vida acompanha a chave.
+WeakSet é análogo. Use WeakMap para estado privado associado a instâncias,
+memoização por objeto ou marcação, não como cache observável.
+
+Spread, Array.from e Object.assign são rasos. structuredClone suporta ciclos e
+diversos built-ins, pode transferir ArrayBuffer, mas não clona functions,
+WeakMap nem protótipos arbitrários como regra de domínio. Clonar tudo costuma
+ser mais caro e menos correto que atualizar apenas a parte necessária.
+
+============================================================
+7. PROTOCOLOS DE ITERAÇÃO
+============================================================
+
+Iterable expõe método Symbol.iterator que devolve iterator. Iterator possui
+next() retornando {value, done}; pode ter return() para liberação antecipada e
+throw(). “for...of”, spread, destructuring e vários construtores consomem o
+protocolo. Um iterable pode devolver iterador novo a cada vez; um iterator
+pode ser consumível apenas uma vez.
+
+Generator implementa ambos e suspende estado. “yield*” delega. Um finally no
+generator pode liberar recursos quando o consumidor chama return, mas não
+substitui ownership explícito. Async iterable expõe Symbol.asyncIterator e
+next devolve Promise; “for await...of” aplica backpressure natural ao aguardar
+cada item.
+
+Casos profissionais: páginas de API sob demanda, cursor de banco, parsing de
+arquivo grande, stream transformável e geração lazy. Não use lazy evaluation
+se múltiplas passagens ou snapshot determinístico são requisitos.
+
+============================================================
+8. ERROS E MODELO DE FALHA
+============================================================
+
+Error representa falha com name, message, stack de host e, modernamente,
+cause. TypeError sinaliza operação incompatível; RangeError, intervalo;
+ReferenceError, binding; SyntaxError, parse; AggregateError reúne causas.
+Classes próprias devem estender Error, definir name, preservar cause e carregar
+metadados seguros como code; não exponha segredo na mensagem.
+
+try captura throws síncronos e rejeições efetivamente awaited dentro dele.
+finally sempre executa ao sair, mas return/throw dentro de finally mascara o
+resultado anterior e deve ser evitado. Capturar exige ação: recuperar, traduzir
+na fronteira, acrescentar contexto e relançar, ou registrar uma vez no boundary.
+Catch vazio destrói diagnóstico. Exceptions não devem controlar caminhos
+esperados de alta frequência.
+
+Promise rejection precisa de observação. “void tarefa()” pode documentar
+fire-and-forget, mas a tarefa ainda necessita catch/log e shutdown policy.
+Error boundary é conceitualmente a camada capaz de decidir resposta: handler
+HTTP, consumidor de job, processo CLI ou componente visual.
+
+Como isso aparece em sistemas reais
+
+- Erro de domínio vira 4xx; indisponibilidade vira 5xx/retry conforme política.
+- cause preserva cadeia entre driver, repository e serviço.
+- Mensagem para usuário e log interno são produtos distintos.
+
+============================================================
+9. EVENT LOOP, PROMISES E CANCELAMENTO
+============================================================
+
+Promise tem estado pending, fulfilled ou rejected e fica settled uma vez.
+“resolved” pode significar adotando outra promise ainda pending. then registra
+reactions e devolve nova Promise; retorno normal resolve a próxima, throw
+rejeita, e thenable é assimilado. catch é then(undefined, handler); finally
+preserva valor/motivo salvo se o callback falhar.
+
+Jobs de promise entram na microtask queue. No browser, uma task executa,
+microtasks são drenadas e o agente pode renderizar; microtasks recursivas podem
+starvar rendering. Timers enfileiram task após atraso mínimo, nunca garantem
+instante. Node organiza fases do libuv e possui particularidades como
+process.nextTick; não ensine uma ordem genérica como se ambos os hosts fossem
+iguais.
+
+Combinadores:
+
+- Promise.all falha cedo e preserva ordem dos inputs; não cancela restantes.
+- allSettled espera todos e descreve cada resultado.
+- race adota o primeiro settlement.
+- any adota o primeiro fulfillment ou rejeita com AggregateError.
+
+async/await é composição de promises com suspensão; “await” sempre agenda
+continuação, inclusive para valor já resolvido. Await dentro de loop é correto
+quando há dependência ou backpressure. Quando tarefas são independentes,
+inicie-as antes e use all. Para milhares de itens, use pool limitado: paralelismo
+ilimitado satura sockets, rate limit e memória.
+
+AbortController fornece AbortSignal cooperativo. A operação precisa observar o
+sinal, rejeitar com motivo adequado e limpar listener/recursos. Timeout pode
+abortar, mas timeout não prova que o efeito remoto não ocorreu. APIs mutáveis
+compartilhadas geram race conditions mesmo num agente: duas continuations podem
+ler estado velho e sobrescrever. Use serialização, versionamento otimista,
+idempotência ou mutex lógico.
+
+Backpressure é a capacidade do consumidor limitar o produtor. Async iterators
+e streams modelam isso; empilhar promises sem limite apenas desloca o problema.
+
+============================================================
+10. MÓDULOS E RESOLUÇÃO
+============================================================
+
+ES Modules são analisados estaticamente. Imports e exports são bindings vivos,
+não cópias. O grafo é ligado antes de avaliar; dependências circulares podem
+funcionar, mas ler binding antes de sua inicialização falha. Named exports
+favorecem refactor e descoberta; default é útil quando o módulo tem uma
+exportação principal, não como regra absoluta. import() devolve Promise e
+permite carregamento condicional. Top-level await torna avaliação do grafo
+assíncrona e pode bloquear dependentes.
+
+CommonJS de Node executa módulo como função, usa require e module.exports e
+tradicionalmente carrega sincronicamente. “exports = valor” apenas reatribui a
+variável local; “module.exports = valor” muda a exportação. Interop ESM/CJS tem
+regras do host e ferramentas; não presuma que default equivale sempre.
+
+Em package.json:
+
+- “type” decide interpretação padrão de .js no pacote.
+- “main” é entrada legada.
+- “exports” define superfície pública e pode bloquear deep imports.
+- “imports” cria aliases internos começando por #.
+- conditional exports escolhem por condição, mas dual packages podem instanciar
+  estado duas vezes se carregados por CJS e ESM.
+
+Node resolve caminhos, extensões e package scopes conforme o sistema de módulo.
+Browser resolve URLs; bare specifiers exigem import map ou ferramenta. Tree
+shaking é análise de bundler, depende de ESM e efeitos observáveis, não é
+garantia da linguagem. Barrel files podem ampliar ciclos, custo e API pública.
+
+Arquitetura profissional define módulos por responsabilidade, dependências
+apontando para dentro e public API pequena. Ciclo é sinal de ownership mal
+definido; às vezes resolve-se extraindo contrato, não com import dinâmico.
+
+============================================================
+11. EVENTOS NO BROWSER E NO NODE
+============================================================
+
+EventTarget usa addEventListener/removeEventListener e dispatchEvent. No DOM,
+o caminho normalmente tem capture, target e bubble. preventDefault cancela a
+ação padrão quando cancelable; stopPropagation para propagação, não cancela a
+ação nem outros listeners no mesmo alvo. Delegação instala listener ancestral
+e identifica target/closest, reduzindo listeners em listas dinâmicas.
+CustomEvent carrega detail; dados ainda precisam de contrato e validação.
+
+Node EventEmitter chama listeners sincronicamente na ordem de registro.
+“error” sem listener possui tratamento especial e pode encerrar processo.
+once remove após execução; remover exige a mesma referência. Muitos listeners
+podem indicar leak, mas elevar limite apenas silencia o sintoma. EventTarget e
+EventEmitter não são intercambiáveis em semântica e API.
+
+============================================================
+12. WEB APIs RELEVANTES
+============================================================
+
+fetch recebe Request e produz Promise de Response quando headers chegam.
+Status HTTP 404/500 não rejeita por si; teste response.ok/status. Body é stream
+consumível uma vez; clone faz tee com custos. Headers têm restrições do browser.
+AbortSignal cancela cooperativamente. URL e URLSearchParams evitam concatenação
+manual e tratam encoding; não use URLSearchParams para supor semântica de
+application/x-www-form-urlencoded sem entender “+”.
+
+FormData modela multipart; Blob é bytes imutáveis com MIME; File acrescenta
+nome/metadados. Web Streams separam ReadableStream, WritableStream e
+TransformStream, com reader/writer, locking e backpressure. WebSocket é canal
+bidirecional orientado a mensagens, mas aplicação precisa de heartbeat,
+reconnect com jitter, autenticação e limites.
+
+Web Worker executa em outro agente sem DOM; mensagens usam structured clone e
+transferables. Service Worker intercepta requests e habilita cache/offline,
+com lifecycle próprio. BroadcastChannel coordena contextos da mesma origem,
+não é durable. localStorage é síncrono, pequeno e por origem; IndexedDB é
+assíncrono, transacional e adequado a dados maiores.
+
+Web Crypto oferece primitivas; use algoritmos e parâmetros recomendados, nunca
+“crypto caseiro”. Performance API fornece clocks e entries para medir. APIs
+dependem de secure context, origem, permissões e compatibilidade.
+
+Como isso aparece em sistemas reais
+
+- Cliente HTTP valida status, content-type, tamanho e schema antes do domínio.
+- Upload grande usa streaming quando plataforma suporta, progresso e aborto.
+- Cache offline precisa de versão e invalidação; “cache first” não é universal.
+
+============================================================
+13. NODE.JS: MODELO, CORE E PACOTES
+============================================================
+
+Node executa V8 com bindings nativos e libuv. globalThis é o global portátil;
+process contém argv, env, cwd, sinais, streams e lifecycle. process.env contém
+strings ou ausência; valide configuração na inicialização e falhe cedo. Nunca
+espalhe leituras de env por todo domínio.
+
+Principais módulos:
+
+- node:fs e fs/promises: arquivo, diretório, metadata, handles e streams.
+- node:path: manipulação lexical; resolve não prova confinamento nem existência.
+- node:url: WHATWG URL, file URLs e conversões.
+- node:os: sinais do host, não contrato estável de capacidade.
+- node:crypto: hash, KDF, randomness, assinatura, cifragem e Web Crypto.
+- node:events: EventEmitter e helpers.
+- Buffer: bytes com views; cuidado com encoding, offsets e memória compartilhada.
+- node:http/https: streaming de request/response; limites e timeouts são
+  responsabilidade da aplicação.
+- timers: handles podem manter loop vivo; unref altera lifecycle.
+- child_process: spawn faz streaming; exec usa shell/buffer e amplia risco de
+  injection. Passe argumentos separados.
+- worker_threads: paralelismo para CPU e isolamento parcial; pool evita custo de
+  criação. Não acelera I/O que já é assíncrono.
+- cluster: processos compartilhando porta; ainda existe, mas worker_threads ou
+  orquestração externa atendem muitos casos com modelo mais claro.
+- AsyncLocalStorage: contexto por cadeia assíncrona para correlation/trace;
+  teste boundaries de bibliotecas e não transforme em service locator.
+
+Streams Node: Readable produz, Writable consome, Duplex faz ambos, Transform
+relaciona entrada/saída. “write() === false” pede aguardar “drain”. pipeline
+propaga erros e fecha componentes; pipe isolado exige cuidado. Prefira
+stream/promises pipeline em fluxo async.
+
+Event loop do Node possui fases e pools nativos. Trabalho síncrono pesado,
+regex patológica, JSON enorme e crypto sync bloqueiam todas as conexões do
+processo. Distribuir CPU entre workers/processos exige protocolo, limites e
+observabilidade.
+
+npm instala grafo e executa scripts. package-lock fixa resolução reproduzível;
+“npm ci” exige lock coerente. dependencies são necessárias em produção,
+devDependencies no desenvolvimento/build, peerDependencies expressam contrato
+com pacote hospedeiro, optionalDependencies toleram ausência. SemVer comunica
+compatibilidade pretendida, não substitui testes nem auditoria. npx/npx-like
+pode baixar e executar código: fixe versão e origem em automação.
+
+Publicação profissional inclui exports mínimos, files allowlist, licença,
+provenance quando disponível, testes do tarball e autenticação forte.
+
+Nota de versão: em 16/09/2026, Node 26.8.2 é Current e Node 24.21.0 é Active
+LTS. Curso deve ensinar APIs suportadas na LTS e marcar novidades exclusivas da
+Current. O suporte nativo a TypeScript por type stripping é estável em Node 26,
+mas não lê tsconfig, não verifica tipos e só aceita sintaxe apagável.
+
+============================================================
+14. HTTP E BACKEND SEM FRAMEWORK
+============================================================
+
+Servidor HTTP recebe método, target, headers e body em stream e responde status,
+headers e body. Defina limites de tamanho/tempo antes de acumular dados. JSON
+precisa de parse, validação e tratamento de content-type/charset. Multipart
+exige parser streaming com limites de partes/arquivos. Cookies são estado do
+cliente com atributos de segurança.
+
+REST é um estilo de recursos e semântica HTTP, não sinônimo de JSON. Métodos
+safe não devem causar efeitos pretendidos; idempotência significa repetição
+com mesmo efeito observável pretendido. POST pode usar idempotency key.
+Paginação por cursor resiste melhor a inserções que offset em feeds grandes.
+Rate limiting precisa de chave, janela, armazenamento e resposta 429 coerentes.
+
+Validação sintática ocorre na entrada; autorização decide se o principal pode
+executar a ação sobre aquele recurso. Middleware serve preocupações
+transversais pequenas; cadeias mágicas dificultam ordem e erro. Controller
+traduz protocolo, serviço coordena caso de uso, repository esconde mecanismo
+de persistência quando essa abstração tem valor. Injeção por parâmetros/factory
+costuma bastar; container complexo só compensa em sistemas grandes.
+
+============================================================
+15. SEGURANÇA
+============================================================
+
+XSS ocorre quando dado não confiável vira código/markup. Use textContent e
+escaping específico do contexto; sanitização HTML requer biblioteca dedicada.
+CSP reduz impacto, não corrige sink inseguro. CSRF explora credencial enviada
+automaticamente; SameSite, token e verificação de origem são camadas conforme
+arquitetura.
+
+Same-origin policy restringe leitura entre origens; CORS é resposta explícita
+do servidor concedendo acesso ao browser, não mecanismo de autenticação.
+Cookies sensíveis usam Secure, HttpOnly e SameSite compatível com o fluxo.
+
+Prototype pollution explora chaves como __proto__/constructor em merge
+ingênuo. Valide esquema, use allowlist, Map ou objeto sem protótipo e evite
+deep merge genérico. Injection nasce ao misturar dados com linguagem:
+SQL parametrizado, argumentos separados no processo, templates contextuais.
+eval e new Function violam análise/CSP e executam entrada; não use para parser.
+
+ReDoS explora backtracking; limite entrada, prefira regex linear/analisada ou
+parser. SSRF exige validar destino resolvido, protocolos, redirects e redes
+privadas no servidor. Path traversal exige resolver/canonicalizar dentro de
+raiz e lidar com symlinks/TOCTOU; remover “../” por replace não basta.
+
+Deserialização cria dados, não instâncias confiáveis. JSON.parse não valida
+schema. Dependências são código: minimize, fixe lock, audite, revise scripts e
+responda a advisories. Segredos não pertencem ao código, bundle cliente, log
+ou mensagem de erro; env é transporte, não cofre.
+
+JWT é formato assinado, não sessão automaticamente segura. Fixe algoritmos,
+valide issuer/audience/exp/nbf, planeje rotação/revogação e não coloque segredo
+no payload legível.
+
+============================================================
+16. PERFORMANCE E MEDIÇÃO
+============================================================
+
+Comece por orçamento e perfil: latência p50/p95/p99, throughput, CPU, heap,
+event-loop delay, bytes e tempo de interação. Complexidade assintótica elimina
+algoritmos ruins, mas constantes, alocação, cache e I/O decidem casos reais.
+performance.now oferece relógio monotônico; PerformanceObserver e
+node:perf_hooks expõem medições. Benchmark precisa de warm-up quando aplicável,
+amostra, distribuição, ambiente controlado e prevenção de dead-code
+elimination. Um único console.time não fundamenta decisão.
+
+Engines usam shapes/hidden classes, inline caches e compilação especulativa.
+Objetos de forma estável e acesso previsível costumam otimizar bem; operações
+megamórficas e mudança de shape podem reduzir otimização. Isso é detalhe do
+runtime, muda entre versões e só deve orientar alteração depois de profile.
+Micro-otimização que piora clareza frequentemente custa mais em manutenção.
+
+Fontes de pressão: criar arrays intermediários em hot path, reter buffers
+grandes, concatenar dados sem limite, parse/stringify de payload enorme e
+closures acidentais. No browser, layout/paint e acesso ao DOM podem dominar a
+linguagem. Em Node, CPU profile, heap snapshot, allocation profile, flamegraph
+e event-loop utilization localizam gargalos.
+
+============================================================
+17. MEMÓRIA, GC E RECURSOS
+============================================================
+
+Reachability, não “fim de escopo”, determina coleta. Raízes incluem globais,
+pilhas, handles e estruturas do host. Coletores modernos combinam gerações,
+marcação, compactação e trabalho incremental/concurrente; não conte com momento
+ou ordem. Pico de memória importa mesmo se tudo for coletável depois.
+
+Leaks típicos:
+
+- listener nunca removido mantém alvo, closure e grafo;
+- timer/interval retém callback;
+- Map/cache sem limite cresce para sempre;
+- closure captura request, DOM ou Buffer;
+- global acumula estado entre testes/requests;
+- stream/socket não fechado mantém handle e processo vivo.
+
+WeakRef permite referência que pode desaparecer e FinalizationRegistry agenda
+callback não determinístico. Não servem para correção, transação ou liberação
+obrigatória; use apenas otimizações tolerantes a desaparecimento. WeakMap é a
+ferramenta normal quando lifetime acompanha uma chave.
+
+Recursos externos exigem ownership e fechamento em finally. Explicit Resource
+Management, com using/await using e Symbol.dispose/asyncDispose, atingiu Stage
+4 em 2026 com publicação esperada em ECMAScript 2027; pode ser citado como
+futuro próximo, não como conteúdo baseline de ES2026.
+
+============================================================
+18. SYMBOL, PROXY E REFLECT
+============================================================
+
+Symbol cria chaves não colidentes; well-known symbols customizam protocolos:
+iterator, asyncIterator, toPrimitive, hasInstance, match, species e outros.
+Símbolos próprios ainda aparecem em Reflect.ownKeys e não são mecanismo de
+segredo.
+
+Proxy intercepta operações internas como get, set, ownKeys, defineProperty,
+apply e construct. Reflect executa a operação correspondente preservando
+boolean/receiver, sendo base correta dentro de traps. Invariants limitam o que
+proxy pode mentir sobre propriedades não configuráveis e objetos não
+extensíveis.
+
+Usos: membranas, validação localizada, observabilidade e objetos virtuais.
+Custos: identidade distinta, stack/debug difícil, comportamento implícito,
+incompatibilidade com private fields e possíveis perdas de otimização. Não use
+Proxy para esconder um modelo de dados confuso; API explícita costuma ser mais
+testável.
+
+============================================================
+19. EXPRESSÕES REGULARES
+============================================================
+
+RegExp suporta flags g, i, m, s, u, v, y e d conforme runtime. “u” trata padrões
+como Unicode code points; “v” amplia conjuntos e propriedades. Named captures
+melhoram manutenção; lookahead/lookbehind verificam contexto; d fornece índices.
+lastIndex torna regex g/y stateful e pode surpreender quando instância é
+reutilizada.
+
+Backtracking catastrófico nasce de quantificadores ambíguos/aninhados e entrada
+adversarial. Revise padrões, limite tamanho, evite alternativas sobrepostas e
+teste casos hostis. RegExp.escape entrou em ES2025 para inserir texto literal
+com segurança num padrão; não confundir com escapar replacement. Use parser
+quando existe gramática aninhada, mensagens de erro ou evolução significativa.
+
+============================================================
+20. DATE, TEMPORAL E INTL
+============================================================
+
+Date representa instante em milissegundos desde epoch, embora métodos locais
+projetem esse instante em timezone. Parsing de strings não ISO é historicamente
+problemático; use formato explícito. Somar 24 horas não equivale sempre ao
+próximo horário civil por DST. Armazene instante/offset/timezone conforme o
+significado do domínio; “data de aniversário” não é instante UTC.
+
+Intl.NumberFormat, DateTimeFormat, RelativeTimeFormat, Collator e PluralRules
+encapsulam locale, calendário, moeda, plural e comparação. Crie formatters
+reutilizáveis em hot path e não use string formatada como chave ou ordenação
+persistida.
+
+Temporal alcançou Stage 4 em julho de 2026, com publicação esperada em ES2027.
+Oferece Instant, PlainDate/Time/DateTime, ZonedDateTime, Duration, objetos
+imutáveis, timezone/calendário e aritmética explícita. Em setembro de 2026
+ainda não é Baseline nos browsers amplamente usados. Ensine o modelo, consulte
+compatibilidade e use polyfill quando necessário; não declare que faz parte da
+edição normativa ES2026.
+
+============================================================
+21. TESTES
+============================================================
+
+Teste unitário isola regra pequena; integração verifica componentes reais;
+E2E percorre sistema; contrato garante interação entre produtor/consumidor;
+smoke confirma caminho vital; regressão conserva comportamento corrigido.
+Pirâmide não é quota: risco, custo e confiança determinam combinação.
+
+Stub fornece resposta, spy observa, mock traz expectativa de interação e fake
+implementa substituto funcional. Prefira testar resultado público a detalhes.
+Fake timer controla relógio/timers, mas pode não reproduzir I/O e todas as
+microtasks. Teste assíncrono precisa await/return da promise e controlar
+cancelamento, timeout e rejeição.
+
+Isolamento exige estado novo, relógio/random injetáveis, portas/arquivos únicos
+e cleanup. Determinismo não significa remover concorrência: teste races com
+barreiras controladas. Property-based testing gera casos a partir de invariantes
+e complementa exemplos. Teste de erro verifica tipo/código/cause e efeitos,
+evitando mensagem inteira instável.
+
+Node possui test runner estável com “node --test”; ecossistema tem outras
+ferramentas, mas o curso deve primeiro ensinar princípios.
+
+============================================================
+22. ARQUITETURA JAVASCRIPT
+============================================================
+
+Separation of concerns separa motivos de mudança. Alta coesão agrupa decisões
+relacionadas; baixo acoplamento reduz conhecimento entre módulos. Dependency
+inversion faz regra de negócio depender de contratos/capacidades injetadas, não
+do banco ou HTTP. Functional core/imperative shell concentra cálculo puro no
+centro e efeitos nas bordas.
+
+Ports and adapters protege domínio de transports/drivers. Layered architecture
+é adequada se a direção for explícita; camada “utils” global vira acoplamento.
+Modular monolith mantém deploy simples e fronteiras internas fortes. Event
+driven desacopla tempo e participantes, mas traz entrega duplicada, ordenação,
+schema evolution e observabilidade.
+
+Padrões úteis:
+
+- Factory escolhe/cria variantes complexas.
+- Strategy torna algoritmo intercambiável.
+- Adapter traduz contrato externo.
+- Facade oferece entrada pequena a subsistema.
+- Observer distribui eventos, exigindo lifecycle.
+- Command representa intenção, útil para fila/auditoria/undo.
+- Repository abstrai persistência quando há domínio e múltiplas consultas.
+
+Padrão sem força concreta é ceremony. Três classes para encapsular uma chamada
+estável podem ser pior que função direta. Decida pelo eixo de mudança, não pelo
+nome do livro.
+
+Como isso aparece em sistemas reais
+
+- Handler HTTP adapta request para caso de uso; driver persiste; domínio não
+  importa framework.
+- Outbox liga transação de banco a publicação de evento.
+- SDK separa transporte, retry, paginação e modelos públicos.
+
+============================================================
+23. JAVASCRIPT FUNCIONAL
+============================================================
+
+Função pura depende apenas de argumentos e não altera exterior. Referential
+transparency permite substituir chamada pelo resultado. Isolar side effects
+facilita teste e composição; imutabilidade reduz aliases/races, mas copiar
+estruturas grandes tem custo.
+
+Composição liga funções compatíveis. Currying transforma função n-ária em cadeia
+unária; partial application fixa parte dos argumentos. JavaScript não exige
+essas técnicas para programação funcional. Pipelines explícitos e nomes de
+domínio normalmente vencem abstrações densas.
+
+Não transforme erro, async e estado numa coleção de combinadores ilegíveis só
+para pureza estética. Efeitos existem; a meta é localizá-los e modelá-los.
+
+============================================================
+24. DESIGN DE APIs
+============================================================
+
+API profissional é previsível: nomes e verbos consistentes, defaults seguros,
+unidades explícitas, ownership documentado e superfície mínima. Options object
+facilita evolução, mas valide chaves e evite boolean soup. Retorno deve distinguir
+ausência, falha e coleção vazia. APIs async devem sempre ser async na mesma
+operação, aceitar AbortSignal quando canceláveis e documentar concorrência.
+
+Escolha error model por consumidor: exception para falha excepcional em API
+imperativa; Result discriminado quando falha faz parte do fluxo e composição.
+Não retorne ora valor, ora Promise. Compatibilidade inclui comportamento,
+ordem, side effects, tipos e mensagem pública. Deprecation exige alternativa,
+telemetria quando possível e janela antes de remoção. SemVer é promessa e
+mudança de tipo/export pode ser breaking.
+
+============================================================
+25. CONCORRÊNCIA E PARALELISMO
+============================================================
+
+Promises coordenam concorrência no mesmo agente; Workers/worker_threads
+permitem paralelismo. Message passing com structured clone reduz memória
+compartilhada. Transferable move ownership de buffers. SharedArrayBuffer e
+Atomics permitem memória compartilhada e espera/sinalização, exigindo
+cross-origin isolation no browser e raciocínio de memória avançado.
+
+Race ocorre quando resultado depende de interleaving. Soluções incluem fila
+serial, chave por recurso, compare-and-swap/version, operação idempotente,
+lock/mutex implementado sobre promessa e protocolo com owner. Lock precisa de
+finally, timeout e fairness analisada. Em sistemas distribuídos, mutex local
+não protege outros processos.
+
+Job processing precisa de ack, retry com exponential backoff+jitter, dead
+letter, limite de tentativas, idempotência e graceful shutdown. “Exactly once”
+geralmente é propriedade de efeito alcançada por deduplicação/transação, não
+da entrega.
+
+============================================================
+26. OBSERVABILIDADE
+============================================================
+
+Log estruturado registra timestamp, severity, evento, contexto e campos; não
+concatene objetos arbitrários nem segredos. Levels precisam de semântica:
+debug para diagnóstico, info para eventos normais úteis, warn para degradação,
+error para falha que exige atenção. Evite logar e relançar em cada camada.
+
+Correlation ID liga passos; trace distribui spans/causalidade; metrics agregam
+taxas, erros, duração e saturação. Cardinalidade alta em labels custa caro.
+AsyncLocalStorage pode propagar contexto em Node, mas boundary externo deve
+validar/gerar IDs. console é útil em desenvolvimento, porém produção precisa
+de formato, transporte, rotação/coleta e política de dados.
+
+============================================================
+27. JAVASCRIPT MODERNO EM 2026
+============================================================
+
+Baseline normativa deste estudo: ECMA-262 17ª edição, ECMAScript 2026. Além de
+features consolidadas recentes como métodos imutáveis de Array, Set operations,
+iterator helpers, import attributes, JSON modules, RegExp.escape e Promise.try,
+a lista Stage 4 atribuída a 2026 inclui:
+
+- Map upsert, exposto como operações get-or-insert conforme especificação;
+- acesso ao texto-fonte em JSON.parse e raw JSON;
+- iterator sequencing;
+- conversão Uint8Array de/para base64 e hex;
+- Math.sumPrecise;
+- Error.isError;
+- Array.fromAsync.
+
+Nome exato, suporte e flags devem ser confirmados na matriz do runtime antes
+de virar exercício. O draft vivo do TC39 pode já conter Stage 4 destinado à
+próxima edição; draft não muda retroativamente o snapshot ES2026. Temporal,
+Explicit Resource Management, Joint Iteration e Atomics.pause estão Stage 4
+com publicação esperada em 2027. Decorators ainda não são parte de ES2026.
+
+Regra editorial: Stage 4 pode ser apresentado como futuro padronizado com ano
+correto; Stage 3 ou inferior deve ser rotulado proposal, sem exigir em projeto
+principal.
+
+============================================================
+28. LEGADO E MIGRAÇÃO
+============================================================
+
+Leia antes de reescrever: descubra entrypoints, globals, efeitos na importação,
+formato de módulo, suporte de runtime e cobertura. var pode depender de hoisting;
+callbacks podem depender de ordem e múltiplas chamadas; prototype manual pode
+ser contrato público; CommonJS pode carregar condicionalmente. jQuery representa
+uma camada de compatibilidade/história, não apenas sintaxe para substituir.
+
+Characterization tests congelam comportamento observável, inclusive quirks
+necessários. Faça refactors pequenos: nomear função, explicitar dependência,
+isolar side effect, converter um módulo por boundary. Não misture migração de
+módulos, mudança de arquitetura e feature numa revisão impossível.
+
+============================================================
+29. TOOLING E PRODUÇÃO
+============================================================
+
+ESLint faz análise estática configurável; formatter resolve estilo mecânico.
+Bundler constrói grafo e assets; transpiler muda sintaxe; minifier reduz; source
+map relaciona output ao fonte e pode expor código se publicado sem política.
+Babel é plataforma de transformações; SWC/esbuild priorizam velocidade em
+implementações nativas; Vite organiza desenvolvimento/build. Escolha por alvo,
+plugins, correção e manutenção, não benchmark isolado.
+
+Produção exige configuração validada, build reproduzível, lockfile, artifacts
+imutáveis, source maps protegidos/associados à release e rollback. Feature flag
+precisa owner, expiração e comportamento em falha. Health informa vida;
+readiness informa capacidade de receber tráfego.
+
+No Node, SIGTERM/SIGINT iniciam shutdown: parar novas entradas, marcar unready,
+aguardar trabalho com deadline, fechar server, consumers, banco e logs, então
+sair. Handler de sinal não torna toda falha recuperável. uncaughtException
+normalmente requer shutdown controlado, não continuar em estado desconhecido.
+
+============================================================
+30. ANTI-PATTERNS E REGRAS DE REVISÃO
+============================================================
+
+- Callback hell: componha funções/promises, mas preserve controle de erro.
+- Promise constructor sobre API que já devolve Promise: adiciona risco de
+  settlement/erro; só adapte callback real.
+- Await sequencial sem dependência: considere concorrência limitada.
+- Global mutable state: dificulta testes, isolamento e multi-tenant.
+- God object/mega function: muitos motivos de mudança e estado implícito.
+- Mutação inesperada: documente ou devolva nova estrutura.
+- Catch vazio/erro engolido: perde causalidade e produz sucesso falso.
+- JSON.parse sem catch, limite e validação: dado externo não é confiável.
+- setTimeout como sincronização: race mascarada; aguarde evento/estado.
+- Listener esquecido: leak e duplicação de efeitos.
+- Deep clone via JSON: perde tipos, falha em ciclos e altera valores.
+- == sem decisão consciente: coerções escondidas.
+- async callback em forEach: promises são ignoradas; use for...of ou map/all.
+- Monkey patch de Array.prototype: colisões globais e iteração imprevisível.
+- Abstração antecipada: nome sofisticado sem eixo real de variação.
+
+Checklist de revisão: contratos de entrada; erro/cancelamento; limite de
+concorrência e tamanho; lifecycle de recursos/listeners; segurança contextual;
+observabilidade; compatibilidade de runtime; teste do caminho feliz e falhas;
+medição antes de otimização.
+
+============================================================
+SÍNTESE PARA A FUTURA TRILHA
+============================================================
+
+Uma formação profissional deve avançar nesta ordem conceitual:
+
+valores e execução
+→ funções, objetos e protocolos
+→ módulos e assíncrono
+→ browser e Node como hosts
+→ I/O, HTTP, streams e concorrência
+→ testes, segurança e observabilidade
+→ arquitetura, performance e produção.
+
+O aluno não deve apenas reproduzir sintaxe. Deve prever coerção, this, lookup
+prototipal, ordem de jobs, consumo de streams e lifecycle; modelar falhas;
+escolher fronteiras; medir custo; e explicar quais garantias vêm da linguagem,
+do host e da aplicação.
+
+============================================================
+FONTES PRINCIPAIS CONSULTADAS
+============================================================
+
+ECMAScript
+
+- Ecma International — ECMA-262, 17ª edição, ECMAScript 2026:
+  https://262.ecma-international.org/
+- Draft vivo de ECMA-262:
+  https://tc39.es/ecma262/
+- ECMA-402, Internationalization API:
+  https://tc39.es/ecma402/
+
+MDN
+
+- JavaScript Guide e JavaScript Reference:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript
+- Web APIs:
+  https://developer.mozilla.org/en-US/docs/Web/API
+- Temporal e browser compatibility:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Temporal
+
+Node.js
+
+- Node.js 26.8.2 API documentation:
+  https://nodejs.org/docs/latest-v26.x/api/
+- Release schedule oficial:
+  https://github.com/nodejs/Release
+- Event loop, streams, worker_threads, AsyncLocalStorage, performance hooks,
+  test runner, packages, ESM e CommonJS nas seções da API:
+  https://nodejs.org/api/
+- npm CLI e package.json:
+  https://docs.npmjs.com/
+
+TC39
+
+- Processo do TC39:
+  https://tc39.es/process-document/
+- Proposals ativos e finished proposals:
+  https://github.com/tc39/proposals
+- Temporal Stage 4:
+  https://tc39.es/proposal-temporal/
+- Test262:
+  https://github.com/tc39/test262
+
+Web standards
+
+- WHATWG HTML — web application APIs e event loops:
+  https://html.spec.whatwg.org/
+- WHATWG Fetch:
+  https://fetch.spec.whatwg.org/
+- WHATWG Streams:
+  https://streams.spec.whatwg.org/
+- WHATWG URL:
+  https://url.spec.whatwg.org/
+- Web Cryptography:
+  https://www.w3.org/TR/WebCryptoAPI/
+- Service Workers:
+  https://w3c.github.io/ServiceWorker/
+
+Outras fontes oficiais
+
+- V8 documentation/blog, apenas para implementação e performance:
+  https://v8.dev/docs
+- OWASP Cheat Sheet Series, complemento de segurança:
+  https://cheatsheetseries.owasp.org/
+- SemVer:
+  https://semver.org/
+
+CONTAGEM EDITORIAL
+
+30 capítulos principais. Cobertura explícita: linguagem, runtime, browser,
+Node, assíncrono, módulos, segurança, testes, performance, memória,
+arquitetura, concorrência, observabilidade, produção, legado e sistemas grandes.
+
