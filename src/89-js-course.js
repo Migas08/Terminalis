@@ -74,14 +74,14 @@
     body: [
       { h2: 'Linguagem, engine e host' },
       { p: 'JavaScript é a <strong>linguagem</strong>. Quem lê e executa suas instruções é uma <strong>engine</strong> (como a V8). E a engine sempre roda dentro de um <strong>host</strong> — um navegador ou o Node.js — que decide quais recursos existem ao redor do código.' },
-      { p: 'No Terminalis, seu código roda em uma <strong>sandbox isolada</strong>, fora da aplicação. Ele não enxerga a página, o seu progresso nem a rede: só o que a aula libera. Abra a aba <strong>JS</strong> ao lado do terminal para ver o console.' },
+      { p: 'No Terminalis, seu código roda em uma <strong>sandbox isolada</strong>, fora da aplicação. Ele não enxerga a página, o seu progresso nem a rede: só o que a aula libera. Abra a aba <strong>JS</strong> ao lado do terminal: ali você <strong>escreve o código no editor</strong> e clica em <strong>rodar</strong> — o programa é salvo como arquivo e o resultado aparece no console abaixo.' },
       { box: 'key', label: 'O que é real aqui', body: [
         { p: 'A execução é JavaScript de verdade: <code>console.log</code>, erros com linha e coluna e o encerramento de um laço infinito. Rede, arquivos e APIs do Node chegam nos módulos seguintes — quando não existirem, a aula avisa.' }
       ] },
       { h4: 'Um primeiro programa' },
       { p: 'Já deixamos <code>/home/aluno/js/ola.js</code> pronto para você. Ele tem duas linhas:' },
       { code: ["console.log('Olá, JavaScript');", 'console.log(2 + 2);'], lang: 'text', run: false },
-      { p: 'Abra a aba <strong>Arquivos</strong>, clique em <code>ola.js</code> e depois no botão <strong>rodar</strong>. A saída aparece no painel <strong>JS</strong>: a primeira linha escreve um texto; a segunda mostra o resultado de <code>2 + 2</code>.' }
+      { p: 'Abra a aba <strong>JS</strong> e escreva essas duas linhas no editor (ou abra <code>ola.js</code> em <strong>Arquivos</strong> e clique em <strong>rodar</strong> para trazê-lo). Rode: a primeira linha escreve um texto; a segunda mostra o resultado de <code>2 + 2</code>.' }
     ],
     tasks: [
       {
@@ -111,19 +111,21 @@
       {
         id: 'js1-1-b', kind: 'desafio', title: 'Escreva e rode o seu próprio programa',
         body: [
-          { p: 'Crie o arquivo <code>/home/aluno/js/meu.js</code> com pelo menos uma chamada a <code>console.log(...)</code> escrevendo uma mensagem sua. Depois abra a aba <strong>JS</strong> pelo preview de Arquivos e rode para ver a saída.' }
+          { p: 'Na aba <strong>JS</strong>, escreva um programa seu com pelo menos uma chamada a <code>console.log(...)</code> e clique em <strong>rodar</strong> — o editor salva o arquivo sozinho. (Se preferir, crie um arquivo <code>.js</code> em <code>/home/aluno/js</code> pelo terminal.)' }
         ],
         hints: [
-          'Você pode criar o arquivo pelo terminal ou pelo editor da aba Arquivos.',
+          'Digite no editor da aba JS e clique em rodar: o programa é salvo em <code>/home/aluno/js/rascunho.js</code>.',
           'Uma linha basta: <code>console.log(\'sua mensagem\')</code>.'
         ],
-        solution: '<pre>$ echo "console.log(\'feito\');" &gt; /home/aluno/js/meu.js</pre><p>Depois, em Arquivos, clique em <code>meu.js</code> e em <strong>rodar</strong> para ver a saída no painel JS.</p>',
+        solution: '<pre>$ echo "console.log(\'feito\');" &gt; /home/aluno/js/meu.js</pre><p>Ou, mais simples: escreva o programa no editor da aba <strong>JS</strong> e clique em <strong>rodar</strong>.</p>',
         check: async (ctx) => {
           const H = LX.H;
-          const ler = () => H.read(ctx, '/home/aluno/js/meu.js');
+          const dir = '/home/aluno/js';
+          const nomes = () => (H.ls(ctx, dir) || []).filter(n => /\.(mjs|cjs|js)$/i.test(n) && n !== 'ola.js');
+          const temLog = () => nomes().some(n => /console\.log\s*\(/.test(H.read(ctx, dir + '/' + n) || ''));
           return H.checkAll([
-            [() => ler() !== null, 'Crie o arquivo <code>/home/aluno/js/meu.js</code>.'],
-            [() => /console\.log\s*\(/.test(ler() || ''), 'O arquivo precisa chamar <code>console.log(...)</code> com a sua mensagem.']
+            [() => nomes().length > 0, 'Escreva um programa na aba <strong>JS</strong> e rode, ou crie um arquivo <code>.js</code> em <code>/home/aluno/js</code>.'],
+            [() => temLog(), 'O seu programa precisa chamar <code>console.log(...)</code>.']
           ]);
         }
       }

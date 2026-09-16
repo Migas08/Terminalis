@@ -61,9 +61,10 @@
       $('#fb-prev-close').onclick = () => $('#fb-preview').classList.add('hidden');
       $('#fb-prev-edit').onclick = async () => { await this.term.editor(path); this.previewFile(path); };
       const runBtn = $('#fb-prev-run');
-      const isJs = /\.(mjs|cjs|js)$/i.test(path);
+      // O 'rodar' (playground JS) so aparece dentro do curso de JavaScript.
+      const rodavel = /\.(mjs|cjs|js)$/i.test(path) && this.trilhaId === 'js';
       if (runBtn) {
-        runBtn.classList.toggle('hidden', !isJs);
+        runBtn.classList.toggle('hidden', !rodavel);
         runBtn.onclick = () => { if (LX.JSWorkspace) LX.JSWorkspace.openAndRun(this, path); };
       }
     }

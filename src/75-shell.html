@@ -70,7 +70,7 @@
         <button class="sp-tab" data-tab="term" role="tab" aria-selected="true">__ICON_TERM__<span>Terminal</span></button>
         <button class="sp-tab" data-tab="files" role="tab" aria-selected="false">__ICON_FILES__<span>Arquivos</span></button>
         <button class="sp-tab" data-tab="notes" role="tab" aria-selected="false">__ICON_NOTES__<span>Anotações</span></button>
-        <button class="sp-tab" data-tab="js" role="tab" aria-selected="false">__ICON_TERM__<span>JS</span></button>
+        <button class="sp-tab hidden" data-tab="js" role="tab" aria-selected="false">__ICON_PLAY__<span>JS</span></button>
         <div class="sp-tabs-spacer"></div>
         <button class="mini-btn danger sp-reset" id="btn-reset-term" aria-label="Recriar o ambiente" title="Recriar o ambiente">__ICON_RESET__<span>Reset</span></button>
       </div>
@@ -86,7 +86,7 @@
         <button class="mini-btn" id="fb-here">ir para o diretório atual</button>
       </div>
       <div class="sp-actions hidden" id="sp-js-actions">
-        <span class="js-entry" id="js-entry">nenhum arquivo</span>
+        <span class="js-entry" id="js-entry">rascunho.js</span>
         <div class="spacer"></div>
         <button class="mini-btn" id="js-run">__ICON_PLAY__rodar</button>
         <button class="mini-btn" id="js-cancel" disabled>parar</button>
@@ -126,9 +126,11 @@
         </div>
       </div>
 
-      <!-- playground JavaScript -->
+      <!-- playground JavaScript: editor + console -->
       <div class="sp-view" data-view="js">
         <div class="js-shell">
+          <textarea id="js-editor" class="js-editor" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Editor de JavaScript" placeholder="Escreva JavaScript aqui e clique em rodar…"></textarea>
+          <div class="js-console-head">Console</div>
           <div id="js-console" aria-live="polite"></div>
         </div>
       </div>

@@ -639,10 +639,21 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
 @keyframes blink { 0%,55% { opacity: 1; } 56%,100% { opacity: 0; } }
 #term-hidden { position: absolute; opacity: 0; width: 1px; height: 1px; left: -9999px; }
 
-/* ---------- playground JavaScript ---------- */
+/* ---------- playground JavaScript (editor + console) ---------- */
 .js-shell { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--term-bg); }
+.js-editor {
+  flex: 1 1 55%; min-height: 90px; resize: none; border: 0; outline: 0; width: 100%;
+  background: var(--term-bg); color: var(--term-tx);
+  font-family: var(--f-mono); font-size: 12.5px; line-height: 1.6;
+  padding: 12px 16px; white-space: pre; overflow: auto; tab-size: 2;
+}
+.js-console-head {
+  flex: 0 0 auto; padding: 6px 16px; font-size: 11px; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--tx-3);
+  border-top: 1px solid var(--line); background: var(--surface);
+}
 #js-console {
-  flex: 1; overflow-y: auto; padding: 12px 16px 16px;
+  flex: 1 1 45%; overflow-y: auto; padding: 10px 16px 16px;
   font-family: var(--f-mono); font-size: 12.5px; line-height: 1.6;
   color: var(--term-tx); white-space: pre-wrap; word-break: break-word; min-height: 0;
 }
@@ -1580,7 +1591,7 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
         <button class="sp-tab" data-tab="term" role="tab" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-5-6-5"/><path d="M12 19h8"/></svg><span>Terminal</span></button>
         <button class="sp-tab" data-tab="files" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg><span>Arquivos</span></button>
         <button class="sp-tab" data-tab="notes" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span>Anotações</span></button>
-        <button class="sp-tab" data-tab="js" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-5-6-5"/><path d="M12 19h8"/></svg><span>JS</span></button>
+        <button class="sp-tab hidden" data-tab="js" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z"/></svg><span>JS</span></button>
         <div class="sp-tabs-spacer"></div>
         <button class="mini-btn danger sp-reset" id="btn-reset-term" aria-label="Recriar o ambiente" title="Recriar o ambiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span>Reset</span></button>
       </div>
@@ -1596,7 +1607,7 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
         <button class="mini-btn" id="fb-here">ir para o diretório atual</button>
       </div>
       <div class="sp-actions hidden" id="sp-js-actions">
-        <span class="js-entry" id="js-entry">nenhum arquivo</span>
+        <span class="js-entry" id="js-entry">rascunho.js</span>
         <div class="spacer"></div>
         <button class="mini-btn" id="js-run"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z"/></svg>rodar</button>
         <button class="mini-btn" id="js-cancel" disabled>parar</button>
@@ -1636,9 +1647,11 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
         </div>
       </div>
 
-      <!-- playground JavaScript -->
+      <!-- playground JavaScript: editor + console -->
       <div class="sp-view" data-view="js">
         <div class="js-shell">
+          <textarea id="js-editor" class="js-editor" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Editor de JavaScript" placeholder="Escreva JavaScript aqui e clique em rodar…"></textarea>
+          <div class="js-console-head">Console</div>
           <div id="js-console" aria-live="polite"></div>
         </div>
       </div>
@@ -44465,6 +44478,12 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       document.body.classList.toggle('route-page', !emAula);
       const body = $('#body');
       if (body) body.classList.toggle('solo', !emAula);
+      // A aba JS (editor + execução) só existe dentro do curso de JavaScript.
+      const emCursoJs = emAula && this.trilhaId === 'js';
+      const abaJs = $('.sp-tab[data-tab="js"]');
+      if (abaJs) abaJs.classList.toggle('hidden', !emCursoJs);
+      const sel = $('.sp-tab[aria-selected="true"]');
+      if (!emCursoJs && sel && sel.dataset.tab === 'js') this.switchTab('term');
     }
 
     setCrumbs(a, b) {
@@ -44921,9 +44940,10 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       $('#fb-prev-close').onclick = () => $('#fb-preview').classList.add('hidden');
       $('#fb-prev-edit').onclick = async () => { await this.term.editor(path); this.previewFile(path); };
       const runBtn = $('#fb-prev-run');
-      const isJs = /\.(mjs|cjs|js)$/i.test(path);
+      // O 'rodar' (playground JS) so aparece dentro do curso de JavaScript.
+      const rodavel = /\.(mjs|cjs|js)$/i.test(path) && this.trilhaId === 'js';
       if (runBtn) {
-        runBtn.classList.toggle('hidden', !isJs);
+        runBtn.classList.toggle('hidden', !rodavel);
         runBtn.onclick = () => { if (LX.JSWorkspace) LX.JSWorkspace.openAndRun(this, path); };
       }
     }
@@ -44939,16 +44959,20 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 /* =========================================================================
    TERMINALIS — controlador do playground JavaScript (Fase 1)
 
-   Liga a interface ao runner isolado (LX.JS). Lê o arquivo do VFS, executa na
-   sandbox de navegador (iframe + Worker) e renderiza os eventos estruturados no
-   painel "JS". Não acessa o domínio do runner nem executa código do aluno aqui:
-   apenas orquestra e desenha. Carregar este módulo no Node é seguro — nada toca
-   em document/Worker no nível de módulo; a sandbox só é criada sob demanda.
+   Liga a interface ao runner isolado (LX.JS). O aluno programa direto no editor
+   da aba "JS"; ao rodar, o código é salvo como arquivo no VFS e executado na
+   sandbox de navegador (iframe + Worker). Os eventos estruturados são desenhados
+   no console. Não acessa o domínio do runner nem executa código do aluno aqui:
+   apenas orquestra e desenha. Carregar no Node é seguro — nada toca em
+   document/Worker no nível de módulo; a sandbox só é criada sob demanda.
    ========================================================================= */
 'use strict';
 (function () {
   const { query: $ } = LX.Util;
   const JSW = {};
+  const PADRAO = '/home/aluno/js/rascunho.js';
+  const MODELO = "// Escreva JavaScript e clique em rodar.\nconsole.log('Olá, JavaScript');\n";
+
   let app = null;
   let runner = null;
   let sessionId = null;
@@ -44956,6 +44980,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
   let runId = null;
   let running = false;
   let bound = false;
+  let salvarTimer = null;
 
   function ensure(a) {
     app = a || app;
@@ -44972,8 +44997,23 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     const run = $('#js-run'); if (run) run.onclick = () => JSW.run();
     const cancel = $('#js-cancel'); if (cancel) cancel.onclick = () => JSW.cancel();
     const clear = $('#js-clear'); if (clear) clear.onclick = () => JSW.clear();
+    const ed = $('#js-editor');
+    if (ed) {
+      // Salva o buffer no VFS com debounce, para o programa persistir mesmo sem rodar.
+      ed.addEventListener('input', () => { clearTimeout(salvarTimer); salvarTimer = setTimeout(salvar, 700); });
+      // Tab insere dois espaços em vez de mudar o foco — é um editor de código.
+      ed.addEventListener('keydown', e => {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          const s = ed.selectionStart, t = ed.selectionEnd;
+          ed.value = ed.value.slice(0, s) + '  ' + ed.value.slice(t);
+          ed.selectionStart = ed.selectionEnd = s + 2;
+        }
+      });
+    }
   }
 
+  function editorEl() { return $('#js-editor'); }
   function consoleEl() { return $('#js-console'); }
 
   function append(cls, text, locText) {
@@ -45000,8 +45040,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 
   function locationOf(payload) {
     if (!payload || !payload.file) return '';
-    let text = 'em ' + payload.file;
-    if (payload.line != null) text += ':' + payload.line + (payload.column != null ? ':' + payload.column : '');
+    let text = 'linha ' + (payload.line != null ? payload.line : '?');
+    if (payload.column != null) text += ', coluna ' + payload.column;
     return text;
   }
 
@@ -45025,38 +45065,63 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     const parts = String(path).split('/').filter(Boolean);
     return parts.length ? parts[parts.length - 1] : String(path);
   }
+  function dirName(path) {
+    return LX.FileSystem && LX.FileSystem.dirname ? LX.FileSystem.dirname(path) : path.replace(/\/[^/]*$/, '') || '/';
+  }
 
-  JSW.setEntry = function (path) {
-    entry = path || null;
+  function setEntry(path) {
+    entry = path || PADRAO;
     const el = $('#js-entry');
-    if (el) el.textContent = entry || 'nenhum arquivo';
-  };
+    if (el) el.textContent = baseName(entry);
+  }
+
+  /* Grava o conteúdo do editor no VFS (cria o diretório se preciso). */
+  function salvar() {
+    if (!app || !entry) return;
+    const ed = editorEl();
+    if (!ed) return;
+    const sh = app.term.sh;
+    try {
+      sh.m.fs.mkdirp(dirName(entry), sh.fsopts());
+      sh.m.fs.writeFile(entry, ed.value, sh.fsopts());
+    } catch (error) { /* sem permissão de escrita: silencioso, o run reporta */ }
+  }
+
+  /* Carrega o conteúdo de um arquivo do VFS no editor (ou o modelo inicial). */
+  function carregar(path) {
+    setEntry(path);
+    const ed = editorEl();
+    if (!ed) return;
+    let conteudo = null;
+    try { conteudo = app.term.sh.m.fs.readFile(entry, app.term.sh.fsopts()); }
+    catch (error) { conteudo = null; }
+    ed.value = conteudo != null ? conteudo : MODELO;
+  }
 
   JSW.onShow = function (a) {
     ensure(a);
-    const el = consoleEl();
-    if (el && !el.children.length && !entry) {
-      append('js-sys', 'Abra um arquivo .js em Arquivos e clique em rodar.');
-    }
+    const ed = editorEl();
+    if (ed && !ed.value) carregar(entry || PADRAO);
   };
 
+  /* Abre um arquivo .js no editor e roda (usado pelo preview de Arquivos). */
   JSW.openAndRun = function (a, path) {
     ensure(a);
-    JSW.setEntry(path);
+    carregar(path);
     if (app && typeof app.switchTab === 'function') app.switchTab('js');
     JSW.run();
   };
 
   JSW.run = function () {
     if (!runner || running) return;
-    if (!entry) { append('js-err', 'Nenhum arquivo selecionado.'); return; }
-    const sh = app.term.sh;
-    let content;
-    try { content = sh.m.fs.readFile(entry, sh.fsopts()); }
-    catch (error) { append('js-err', 'Não foi possível ler ' + entry + ': ' + error.message); return; }
+    if (!entry) setEntry(PADRAO);
+    const ed = editorEl();
+    const codigo = ed ? ed.value : '';
+    if (!codigo.trim()) { append('js-err', 'Escreva algo no editor antes de rodar.'); return; }
+    salvar();                       // o programa vira arquivo no laboratório
     const name = baseName(entry);
     try {
-      runner.putFiles(sessionId, { [name]: content });
+      runner.putFiles(sessionId, { [name]: codigo });
       setRunning(true);
       runId = runner.run(sessionId, name);
     } catch (error) {
@@ -60742,14 +60807,14 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
     body: [
       { h2: 'Linguagem, engine e host' },
       { p: 'JavaScript é a <strong>linguagem</strong>. Quem lê e executa suas instruções é uma <strong>engine</strong> (como a V8). E a engine sempre roda dentro de um <strong>host</strong> — um navegador ou o Node.js — que decide quais recursos existem ao redor do código.' },
-      { p: 'No Terminalis, seu código roda em uma <strong>sandbox isolada</strong>, fora da aplicação. Ele não enxerga a página, o seu progresso nem a rede: só o que a aula libera. Abra a aba <strong>JS</strong> ao lado do terminal para ver o console.' },
+      { p: 'No Terminalis, seu código roda em uma <strong>sandbox isolada</strong>, fora da aplicação. Ele não enxerga a página, o seu progresso nem a rede: só o que a aula libera. Abra a aba <strong>JS</strong> ao lado do terminal: ali você <strong>escreve o código no editor</strong> e clica em <strong>rodar</strong> — o programa é salvo como arquivo e o resultado aparece no console abaixo.' },
       { box: 'key', label: 'O que é real aqui', body: [
         { p: 'A execução é JavaScript de verdade: <code>console.log</code>, erros com linha e coluna e o encerramento de um laço infinito. Rede, arquivos e APIs do Node chegam nos módulos seguintes — quando não existirem, a aula avisa.' }
       ] },
       { h4: 'Um primeiro programa' },
       { p: 'Já deixamos <code>/home/aluno/js/ola.js</code> pronto para você. Ele tem duas linhas:' },
       { code: ["console.log('Olá, JavaScript');", 'console.log(2 + 2);'], lang: 'text', run: false },
-      { p: 'Abra a aba <strong>Arquivos</strong>, clique em <code>ola.js</code> e depois no botão <strong>rodar</strong>. A saída aparece no painel <strong>JS</strong>: a primeira linha escreve um texto; a segunda mostra o resultado de <code>2 + 2</code>.' }
+      { p: 'Abra a aba <strong>JS</strong> e escreva essas duas linhas no editor (ou abra <code>ola.js</code> em <strong>Arquivos</strong> e clique em <strong>rodar</strong> para trazê-lo). Rode: a primeira linha escreve um texto; a segunda mostra o resultado de <code>2 + 2</code>.' }
     ],
     tasks: [
       {
@@ -60779,19 +60844,21 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
       {
         id: 'js1-1-b', kind: 'desafio', title: 'Escreva e rode o seu próprio programa',
         body: [
-          { p: 'Crie o arquivo <code>/home/aluno/js/meu.js</code> com pelo menos uma chamada a <code>console.log(...)</code> escrevendo uma mensagem sua. Depois abra a aba <strong>JS</strong> pelo preview de Arquivos e rode para ver a saída.' }
+          { p: 'Na aba <strong>JS</strong>, escreva um programa seu com pelo menos uma chamada a <code>console.log(...)</code> e clique em <strong>rodar</strong> — o editor salva o arquivo sozinho. (Se preferir, crie um arquivo <code>.js</code> em <code>/home/aluno/js</code> pelo terminal.)' }
         ],
         hints: [
-          'Você pode criar o arquivo pelo terminal ou pelo editor da aba Arquivos.',
+          'Digite no editor da aba JS e clique em rodar: o programa é salvo em <code>/home/aluno/js/rascunho.js</code>.',
           'Uma linha basta: <code>console.log(\'sua mensagem\')</code>.'
         ],
-        solution: '<pre>$ echo "console.log(\'feito\');" &gt; /home/aluno/js/meu.js</pre><p>Depois, em Arquivos, clique em <code>meu.js</code> e em <strong>rodar</strong> para ver a saída no painel JS.</p>',
+        solution: '<pre>$ echo "console.log(\'feito\');" &gt; /home/aluno/js/meu.js</pre><p>Ou, mais simples: escreva o programa no editor da aba <strong>JS</strong> e clique em <strong>rodar</strong>.</p>',
         check: async (ctx) => {
           const H = LX.H;
-          const ler = () => H.read(ctx, '/home/aluno/js/meu.js');
+          const dir = '/home/aluno/js';
+          const nomes = () => (H.ls(ctx, dir) || []).filter(n => /\.(mjs|cjs|js)$/i.test(n) && n !== 'ola.js');
+          const temLog = () => nomes().some(n => /console\.log\s*\(/.test(H.read(ctx, dir + '/' + n) || ''));
           return H.checkAll([
-            [() => ler() !== null, 'Crie o arquivo <code>/home/aluno/js/meu.js</code>.'],
-            [() => /console\.log\s*\(/.test(ler() || ''), 'O arquivo precisa chamar <code>console.log(...)</code> com a sua mensagem.']
+            [() => nomes().length > 0, 'Escreva um programa na aba <strong>JS</strong> e rode, ou crie um arquivo <code>.js</code> em <code>/home/aluno/js</code>.'],
+            [() => temLog(), 'O seu programa precisa chamar <code>console.log(...)</code>.']
           ]);
         }
       }
