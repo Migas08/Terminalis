@@ -172,4 +172,14 @@
       label: snapshot.label, history: hydrate(snapshot.history), environment: hydrate(snapshot.environment)
     };
   };
+
+  /* Reconstruir a VM a partir de um snapshot é um monte de escritas no FS/subsistemas
+     que NÃO representam trabalho novo do aluno. Suspende o dirty tracking durante a
+     importação para não agendar um save falso logo após restaurar. */
+  const _importOriginal = W.importState;
+  W.importState = function (snapshot) {
+    return LX.WorkspaceMutation
+      ? LX.WorkspaceMutation.suspender(() => _importOriginal.call(this, snapshot))
+      : _importOriginal.call(this, snapshot);
+  };
 })();

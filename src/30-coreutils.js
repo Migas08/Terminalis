@@ -271,6 +271,7 @@ Lista informações sobre os ARQUIVOS (do diretório atual por padrão).
             const t = opts.d ? Date.parse(opts.d) : Date.now();
             if (!opts.a) n.mtime = isNaN(t) ? Date.now() : t;
             if (!opts.m) n.atime = isNaN(t) ? Date.now() : t;
+            if (LX.WorkspaceMutation) LX.WorkspaceMutation.markDirty();   // mtime alterado direto: fora dos hooks do FS
           } else if (!opts.c) {
             sh.m.fs.create(path, '', sh.fsopts());
           }

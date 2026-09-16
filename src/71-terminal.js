@@ -393,7 +393,10 @@
       if (cmd.trim()) {
         this.history.push(cmd);
         if (this.history.length > 500) this.history.shift();
-        try { this.sh.m.fs.appendFile(this.sh.getVar('HISTFILE') || '/home/aluno/.bash_history', cmd + '\n', this.sh.fsopts()); } catch (e) { }
+        // O append do histórico ocorre a cada comando (inclusive leituras); por
+        // si só não deve marcar o workspace como sujo nem agendar um save.
+        const gravarHist = () => { try { this.sh.m.fs.appendFile(this.sh.getVar('HISTFILE') || '/home/aluno/.bash_history', cmd + '\n', this.sh.fsopts()); } catch (e) { } };
+        if (LX.WorkspaceMutation) LX.WorkspaceMutation.suspender(gravarHist); else gravarHist();
       }
       if (!cmd.trim()) { this.prompt(); return; }
       await this.exec(cmd);
