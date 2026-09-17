@@ -88,6 +88,14 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     assert.deepEqual(so, ['a', 'd', 'b', 'c'], 'ordem sync, resto do script, microtask, timer');
     assert.ok(linhas.indexOf('c') < linhas.findIndex(t => /concluído/.test(t)), 'concluído só depois do timer');
 
+    /* ---------- módulos ESM multi-arquivo ---------- */
+    await page.evaluate(() => {
+      __app.term.sh.m.fs.writeFile('/home/aluno/js/lib.js', 'export const dobro = function (n) { return n * 2; };\n', __app.term.sh.fsopts());
+    });
+    await runEditor(page, "import { dobro } from './lib.js';\nconsole.log('dobro de 21 é', dobro(21));");
+    await waitConsole(page, 'dobro de 21 é 42');
+    await waitConsole(page, 'concluído');
+
     /* ---------- test runner no editor ---------- */
     await runEditor(page, [
       "describe('grupo', function () {",
@@ -138,7 +146,7 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     await waitConsole(page, 'Olá, JavaScript');
 
     assert.deepEqual(errors, [], 'nenhum erro de página');
-    console.log('JavaScript UI: aba condicional ao curso, editor programável que salva arquivo, erro localizado, isolamento de realm, timeout com UI viva e ação rodar do preview passaram.');
+    console.log('JavaScript UI: aba condicional ao curso, editor que salva arquivo, async, test runner, módulos ESM, erro localizado, isolamento de realm, timeout com UI viva e ação rodar do preview passaram.');
   } finally {
     if (browser) await browser.close();
     server.close();
