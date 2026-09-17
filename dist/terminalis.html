@@ -659,6 +659,7 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
 }
 .js-line { white-space: pre-wrap; }
 .js-line.js-info { color: var(--term-blue); }
+.js-line.js-ok { color: var(--term-green); }
 .js-line.js-warn { color: var(--term-yellow); }
 .js-line.js-error, .js-line.js-err { color: var(--term-red); }
 .js-line.js-debug, .js-line.js-sys { color: var(--term-dim); }
@@ -15360,6 +15361,17 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
         case P.EVENTS.DIAGNOSTIC:
           emit(P.EVENTS.DIAGNOSTIC, session, run.runId, plain(raw.payload));
           return;
+        case P.EVENTS.TEST_START:
+          emit(P.EVENTS.TEST_START, session, run.runId, { name: String(raw.name == null ? '' : raw.name) });
+          return;
+        case P.EVENTS.TEST_RESULT:
+          emit(P.EVENTS.TEST_RESULT, session, run.runId, {
+            name: String(raw.name == null ? '' : raw.name),
+            ok: raw.ok === true,
+            message: raw.message != null ? String(raw.message).slice(0, limits.STRING_LEN) : null,
+            durationMs: Number.isFinite(raw.durationMs) ? raw.durationMs : null
+          });
+          return;
         case P.EVENTS.RUN_COMPLETE:
           finishRun(session, P.EVENTS.RUN_COMPLETE, { ok: raw.ok !== false }, run.runId);
           return;
@@ -15450,9 +15462,10 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
       return runId;
     }
 
-    function runTests() {
-      // O test runner chega na Fase 2. Falha explícita, nunca fingir suporte.
-      throw new Error('runTests ainda não é suportado nesta fase do runner.');
+    function runTests(sessionId, entrypoint, runOptions) {
+      // O test runner (describe/it/expect) roda como parte de uma execução normal:
+      // basta o arquivo registrar testes. Este atalho deixa a intenção explícita.
+      return run(sessionId, entrypoint, Object.assign({ mode: 'test' }, runOptions || {}));
     }
 
     function onTimeout(session, runId) {
@@ -15548,8 +15561,8 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
     "  var nClearInterval = (self && self.clearInterval) ? self.clearInterval.bind(self) : (typeof clearInterval !== 'undefined' ? clearInterval : null);",
     "  var nQueueMicro = (typeof queueMicrotask !== 'undefined') ? queueMicrotask : function (fn) { Promise.resolve().then(fn); };",
     "  // Estado do event loop da execução atual (uma execução por vez).",
-    "  var curRun = null, curEntry = null, hadError = false, timersLeft = 0, timerIds = {}, intervalIds = {};",
-    "  var PARAMS = 'console, self, postMessage, onmessage, globalThis, importScripts, close, setTimeout, setInterval, clearTimeout, clearInterval, queueMicrotask';",
+    "  var curRun = null, curEntry = null, hadError = false, timersLeft = 0, timerIds = {}, intervalIds = {}, tests = [], describeStack = [];",
+    "  var PARAMS = 'console, self, postMessage, onmessage, globalThis, importScripts, close, setTimeout, setInterval, clearTimeout, clearInterval, queueMicrotask, describe, it, test, expect, beforeEach, afterEach';",
     "  var PROLOGUE = '\"use strict\";\\n';",
     "  var OFFSET = null;",
     "  function wrapperOffset() {",
@@ -15661,6 +15674,47 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
     "      })();",
     "    });",
     "  }",
+    "  // ---- test runner didático (describe/it/expect, hooks e async) ----",
+    "  function inspectSafe(v) { try { return inspect(v); } catch (e) { return String(v); } }",
+    "  function makeExpect(value) {",
+    "    function fail(msg) { var e = new Error(msg); e.name = 'AssertionError'; throw e; }",
+    "    function eq(a, b) { return a === b || (a !== a && b !== b); }",
+    "    function deep(a, b) { try { return JSON.stringify(a) === JSON.stringify(b); } catch (e) { return a === b; } }",
+    "    var api = {",
+    "      toBe: function (exp) { if (!eq(value, exp)) fail('esperava ' + inspectSafe(exp) + ', recebeu ' + inspectSafe(value)); },",
+    "      toEqual: function (exp) { if (!deep(value, exp)) fail('esperava (igual) ' + inspectSafe(exp) + ', recebeu ' + inspectSafe(value)); },",
+    "      toBeTruthy: function () { if (!value) fail('esperava verdadeiro, recebeu ' + inspectSafe(value)); },",
+    "      toBeFalsy: function () { if (value) fail('esperava falso, recebeu ' + inspectSafe(value)); },",
+    "      toBeCloseTo: function (exp, d) { var p = Math.pow(10, -(d == null ? 2 : d)) / 2; if (!(Math.abs(value - exp) <= p)) fail('esperava perto de ' + exp + ', recebeu ' + value); },",
+    "      toThrow: function () { var t = false; try { if (typeof value === 'function') value(); } catch (e) { t = true; } if (!t) fail('esperava que lançasse um erro'); },",
+    "      toContain: function (item) { var ok = value && value.indexOf && value.indexOf(item) !== -1; if (!ok) fail('esperava conter ' + inspectSafe(item)); }",
+    "    };",
+    "    api.not = {",
+    "      toBe: function (exp) { if (eq(value, exp)) fail('esperava diferente de ' + inspectSafe(exp)); },",
+    "      toEqual: function (exp) { if (deep(value, exp)) fail('esperava diferente de ' + inspectSafe(exp)); }",
+    "    };",
+    "    return api;",
+    "  }",
+    "  function describeFn(name, fn) { describeStack.push({ name: String(name), before: [], after: [] }); try { if (typeof fn === 'function') fn(); } finally { describeStack.pop(); } }",
+    "  function itFn(name, fn) { tests.push({ name: String(name), fn: fn, path: describeStack.map(function (d) { return d.name; }).filter(Boolean), beforeRefs: describeStack.map(function (d) { return d.before; }), afterRefs: describeStack.map(function (d) { return d.after; }) }); }",
+    "  function beforeEachFn(fn) { if (typeof fn === 'function' && describeStack.length) describeStack[describeStack.length - 1].before.push(fn); }",
+    "  function afterEachFn(fn) { if (typeof fn === 'function' && describeStack.length) describeStack[describeStack.length - 1].after.push(fn); }",
+    "  function fullName(t) { return t.path.concat([t.name]).join(' \\u203a '); }",
+    "  function runTestsIfAny(runId) {",
+    "    if (!tests.length) return Promise.resolve();",
+    "    var list = tests.slice(); var passed = 0, failed = 0;",
+    "    function runOne(i) {",
+    "      if (i >= list.length) { post({ type: 'diagnostic', runId: runId, payload: { kind: 'test-summary', total: list.length, passed: passed, failed: failed } }); if (failed) hadError = true; return Promise.resolve(); }",
+    "      var t = list[i], name = fullName(t), t0 = Date.now();",
+    "      post({ type: 'test-start', runId: runId, name: name });",
+    "      var chain = Promise.resolve();",
+    "      t.beforeRefs.forEach(function (refs) { refs.forEach(function (h) { chain = chain.then(function () { return h(); }); }); });",
+    "      chain = chain.then(function () { return t.fn && t.fn(); });",
+    "      t.afterRefs.slice().reverse().forEach(function (refs) { refs.slice().reverse().forEach(function (h) { chain = chain.then(function () { return h(); }); }); });",
+    "      return chain.then(function () { passed++; post({ type: 'test-result', runId: runId, name: name, ok: true, durationMs: Date.now() - t0 }); }, function (err) { failed++; post({ type: 'test-result', runId: runId, name: name, ok: false, message: String(err && err.message != null ? err.message : err), durationMs: Date.now() - t0 }); }).then(function () { return runOne(i + 1); });",
+    "    }",
+    "    return runOne(0);",
+    "  }",
     "  function runFile(runId, entry) {",
     "    if (!Object.prototype.hasOwnProperty.call(files, entry)) {",
     "      post({ type: 'uncaught-error', runId: runId, error: { name: 'ResolutionError', message: 'Arquivo nao encontrado: ' + entry, file: entry } });",
@@ -15678,11 +15732,13 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
     "      return;",
     "    }",
     "    curRun = runId; curEntry = entry; hadError = false; timersLeft = 0; timerIds = {}; intervalIds = {};",
+    "    tests = []; describeStack = [{ name: '', before: [], after: [] }];",
     "    var done = false;",
     "    function finish() { if (done) return; done = true; var run = curRun; curRun = null; curEntry = null; post({ type: 'run-complete', runId: run || runId, ok: !hadError }); }",
     "    Promise.resolve().then(function () {",
-    "      return factory(sandboxConsole, undefined, undefined, undefined, undefined, undefined, undefined, wrapTimeout, wrapInterval, wrapClearTimeout, wrapClearInterval, nQueueMicro);",
-    "    }).then(function () { return drainUntilIdle(); }, function (err) { reportError(err); return drainUntilIdle(); })",
+    "      return factory(sandboxConsole, undefined, undefined, undefined, undefined, undefined, undefined, wrapTimeout, wrapInterval, wrapClearTimeout, wrapClearInterval, nQueueMicro, describeFn, itFn, itFn, makeExpect, beforeEachFn, afterEachFn);",
+    "    }).then(function () { return runTestsIfAny(runId); }, function (err) { reportError(err); })",
+    "      .then(function () { return drainUntilIdle(); })",
     "      .then(function () { finish(); }, function () { finish(); });",
     "  }",
     "  function handle(msg) {",
@@ -45106,6 +45162,11 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       case E.OUTPUT_LIMIT: append('js-sys', '■ limite de saída atingido — restante omitido'); break;
       case E.UNCAUGHT_ERROR: append('js-err', p.name + ': ' + p.message, locationOf(p)); break;
       case E.UNHANDLED_REJECTION: append('js-err', 'Promessa rejeitada: ' + p.message, locationOf(p)); break;
+      case E.TEST_START: append('js-sys', '▷ ' + p.name); break;
+      case E.TEST_RESULT: append(p.ok ? 'js-ok' : 'js-err', (p.ok ? '✓ ' : '✗ ') + p.name + (p.ok ? '' : ' — ' + (p.message || 'falhou'))); break;
+      case E.DIAGNOSTIC:
+        if (p.kind === 'test-summary') append('js-sys', '■ testes: ' + p.passed + ' passaram, ' + p.failed + ' falharam');
+        break;
       case E.RUN_TIMEOUT: append('js-sys', '■ tempo esgotado — execução encerrada'); setRunning(false); break;
       case E.RUN_CANCELLED: append('js-sys', '■ execução cancelada'); setRunning(false); break;
       case E.RUN_COMPLETE: append('js-sys', '■ concluído'); setRunning(false); break;
