@@ -114,6 +114,13 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     const gravado = await page.evaluate(() => __app.term.sh.m.fs.readFile('/home/aluno/js/anotacao.txt', __app.term.sh.fsopts()));
     assert.equal(gravado, 'salvo pelo aluno', 'fs.writeFile persistiu no VFS');
 
+    /* rede negada por padrão no editor (nenhuma capability fetch) */
+    await runEditor(page, "fetch('https://exemplo.com').then(function () { console.log('CONECTOU'); }, function (e) { console.log('rede:', e.message); });");
+    await waitConsole(page, 'rede:');
+    text = await consoleText(page);
+    assert.ok(!/CONECTOU/.test(text), 'sem rede real');
+    assert.match(text, /negada/i, 'fetch negado por padrão');
+
     /* fuga de path é barrada */
     await runEditor(page, "require('fs').promises.readFile('../../../etc/passwd').then(function () { console.log('VAZOU'); }, function (e) { console.log('bloqueado:', e.message); });");
     await waitConsole(page, 'bloqueado:');

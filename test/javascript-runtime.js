@@ -253,6 +253,51 @@ async function runFile(runner, files, entry) {
     runner.disposeAll();
   }
 
+  /* ---------- fetch didático por capability ---------- */
+  {
+    const runner = makeRunner({ capabilities: { fetch: {
+      do: (req) => {
+        if (req.url === 'https://api/echo') return { status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ metodo: req.method, corpo: req.body }) };
+        return { status: 404, statusText: 'Not Found', body: 'nao encontrado' };
+      }
+    } } });
+    await runFile(runner, {
+      'net.js': [
+        "async function main() {",
+        "  const r = await fetch('https://api/echo', { method: 'POST', body: 'oi' });",
+        "  console.log('status', r.status, r.ok, r.headers.get('content-type'));",
+        "  const j = await r.json();",
+        "  console.log('json', j.metodo, j.corpo);",
+        "  const r2 = await fetch('https://api/nope');",
+        "  console.log('404', r2.status, r2.ok);",
+        "}",
+        "main();"
+      ].join('\n')
+    }, 'net.js');
+    assert.deepEqual(runner.textos(), ['status 200 true application/json', 'json POST oi', '404 404 false'], 'fetch/Response/Headers via RPC');
+    runner.disposeAll();
+  }
+
+  /* ---------- fetch negado por padrão; AbortController cancela ---------- */
+  {
+    const runner = makeRunner();
+    await runFile(runner, { 'x.js': "fetch('https://x').catch(function (e) { console.log('rede', e.message); });" }, 'x.js');
+    assert.ok(runner.textos().some(t => /rede/.test(t) && /negada/i.test(t)), 'fetch negado sem capability');
+    runner.disposeAll();
+  }
+  {
+    const runner = makeRunner({ capabilities: { fetch: { do: () => ({ status: 200, body: 'ok' }) } } });
+    await runFile(runner, {
+      'abort.js': [
+        "const c = new AbortController();",
+        "c.abort();",
+        "fetch('https://x', { signal: c.signal }).then(function () { console.log('NAO'); }, function (e) { console.log('abortado', e.name); });"
+      ].join('\n')
+    }, 'abort.js');
+    assert.ok(runner.textos().some(t => /abortado AbortError/.test(t)), 'AbortController cancela a requisição');
+    runner.disposeAll();
+  }
+
   /* ---------- require de pacote externo falha de forma clara ---------- */
   {
     const runner = makeRunner();

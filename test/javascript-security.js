@@ -98,20 +98,21 @@ async function runProgram(source, limits) {
      conferimos que tudo é 'undefined'. */
   {
     const events = await runProgram(
-      "console.log(typeof LX, typeof fetch, typeof XMLHttpRequest, typeof window, typeof document, typeof localStorage, JSON.stringify(process.env), process.platform);"
+      "console.log(typeof LX, typeof XMLHttpRequest, typeof window, typeof document, typeof localStorage, JSON.stringify(process.env), process.platform);"
     );
     const line = events.find(e => e.type === 'console');
     assert.ok(line, 'houve saída de console');
-    assert.equal(line.payload.text, 'undefined undefined undefined undefined undefined undefined {} browser',
-      'app, rede, DOM e storage inacessíveis; process é o shim didático (env vazio)');
+    assert.equal(line.payload.text, 'undefined undefined undefined undefined undefined {} browser',
+      'app, XHR, DOM e storage inacessíveis; process é o shim didático (env vazio)');
   }
 
-  /* Chamar a rede diretamente é um ReferenceError controlado, não uma conexão. */
+  /* fetch existe como shim didático, mas sem capability a promessa REJEITA
+     (rede negada) — nunca abre conexão. */
   {
-    const events = await runProgram("fetch('https://exemplo.com');");
-    const err = events.find(e => e.type === 'uncaught-error');
-    assert.ok(err, 'fetch negado gera uncaught-error');
-    assert.match(err.payload.name, /ReferenceError/);
+    const events = await runProgram("fetch('https://exemplo.com').then(function () { console.log('CONECTOU'); }, function (e) { console.log('negado:', e.message); });");
+    assert.ok(!events.some(e => e.type === 'console' && /CONECTOU/.test(e.payload.text)), 'sem conexão real');
+    const line = events.find(e => e.type === 'console' && /negado/.test(e.payload.text));
+    assert.ok(line && /negada/i.test(line.payload.text), 'fetch negado sem capability');
     assert.equal(events.filter(e => e.type === 'run-complete').length, 1);
   }
 
@@ -129,10 +130,9 @@ async function runProgram(source, limits) {
      (O encerramento de laço infinito é coberto pelo timeout do coordenador em
      javascript-runtime.js e pelo teste de navegador javascript-ui.js.) */
   {
-    const events = await runProgram("setTimeout(function () { fetch('https://exemplo.com'); }, 1);");
-    const err = events.find(e => e.type === 'uncaught-error');
-    assert.ok(err, 'fetch negado dentro de um timer gera uncaught-error');
-    assert.match(err.payload.name, /ReferenceError/);
+    const events = await runProgram("setTimeout(function () { fetch('https://exemplo.com').catch(function (e) { console.log('async negado:', e.message); }); }, 1);");
+    const line = events.find(e => e.type === 'console' && /async negado/.test(e.payload.text));
+    assert.ok(line && /negada/i.test(line.payload.text), 'fetch negado no código assíncrono (sem capability)');
     assert.equal(events.filter(e => e.type === 'run-complete').length, 1);
   }
 
