@@ -96,6 +96,10 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     await waitConsole(page, 'dobro de 21 é 42');
     await waitConsole(page, 'concluído');
 
+    /* ---------- módulos Node embutidos no editor ---------- */
+    await runEditor(page, "const path = require('path');\nconsole.log('base', path.basename('/a/b/c.js'), 'plataforma', process.platform);");
+    await waitConsole(page, 'base c.js plataforma browser');
+
     /* ---------- test runner no editor ---------- */
     await runEditor(page, [
       "describe('grupo', function () {",

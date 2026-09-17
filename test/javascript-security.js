@@ -98,12 +98,12 @@ async function runProgram(source, limits) {
      conferimos que tudo é 'undefined'. */
   {
     const events = await runProgram(
-      "console.log(typeof LX, typeof fetch, typeof XMLHttpRequest, typeof process, typeof require, typeof window, typeof document, typeof localStorage);"
+      "console.log(typeof LX, typeof fetch, typeof XMLHttpRequest, typeof window, typeof document, typeof localStorage, JSON.stringify(process.env), process.platform);"
     );
     const line = events.find(e => e.type === 'console');
     assert.ok(line, 'houve saída de console');
-    assert.equal(line.payload.text, 'undefined undefined undefined undefined undefined undefined undefined undefined',
-      'nenhum objeto do app, rede ou storage está acessível');
+    assert.equal(line.payload.text, 'undefined undefined undefined undefined undefined undefined {} browser',
+      'app, rede, DOM e storage inacessíveis; process é o shim didático (env vazio)');
   }
 
   /* Chamar a rede diretamente é um ReferenceError controlado, não uma conexão. */

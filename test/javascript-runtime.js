@@ -195,6 +195,37 @@ async function runFile(runner, files, entry) {
     runner.disposeAll();
   }
 
+  /* ---------- módulos embutidos didáticos (Node): process/path/events/Buffer ---------- */
+  {
+    const runner = makeRunner();
+    await runFile(runner, {
+      'node.js': [
+        "var path = require('path');",
+        "var events = require('events');",
+        "console.log('platform', process.platform);",
+        "console.log('join', path.join('a', 'b', '..', 'c.js'));",
+        "console.log('base', path.basename('/x/y/z.txt', '.txt'));",
+        "var em = new events.EventEmitter();",
+        "em.on('ping', function (n) { console.log('ping', n); });",
+        "em.emit('ping', 5);",
+        "console.log('buf', Buffer.from('AB').toString('hex'));"
+      ].join('\n')
+    }, 'node.js');
+    assert.deepEqual(runner.textos(), ['platform browser', 'join a/c.js', 'base z', 'ping 5', 'buf 4142'],
+      'process, path, EventEmitter e Buffer funcionam');
+    assert.equal(runner.of('run-complete')[0].payload.ok, true);
+    runner.disposeAll();
+  }
+
+  /* ---------- require de pacote externo falha de forma clara ---------- */
+  {
+    const runner = makeRunner();
+    await runFile(runner, { 'x.js': "require('lodash');" }, 'x.js');
+    const err = runner.of('uncaught-error')[0];
+    assert.ok(err && /não disponível|não busca pacotes/.test(err.payload.message), 'require externo falha claro');
+    runner.disposeAll();
+  }
+
   /* ---------- timeout: laço infinito é encerrado e a sessão volta a executar ----------
      Transport mudo + scheduler manual: dispara o estouro do tempo de forma
      determinística, como o setTimeout do coordenador faria. */
@@ -253,5 +284,5 @@ async function runFile(runner, files, entry) {
     runner.disposeAll();
   }
 
-  console.log('JavaScript runtime: olá, throw localizado, syntax error, limite de saída, async (micro/timer/await), erro assíncrono, test runner (describe/it/expect/hooks), timeout, cancel e validações passaram.');
+  console.log('JavaScript runtime: olá, throw localizado, syntax error, limite de saída, async (micro/timer/await), erro assíncrono, test runner, módulos Node (process/path/events/Buffer), timeout, cancel e validações passaram.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
