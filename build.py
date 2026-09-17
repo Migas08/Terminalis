@@ -236,10 +236,11 @@ def build():
     modules = js_files()
     parts = [f"/* ==== {path.name} ==== */\n{path.read_text(encoding='utf-8')}" for path in modules]
     js = '\n;\n'.join(parts)
+    offline = os.environ.get("TERMINALIS_OFFLINE") == "1"
 
     # Os testes automatizados devem continuar independentes do projeto Supabase.
     # O site publicado não define esta variável e usa a configuração de nuvem normal.
-    if os.environ.get("TERMINALIS_OFFLINE") == "1":
+    if offline:
         js = (
             "globalThis.TERMINALIS_CONFIG = { supabase: { url: '', anonKey: '' } };\n"
             + js
@@ -250,6 +251,13 @@ def build():
         for path, gap in zip(css_files(), CSS_GAPS_AFTER)
     )
     html = (SRC / "75-shell.html").read_text(encoding="utf-8")
+    if offline:
+        # O SDK vem antes do bundle; só injetar a configuração offline no JS não
+        # impedia a requisição à CDN. Removê-la torna os testes realmente sem rede.
+        html = html.replace(
+            '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" crossorigin="anonymous" onerror="window.__supabaseIndisponivel=true"></script>',
+            '<script>window.__supabaseIndisponivel=true</script>',
+        )
 
     for k, v in ICONS.items():
         html = html.replace(k, v)

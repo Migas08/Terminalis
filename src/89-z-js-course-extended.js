@@ -72,7 +72,7 @@
       candidatos.sort((a, b) => pontuar(b.codigo, def.rules) - pontuar(a.codigo, def.rules));
       const melhor = candidatos[0] || { codigo: '' };
       const checks = [
-        [() => candidatos.length > 0, 'Crie um arquivo JavaScript próprio na aba <strong>JS</strong>.'],
+        [() => candidatos.length > 0, 'Crie um arquivo JavaScript próprio no <strong>Code Lab</strong>.'],
         [() => melhor.codigo.trim().length >= 24, 'O arquivo ainda está curto demais para resolver o comportamento pedido.'],
         [() => !/\bTODO\b|implemente o desafio/i.test(melhor.codigo), 'Remova o <code>TODO</code> e conclua a implementação.'],
         [() => estruturaBalanceada(melhor.codigo), 'Revise parênteses, colchetes, chaves e aspas: a estrutura está incompleta.']
@@ -104,7 +104,7 @@
       tasks: [
         {
           id: def.id + '-a', kind: 'guiado', title: 'Experimente o conceito',
-          body: [{ p: 'Digite o exemplo na aba <strong>JS</strong>, execute e explique a saída com suas palavras. Depois altere uma entrada e observe o que muda.' }],
+          body: [{ p: 'Abra o exemplo no <strong>Code Lab</strong>, execute e explique a saída com suas palavras. Depois altere uma entrada e observe o que muda.' }],
           hints: ['Leia a saída linha por linha e compare com o valor que você previa antes de rodar.']
         },
         {

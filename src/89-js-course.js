@@ -59,7 +59,7 @@
   });
 
   /* ---------------------------- utilitários das aulas JS ----------------------------
-     O aluno pratica no editor da aba JS: escreve arquivos .js em /home/aluno/js e
+     O aluno pratica no Code Lab: escreve arquivos .js em /home/aluno/js e
      roda. Os desafios são verificados pelo ESTADO desses arquivos (conteúdo real
      no VFS), nunca por execução — o mesmo verificador vale no navegador e nos
      testes de conteúdo. A solução oficial escreve o arquivo por um heredoc de
@@ -98,7 +98,7 @@
         return best;
       };
       const checks = [
-        [() => nomes().length > 0, dicaVazio || 'Escreva um programa novo na aba <strong>JS</strong> e clique em rodar.'],
+        [() => nomes().length > 0, dicaVazio || 'Escreva um programa novo no <strong>Code Lab</strong> e clique em Executar.'],
         [() => { const c = melhor(); return c != null && c.trim().length >= 24; }, 'O arquivo ainda está curto demais para demonstrar o comportamento pedido.'],
         [() => { const c = melhor(); return c != null && !/\bTODO\b|implemente/i.test(c); }, 'Remova o <code>TODO</code> e conclua a implementação.']
       ];
@@ -121,23 +121,23 @@
     body: [
       { h2: 'Linguagem, engine e host' },
       { p: 'JavaScript é a <strong>linguagem</strong>. Quem lê e executa suas instruções é uma <strong>engine</strong> (como a V8). E a engine sempre roda dentro de um <strong>host</strong> — um navegador ou o Node.js — que decide quais recursos existem ao redor do código.' },
-      { p: 'No Terminalis, seu código roda em uma <strong>sandbox isolada</strong>, fora da aplicação. Ele não enxerga a página, o seu progresso nem a rede: só o que a aula libera. Use a aba <strong>JS</strong>: ali você <strong>escreve o código no editor</strong> e clica em <strong>rodar</strong> — o programa é salvo como arquivo e o resultado aparece no console abaixo.' },
+      { p: 'No Terminalis, seu código roda em uma <strong>sandbox isolada</strong>, fora da aplicação. Ele não enxerga a página, o seu progresso nem a rede: só o que a aula libera. Use o <strong>Code Lab</strong>: ali você <strong>escreve o código no editor</strong> e clica em <strong>Executar</strong> — o programa é salvo como arquivo e o resultado aparece no console abaixo.' },
       { box: 'key', label: 'O que é real aqui', body: [
         { p: 'A execução é JavaScript de verdade: <code>console.log</code>, erros com linha e coluna e o encerramento de um laço infinito. Rede, arquivos e APIs do Node chegam nos módulos seguintes — quando não existirem, a aula avisa.' }
       ] },
       { h4: 'Um primeiro programa' },
-      { p: 'O editor da aba <strong>JS</strong> já começa com um exemplo de duas linhas:' },
+      { p: 'O editor do <strong>Code Lab</strong> já começa com um exemplo de duas linhas:' },
       { code: ["console.log('Olá, JavaScript');", 'console.log(2 + 2);'], lang: 'text', run: false },
-      { p: 'Clique em <strong>rodar</strong>: a primeira linha escreve um texto; a segunda mostra o resultado de <code>2 + 2</code>. Se errar o nome de algo (por exemplo <code>consele</code> no lugar de <code>console</code>), o console mostra o erro com a linha e a coluna — é assim que você acha o problema.' }
+      { p: 'Clique em <strong>Executar</strong>: a primeira linha escreve um texto; a segunda mostra o resultado de <code>2 + 2</code>. Se errar o nome de algo (por exemplo <code>consele</code> no lugar de <code>console</code>), o console mostra o erro com a linha e a coluna — é assim que você acha o problema.' }
     ],
     tasks: [
       {
         id: 'js1-1-a', kind: 'guiado', title: 'Rode o exemplo',
         body: [
-          { p: 'Abra a aba <strong>JS</strong>. O editor já traz o exemplo pronto. Clique em <strong>rodar</strong> e leia o console: uma linha com o texto e outra com o número <code>4</code>.' },
+          { p: 'Abra o <strong>Code Lab</strong>. O editor já traz o exemplo pronto. Clique em <strong>Executar</strong> e leia o console: uma linha com o texto e outra com o número <code>4</code>.' },
           { p: 'Depois, troque um caractere de propósito (por exemplo, escreva <code>consele</code>) e rode de novo para ver como o erro aparece. Volte a corrigir antes de seguir.' }
         ],
-        hints: ['O botão <em>rodar</em> fica no topo da aba JS. O resultado aparece no console, abaixo do editor.']
+        hints: ['O botão <em>Executar</em> fica na barra do Code Lab. O resultado aparece no console, abaixo do editor.']
       },
       {
         id: 'js1-1-q', kind: 'quiz', title: 'O que o console mostra?',
@@ -154,13 +154,13 @@
       {
         id: 'js1-1-b', kind: 'desafio', title: 'Escreva uma mensagem sua',
         body: [
-          { p: 'No editor da aba <strong>JS</strong>, troque o exemplo por um programa <strong>seu</strong>: use <code>console.log(...)</code> para escrever uma mensagem diferente de <code>Olá, JavaScript</code>. Clique em <strong>rodar</strong> — o editor salva o programa sozinho.' }
+          { p: 'No editor do <strong>Code Lab</strong>, troque o exemplo por um programa <strong>seu</strong>: use <code>console.log(...)</code> para escrever uma mensagem diferente de <code>Olá, JavaScript</code>. Clique em <strong>Executar</strong> — o editor salva o programa sozinho.' }
         ],
         hints: [
           'Apague a mensagem do exemplo e escreva a sua: <code>console.log(\'a sua mensagem aqui\')</code>.',
           'Ao rodar, o programa é salvo em <code>/home/aluno/js/rascunho.js</code>.'
         ],
-        solution: '<p>No editor da aba <strong>JS</strong>, escreva por exemplo <code>console.log(\'estou aprendendo JavaScript\')</code> e clique em <strong>rodar</strong>.</p><pre>$ echo "console.log(\'estou aprendendo JavaScript\');" &gt; /home/aluno/js/meu.js</pre>',
+        solution: '<p>No editor do <strong>Code Lab</strong>, escreva por exemplo <code>console.log(\'estou aprendendo JavaScript\')</code> e clique em <strong>Executar</strong>.</p><pre>$ echo "console.log(\'estou aprendendo JavaScript\');" &gt; /home/aluno/js/meu.js</pre>',
         check: async (ctx) => {
           const H = LX.H;
           const dir = '/home/aluno/js';
@@ -170,7 +170,7 @@
             return /console\.log\s*\(/.test(c) && !/Olá,\s*JavaScript/.test(c);
           });
           return H.checkAll([
-            [() => nomes().length > 0, 'Escreva um programa no editor da aba <strong>JS</strong> e clique em rodar.'],
+            [() => nomes().length > 0, 'Escreva um programa no editor do <strong>Code Lab</strong> e clique em Executar.'],
             [() => proprio(), 'Use <code>console.log(...)</code> com uma mensagem <strong>sua</strong>, diferente do exemplo <code>Olá, JavaScript</code>.']
           ]);
         }
@@ -203,11 +203,11 @@
       {
         id: 'js2-1-a', kind: 'guiado', title: 'Veja os tipos e a igualdade',
         body: [
-          { p: 'Na aba <strong>JS</strong>, rode este programa e leia cada linha do console:' },
+          { p: 'No <strong>Code Lab</strong>, execute este programa e leia cada linha do console:' },
           { code: ["console.log(typeof 42, typeof 'oi', typeof null);", "console.log(1 === 1, 1 === '1', 1 == '1');", "console.log(Boolean(''), Boolean('0'), Boolean([]));"], lang: 'js', run: false },
           { p: 'Repare: <code>typeof null</code> mostra <code>object</code>; <code>1 === \'1\'</code> é <code>false</code> mas <code>1 == \'1\'</code> é <code>true</code>; e <code>\'0\'</code> e <code>[]</code> são ambos verdadeiros.' }
         ],
-        hints: ['Escreva as três linhas no editor e clique em <em>rodar</em>. Compare o que você previu com o que apareceu.']
+        hints: ['Escreva as três linhas no editor e clique em <em>Executar</em>. Compare o que você previu com o que apareceu.']
       },
       {
         id: 'js2-1-q', kind: 'quiz', title: 'O que é falsy?',
@@ -224,7 +224,7 @@
       {
         id: 'js2-1-b', kind: 'desafio', title: 'Uma função que classifica valores',
         body: [
-          { p: 'No editor da aba <strong>JS</strong>, escreva uma função <code>tipoDe(valor)</code> que devolva o tipo do valor como texto, tratando <code>null</code> à parte (deve devolver <code>\'nulo\'</code>, não <code>\'object\'</code>). Use <code>typeof</code> e a igualdade estrita <code>===</code>. No fim, chame <code>console.log</code> mostrando o resultado para alguns valores diferentes.' }
+          { p: 'No editor do <strong>Code Lab</strong>, escreva uma função <code>tipoDe(valor)</code> que devolva o tipo do valor como texto, tratando <code>null</code> à parte (deve devolver <code>\'nulo\'</code>, não <code>\'object\'</code>). Use <code>typeof</code> e a igualdade estrita <code>===</code>. No fim, chame <code>console.log</code> mostrando o resultado para alguns valores diferentes.' }
         ],
         hints: [
           'Comece tratando o caso especial: <code>if (valor === null) return \'nulo\';</code>.',
@@ -237,7 +237,7 @@
           [/typeof\s/, 'Use <code>typeof</code> para descobrir o tipo do valor.'],
           [/===/, 'Trate o <code>null</code> com igualdade estrita: <code>valor === null</code>.'],
           [/console\.log/, 'Mostre o resultado com <code>console.log(...)</code>.']
-        ], 'Crie um arquivo na aba <strong>JS</strong> com a função <code>tipoDe</code> e clique em rodar.')
+        ], 'Crie um arquivo no <strong>Code Lab</strong> com a função <code>tipoDe</code> e clique em Executar.')
       }
     ]
   });
@@ -290,7 +290,7 @@
           [/const\s+\w+/, 'Declare pelo menos uma variável com <code>const</code>.'],
           [/let\s+\w+/, 'Declare pelo menos uma variável com <code>let</code>.'],
           [/console\.log/, 'Mostre os valores com <code>console.log(...)</code>.']
-        ], 'Crie um arquivo na aba <strong>JS</strong> com um <code>const</code> e um <code>let</code>.')
+        ], 'Crie um arquivo no <strong>Code Lab</strong> com um <code>const</code> e um <code>let</code>.')
       }
     ]
   });
@@ -315,7 +315,7 @@
           { p: 'Cole a fábrica <code>criarContador</code> acima no editor, crie um contador e chame-o algumas vezes. Veja que cada chamada devolve o próximo número — o estado sobrevive entre chamadas.' },
           { code: ['const c = criarContador();', 'console.log(c(), c(), c()); // 1 2 3'], lang: 'js', run: false }
         ],
-        hints: ['Cole a definição de <code>criarContador</code> e as duas linhas acima; clique em rodar.']
+        hints: ['Cole a definição de <code>criarContador</code> e as duas linhas acima; clique em Executar.']
       },
       {
         id: 'js3-1-q', kind: 'quiz', title: 'De onde vem o estado?',
@@ -417,7 +417,7 @@
         body: [
           { p: 'Rode o exemplo acima e confira: <code>pares</code> tem só os pares, <code>dobros</code> os dobra e <code>soma</code> junta tudo em um número. O array <code>nums</code> continua intacto.' }
         ],
-        hints: ['Cole as cinco linhas e clique em rodar. Some os pares na cabeça e compare.']
+        hints: ['Cole as cinco linhas e clique em Executar. Some os pares na cabeça e compare.']
       },
       {
         id: 'js5-1-q', kind: 'quiz', title: 'O que reduce devolve?',
@@ -457,7 +457,7 @@
     setup: semear(null),
     body: [
       { h2: 'Um arquivo, uma responsabilidade' },
-      { p: 'Um <strong>módulo</strong> é um arquivo que expõe parte do seu código com <code>export</code>; outro arquivo usa esse código com <code>import</code>. O que não é exportado fica privado ao arquivo. No laboratório, cada arquivo <code>.js</code> da aba JS é um módulo.' },
+      { p: 'Um <strong>módulo</strong> é um arquivo que expõe parte do seu código com <code>export</code>; outro arquivo usa esse código com <code>import</code>. O que não é exportado fica privado ao arquivo. No Code Lab, cada arquivo <code>.js</code> é um módulo.' },
       { code: ['// matematica.js', 'export function somar(a, b) {', '  return a + b;', '}'], lang: 'js', run: false },
       { code: ["// principal.js", "import { somar } from './matematica.js';", "console.log(somar(2, 3)); // 5"], lang: 'js', run: false },
       { box: 'note', label: 'Caminho relativo', body: [
@@ -468,7 +468,7 @@
       {
         id: 'js6-1-a', kind: 'guiado', title: 'Crie dois arquivos e ligue-os',
         body: [
-          { p: 'Use a faixa de arquivos da aba <strong>JS</strong> (o botão <code>+</code>) para criar <code>matematica.js</code> com um <code>export</code>. Depois, no arquivo principal, <code>import</code>e a função e rode. O resultado do módulo aparece no console.' }
+          { p: 'Use a faixa de arquivos do <strong>Code Lab</strong> (o botão <code>+</code>) para criar <code>matematica.js</code> com um <code>export</code>. Depois, no arquivo principal, <code>import</code>e a função e execute. O resultado do módulo aparece no console.' }
         ],
         hints: ['Crie <code>matematica.js</code> com <code>export function somar...</code>; no principal, <code>import { somar } from \'./matematica.js\';</code> e rode.']
       },
@@ -486,7 +486,7 @@
       {
         id: 'js6-1-b', kind: 'desafio', title: 'Um módulo e quem o usa',
         body: [
-          { p: 'Crie <strong>dois arquivos</strong> na aba JS: um módulo que <code>export</code>a ao menos uma função, e outro que a <code>import</code>a por caminho relativo (<code>./</code>) e a usa com <code>console.log</code>. Rode o arquivo que importa.' }
+          { p: 'Crie <strong>dois arquivos</strong> no Code Lab: um módulo que <code>export</code>a ao menos uma função, e outro que a <code>import</code>a por caminho relativo (<code>./</code>) e a usa com <code>console.log</code>. Execute o arquivo que importa.' }
         ],
         hints: [
           'No módulo: <code>export function somar(a, b) { return a + b; }</code>.',
@@ -527,7 +527,7 @@
         body: [
           { p: 'Rode o exemplo acima. O console mostra <code>antes</code>, espera ~10ms e então <code>depois</code>. A execução só é considerada concluída quando a Promise resolve.' }
         ],
-        hints: ['Cole as linhas do exemplo e clique em rodar. Observe a pausa entre as duas mensagens.']
+        hints: ['Cole as linhas do exemplo e clique em Executar. Observe a pausa entre as duas mensagens.']
       },
       {
         id: 'js7-1-q', kind: 'quiz', title: 'O que await faz?',
@@ -683,7 +683,7 @@
           { p: 'Cole a classe <code>Repositorio</code>, crie uma instância, salve um registro com um id e busque-o de volta. O valor recuperado deve ser o mesmo que você guardou.' },
           { code: ['const repo = new Repositorio();', "repo.salvar(1, { nome: 'Ana' });", 'console.log(repo.buscar(1));'], lang: 'js', run: false }
         ],
-        hints: ['Cole a classe e as três linhas acima; clique em rodar.']
+        hints: ['Cole a classe e as três linhas acima; clique em Executar.']
       },
       {
         id: 'js10-1-q', kind: 'quiz', title: 'Por que esconder o Map?',
@@ -734,7 +734,7 @@
         body: [
           { p: 'Cole o exemplo e rode. O console mostra o teste passando. Agora troque <code>toBe(5)</code> por <code>toBe(6)</code> e rode de novo: veja como um teste que falha é reportado. Volte para <code>5</code>.' }
         ],
-        hints: ['O runner de testes já vem embutido: basta usar <code>describe</code>, <code>it</code> e <code>expect</code> e clicar em rodar.']
+        hints: ['O runner de testes já vem embutido: basta usar <code>describe</code>, <code>it</code> e <code>expect</code> e clicar em Executar.']
       },
       {
         id: 'js11-1-q', kind: 'quiz', title: 'O que expect verifica?',

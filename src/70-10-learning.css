@@ -206,6 +206,7 @@ code {
 }
 .code-btn:hover { color: var(--green); border-color: var(--green-line); }
 .code-btn svg { width: 12px; height: 12px; }
+.code-open-editor { padding-inline: 9px; }
 
 /* --- caixas --- */
 .box { border: 1px solid var(--line); border-left: 3px solid var(--line-strong); border-radius: 0 var(--r) var(--r) 0; padding: 13px 15px; margin: 0 0 16px; background: var(--surface-2); font-size: 14.5px; }

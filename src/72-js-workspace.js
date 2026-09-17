@@ -14,7 +14,7 @@
   const JSW = {};
   const PROJ = '/home/aluno/js';
   const PADRAO = PROJ + '/rascunho.js';
-  const MODELO = "// Escreva JavaScript e clique em rodar.\nconsole.log('Olá, JavaScript');\n";
+  const MODELO = "// Escreva JavaScript e clique em Executar.\nconsole.log('Olá, JavaScript');\n";
   const MODELO_NOVO = "// Novo arquivo.\n";
   // Arquivos de código que a aba JS reconhece: JavaScript e TypeScript.
   const RE_JS = /\.(mjs|cjs|js|ts|mts|cts)$/i;
@@ -27,6 +27,7 @@
   let running = false;
   let bound = false;
   let salvarTimer = null;
+  let machineRef = null;
 
   const RAIZ = '/home/aluno';
 
@@ -51,16 +52,37 @@
     return {
       fs: {
         readFile: (p) => sh().m.fs.readFile(resolverVfs(p), sh().fsopts()),
-        writeFile: (p, d) => { const full = resolverVfs(p); sh().m.fs.mkdirp(dirName(full), sh().fsopts()); sh().m.fs.writeFile(full, String(d), sh().fsopts()); return true; },
+        writeFile: (p, d) => {
+          const full = resolverVfs(p);
+          sh().m.fs.mkdirp(dirName(full), sh().fsopts());
+          sh().m.fs.writeFile(full, String(d), sh().fsopts());
+          marcarWorkspaceSujo();
+          return true;
+        },
         readdir: (p) => (sh().m.fs.readdir(resolverVfs(p), sh().fsopts()) || []).filter(n => typeof n === 'string'),
-        mkdir: (p) => { sh().m.fs.mkdirp(resolverVfs(p), sh().fsopts()); return true; },
+        mkdir: (p) => { sh().m.fs.mkdirp(resolverVfs(p), sh().fsopts()); marcarWorkspaceSujo(); return true; },
         stat: (p) => { const s = sh().m.fs.stat(resolverVfs(p), sh().fsopts()); return { type: s.type, size: s.size, mode: s.mode & 0o7777, isDirectory: s.type === 'dir', isFile: s.type === 'file' }; }
       }
     };
   }
 
+  function resetarContextoDaMachine() {
+    if (salvarTimer) { clearTimeout(salvarTimer); salvarTimer = null; }
+    if (runner && sessionId) runner.dispose(sessionId);
+    sessionId = runner ? runner.createSession() : null;
+    entry = null;
+    runId = null;
+    setRunning(false);
+    const ed = editorEl(); if (ed) ed.value = '';
+    const out = consoleEl(); if (out) out.innerHTML = '';
+  }
+
   function ensure(a) {
-    app = a || app;
+    const proximaApp = a || app;
+    const proximaMachine = proximaApp && proximaApp.term && proximaApp.term.sh ? proximaApp.term.sh.m : null;
+    if (machineRef && proximaMachine && proximaMachine !== machineRef) resetarContextoDaMachine();
+    app = proximaApp;
+    machineRef = proximaMachine;
     if (!runner) {
       runner = LX.JS.createRunner({ transport: LX.JS.Sandbox.createBrowserTransport(), capabilities: fsCapabilities() });
       runner.subscribe(onEvent);
@@ -74,20 +96,31 @@
     const run = $('#js-run'); if (run) run.onclick = () => JSW.run();
     const cancel = $('#js-cancel'); if (cancel) cancel.onclick = () => JSW.cancel();
     const clear = $('#js-clear'); if (clear) clear.onclick = () => JSW.clear();
+    const save = $('#js-save'); if (save) save.onclick = () => salvar(true);
     const ed = $('#js-editor');
     if (ed) {
       // Salva o buffer no VFS com debounce, para o programa persistir mesmo sem rodar.
-      ed.addEventListener('input', () => { clearTimeout(salvarTimer); salvarTimer = setTimeout(salvar, 700); });
+      ed.addEventListener('input', agendarSalvar);
+      ed.addEventListener('scroll', () => { const g = $('#js-gutter'); if (g) g.scrollTop = ed.scrollTop; });
+      for (const ev of ['click', 'keyup', 'select']) ed.addEventListener(ev, atualizarCursor);
       // Tab insere dois espaços em vez de mudar o foco — é um editor de código.
       ed.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+          e.preventDefault(); salvar(true); return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault(); JSW.run(); return;
+        }
         if (e.key === 'Tab') {
           e.preventDefault();
           const s = ed.selectionStart, t = ed.selectionEnd;
           ed.value = ed.value.slice(0, s) + '  ' + ed.value.slice(t);
           ed.selectionStart = ed.selectionEnd = s + 2;
+          ed.dispatchEvent(new Event('input'));
         }
       });
     }
+    bindPaneResizer();
   }
 
   function editorEl() { return $('#js-editor'); }
@@ -96,6 +129,7 @@
   function append(cls, text, locText) {
     const el = consoleEl();
     if (!el) return;
+    const empty = el.querySelector('.js-empty'); if (empty) empty.remove();
     const line = document.createElement('div');
     line.className = 'js-line ' + cls;
     line.textContent = text;
@@ -113,6 +147,8 @@
     running = value;
     const run = $('#js-run'); if (run) run.disabled = value;
     const cancel = $('#js-cancel'); if (cancel) cancel.disabled = !value;
+    const state = $('#js-run-state'); if (state) state.textContent = value ? 'executando…' : 'pronto';
+    const label = $('#js-run-label'); if (label) label.textContent = value ? 'Executando' : 'Executar';
   }
 
   function locationOf(payload) {
@@ -151,21 +187,89 @@
     return LX.FileSystem && LX.FileSystem.dirname ? LX.FileSystem.dirname(path) : path.replace(/\/[^/]*$/, '') || '/';
   }
 
+  function marcarWorkspaceSujo() {
+    if (LX.Sync && typeof LX.Sync.marcarSujo === 'function') LX.Sync.marcarSujo('workspace');
+  }
+
+  function agendarSalvar() {
+    statusSalvar('salvando…', true);
+    atualizarEditorUI();
+    clearTimeout(salvarTimer);
+    salvarTimer = setTimeout(salvar, 700);
+  }
+
   function setEntry(path) {
     entry = path || PADRAO;
     const el = $('#js-entry');
     if (el) el.textContent = baseName(entry);
+    const lang = $('#js-lang-state');
+    if (lang) lang.textContent = /\.(ts|mts|cts)$/i.test(entry) ? 'TypeScript' : 'JavaScript';
+  }
+
+  function statusSalvar(text, pendente) {
+    const el = $('#js-save-state');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('pending', !!pendente);
+  }
+
+  function atualizarCursor() {
+    const ed = editorEl(), out = $('#js-cursor-state');
+    if (!ed || !out) return;
+    const antes = ed.value.slice(0, ed.selectionStart).split('\n');
+    out.textContent = 'Ln ' + antes.length + ', Col ' + (antes[antes.length - 1].length + 1);
+  }
+
+  function atualizarEditorUI() {
+    const ed = editorEl(), gutter = $('#js-gutter');
+    if (!ed) return;
+    if (gutter) {
+      const total = Math.max(1, ed.value.split('\n').length);
+      gutter.textContent = Array.from({ length: total }, (_, i) => i + 1).join('\n');
+      gutter.scrollTop = ed.scrollTop;
+    }
+    atualizarCursor();
+  }
+
+  function bindPaneResizer() {
+    const handle = $('#js-pane-resizer'), pane = $('#js-editor-pane'), shell = $('.js-shell');
+    if (!handle || !pane || !shell) return;
+    const aplicar = (y) => {
+      const r = shell.getBoundingClientRect();
+      const top = pane.getBoundingClientRect().top;
+      const max = Math.max(150, r.bottom - top - 150);
+      pane.style.flexBasis = Math.max(110, Math.min(max, y - top)) + 'px';
+    };
+    handle.addEventListener('pointerdown', e => {
+      e.preventDefault(); handle.setPointerCapture(e.pointerId); handle.classList.add('dragging');
+    });
+    handle.addEventListener('pointermove', e => { if (handle.hasPointerCapture(e.pointerId)) aplicar(e.clientY); });
+    handle.addEventListener('pointerup', e => { if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId); handle.classList.remove('dragging'); });
+    handle.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      aplicar(pane.getBoundingClientRect().bottom + (e.key === 'ArrowDown' ? 24 : -24));
+    });
   }
 
   /* Grava o conteúdo do editor no VFS (cria o diretório se preciso). */
-  function salvar() {
+  function salvar(manual) {
+    if (salvarTimer) { clearTimeout(salvarTimer); salvarTimer = null; }
     if (!app || !entry) return;
     const ed = editorEl();
     if (!ed) return;
     const sh = app.term.sh;
     try {
+      let atual = null;
+      try { atual = sh.m.fs.readFile(entry, sh.fsopts()); } catch (error) { atual = null; }
+      if (atual === ed.value) {
+        statusSalvar(manual ? 'salvo agora' : 'salvo localmente', false);
+        return;
+      }
       sh.m.fs.mkdirp(dirName(entry), sh.fsopts());
       sh.m.fs.writeFile(entry, ed.value, sh.fsopts());
+      marcarWorkspaceSujo();
+      statusSalvar(manual ? 'salvo agora' : 'salvo localmente', false);
     } catch (error) { /* sem permissão de escrita: silencioso, o run reporta */ }
   }
 
@@ -178,6 +282,8 @@
     try { conteudo = app.term.sh.m.fs.readFile(entry, app.term.sh.fsopts()); }
     catch (error) { conteudo = null; }
     ed.value = conteudo != null ? conteudo : MODELO;
+    atualizarEditorUI();
+    statusSalvar('salvo localmente', false);
   }
 
   /* ---------- barra de arquivos do projeto (estilo editor multi-arquivo) ----------
@@ -245,7 +351,10 @@
         sh.m.fs.mkdirp(projDir(), sh.fsopts());
         let existe = false;
         try { sh.m.fs.lstat(full, sh.fsopts()); existe = true; } catch (error) { existe = false; }
-        if (!existe) sh.m.fs.writeFile(full, MODELO_NOVO, sh.fsopts());
+        if (!existe) {
+          sh.m.fs.writeFile(full, MODELO_NOVO, sh.fsopts());
+          marcarWorkspaceSujo();
+        }
       } catch (error) { renderArquivos(); return; }
       salvar();
       carregar(full);
@@ -268,6 +377,7 @@
         if (ocupado) { renderArquivos(); return; }
         if (full === entry) salvar();
         sh.m.fs.rename(full, alvo, sh.fsopts());
+        marcarWorkspaceSujo();
       } catch (error) { renderArquivos(); return; }
       if (full === entry) carregar(alvo);
       renderArquivos();
@@ -280,7 +390,7 @@
     const sh = app.term.sh;
     const nomes = listarArquivos();
     if (nomes.length <= 1) return;
-    try { sh.m.fs.rmrf(full, sh.fsopts()); } catch (error) { return; }
+    try { sh.m.fs.rmrf(full, sh.fsopts()); marcarWorkspaceSujo(); } catch (error) { return; }
     if (full === entry) {
       const resta = listarArquivos();
       carregar(resta.length ? projDir() + '/' + resta[0] : PADRAO);
@@ -342,6 +452,7 @@
     ensure(a);
     const ed = editorEl();
     if (ed && !ed.value && !entry) carregar(PADRAO);
+    atualizarEditorUI();
     renderArquivos();
   };
 
@@ -352,6 +463,23 @@
     renderArquivos();
     if (app && typeof app.switchTab === 'function') app.switchTab('js');
     JSW.run();
+  };
+
+  /* Leva um exemplo da aula ao editor sem executá-lo automaticamente. */
+  JSW.openSnippet = function (a, code) {
+    ensure(a);
+    if (!entry) setEntry(PADRAO);
+    const ed = editorEl();
+    if (!ed) return;
+    ed.value = String(code || '').replace(/\n$/, '');
+    ed.selectionStart = ed.selectionEnd = 0;
+    atualizarEditorUI();
+    statusSalvar('salvando…', true);
+    clearTimeout(salvarTimer);
+    salvarTimer = setTimeout(salvar, 700);
+    renderArquivos();
+    if (app && typeof app.switchTab === 'function') app.switchTab('js');
+    ed.focus();
   };
 
   /* Reúne os arquivos de código sob o diretório do projeto, com caminho relativo
@@ -384,6 +512,10 @@
   /* Entrega os arquivos ao runner e dispara a execução na sandbox. */
   function iniciar(files, entryName) {
     try {
+      /* Cada execução recebe o retrato atual do projeto. Reusar a sessão faria
+         arquivos excluídos ou renomeados sobreviverem no mapa interno. */
+      if (sessionId) runner.dispose(sessionId);
+      sessionId = runner.createSession();
       runner.putFiles(sessionId, files);
       setRunning(true);
       runId = runner.run(sessionId, entryName);
@@ -428,9 +560,15 @@
     if (runner && runId) runner.cancel(runId);
   };
 
+  /* Força o buffer pendente para o VFS antes de logout/reload; marcarSujo cria
+     o cache síncrono e o Sync decide se também deve enviar ao Supabase. */
+  JSW.flush = function () {
+    salvar();
+  };
+
   JSW.clear = function () {
     const el = consoleEl();
-    if (el) el.innerHTML = '';
+    if (el) el.innerHTML = '<div class="js-empty"><span>&gt;_</span><p>A saída, os erros e os testes aparecem aqui.</p></div>';
   };
 
   LX.JSWorkspace = JSW;

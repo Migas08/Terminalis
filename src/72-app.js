@@ -271,6 +271,7 @@
         if (!e.target.closest('.conta-wrap')) $('#conta-menu').classList.add('hidden');
       });
       $$('.sp-tab').forEach(t => t.onclick = () => this.switchTab(t.dataset.tab));
+      this.bindWorkspaceResizer();
       $('#btn-reset-term').onclick = () => this.resetEnvironment();
       $('#btn-new-term').onclick = () => { this.term.clear(); this.term.prompt(); this.term.focus(); };
       const notes = $('#notes-area');
@@ -285,6 +286,28 @@
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && document.body.classList.contains('rail-open')) document.body.classList.remove('rail-open');
         if ((e.ctrlKey || e.metaKey) && e.key === '`') { e.preventDefault(); this.switchTab('term'); this.term.focus(); }
+      });
+    }
+
+    bindWorkspaceResizer() {
+      const handle = $('#workspace-resizer'), body = $('#body');
+      if (!handle || !body) return;
+      const aplicar = (x) => {
+        if (!document.body.classList.contains('lab-code')) return;
+        const r = body.getBoundingClientRect();
+        const pct = Math.max(28, Math.min(62, ((x - r.left) / r.width) * 100));
+        body.style.setProperty('--lesson-pct', pct.toFixed(1) + '%');
+      };
+      handle.addEventListener('pointerdown', e => {
+        e.preventDefault(); handle.setPointerCapture(e.pointerId); handle.classList.add('dragging');
+      });
+      handle.addEventListener('pointermove', e => { if (handle.hasPointerCapture(e.pointerId)) aplicar(e.clientX); });
+      handle.addEventListener('pointerup', e => { if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId); handle.classList.remove('dragging'); });
+      handle.addEventListener('keydown', e => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        const atual = parseFloat(getComputedStyle(body).getPropertyValue('--lesson-pct')) || 40;
+        body.style.setProperty('--lesson-pct', Math.max(28, Math.min(62, atual + (e.key === 'ArrowRight' ? 2 : -2))) + '%');
       });
     }
 
@@ -340,7 +363,7 @@
     /* ----------------------------- barra lateral ----------------------------- */
     /* Os "cursos" de topo da barra lateral: as trilhas principais de estudo. */
     cursosPrincipais() {
-      return ['linux', 'docker', 'git', 'ops']
+      return ['linux', 'docker', 'git', 'js', 'ops']
         .map(id => LX.trilhaPorId(id))
         .filter(t => t && (t.mods || []).some(mid => {
           const m = this.course.modules.find(x => x.id === mid);
@@ -372,7 +395,7 @@
         const st = LX.Progressao ? LX.Progressao.status(t.id, Progress.data) : { liberada: true };
         const bloqueada = !st.liberada;
         const ativa = t.id === trilhaAtiva && (this.route.view === 'lesson' || this.route.view === 'curso');
-        return `<button class="sb-curso ${ativa ? 'active' : ''}" data-curso="${t.id}">
+        return `<button class="sb-curso ${ativa ? 'active' : ''}" data-curso="${t.id}" title="${esc(t.nome)}">
           <span class="sb-curso-ic c-${t.cor}">${bloqueada ? ICON.lock : t.icone}</span>
           <span class="sb-curso-body">
             <span class="sb-curso-nm">${esc(t.nome)}</span>
@@ -395,6 +418,15 @@
       // No curso de JavaScript o painel é o editor JS; o terminal Linux não
       // serve à aula, então some. Fora do curso, o inverso.
       const emCursoJs = emAula && this.trilhaId === 'js';
+      document.body.classList.toggle('lab-code', emCursoJs);
+      document.body.classList.toggle('lab-terminal', emAula && !emCursoJs);
+      const tipoLab = $('#lab-kind');
+      if (tipoLab) {
+        tipoLab.classList.toggle('hidden', !emAula);
+        tipoLab.textContent = emCursoJs ? 'Code Lab' : 'Terminal Lab';
+      }
+      const mobileLab = $('.mobile-tabs [data-m="term"] span');
+      if (mobileLab) mobileLab.textContent = emCursoJs ? 'Código' : 'Terminal';
       const abaJs = $('.sp-tab[data-tab="js"]');
       const abaTerm = $('.sp-tab[data-tab="term"]');
       if (abaJs) abaJs.classList.toggle('hidden', !emCursoJs);
@@ -667,6 +699,12 @@
         const pre = b.closest('.code').querySelector('pre');
         const text = Array.from(pre.querySelectorAll('.cmdline')).map(x => x.dataset.cmd).join('\n') || pre.textContent;
         this.copyText(text);
+      });
+      $$('.code-btn[data-open-editor]').forEach(b => b.onclick = () => {
+        const pre = b.closest('.code').querySelector('pre');
+        if (!pre || !LX.JSWorkspace || typeof LX.JSWorkspace.openSnippet !== 'function') return;
+        LX.JSWorkspace.openSnippet(this, pre.textContent);
+        this.toast('Exemplo aberto no Code Lab');
       });
       $$('[data-task]').forEach(el => this.wireTask(el));
     }

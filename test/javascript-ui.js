@@ -62,6 +62,34 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     assert.equal(await page.locator('.sp-tab[data-tab="js"]').isVisible(), true, 'aba JS visível no curso JS');
     assert.equal(await page.locator('.sp-tab[data-tab="term"]').isVisible(), false, 'terminal escondido no curso JS');
     assert.equal(await page.locator('#js-editor').isVisible(), true, 'o editor é o painel padrão no curso JS');
+    assert.ok(await page.locator('body').evaluate(el => el.classList.contains('lab-code')), 'curso JS ativa a experiência Code Lab');
+    assert.equal(await page.locator('#lab-kind').textContent(), 'Code Lab', 'topbar identifica o tipo de laboratório');
+    assert.equal(await page.locator('#js-save').isVisible(), true, 'Code Lab oferece ação explícita de salvar');
+    assert.equal(await page.locator('#workspace-resizer').isVisible(), true, 'aula e Code Lab podem ser redimensionados no desktop');
+    assert.match(await page.locator('#sb-cursos').innerText(), /JavaScript/, 'JavaScript aparece na navegação principal de cursos');
+
+    const openExample = page.locator('[data-open-editor]').first();
+    assert.equal(await openExample.isVisible(), true, 'exemplos da aula podem ser abertos no editor');
+    await openExample.click();
+    assert.match(await page.locator('#js-editor').inputValue(), /Olá, JavaScript/, 'exemplo da aula chega ao Code Lab');
+
+    await page.fill('#js-editor', 'const um = 1;\nconst dois = 2;\nconsole.log(um + dois);');
+    await page.waitForFunction(() => document.querySelector('#js-gutter').textContent.trim().endsWith('3'));
+    assert.equal((await page.locator('#js-gutter').innerText()).trim(), '1\n2\n3', 'editor mostra numeração de linhas sincronizada');
+
+    /* Provider em memória no mesmo caminho usado pelo Supabase: prova que uma
+       alteração feita só no editor agenda o snapshot remoto, sem comando no terminal. */
+    await page.evaluate(() => {
+      window.__workspaceRemoto = null;
+      LX.Store.provider = {
+        async saveWorkspace(uid, doc) {
+          window.__workspaceRemoto = { uid, doc };
+          return { ok: true, revision: Number(doc.baseRevision || 0) + 1 };
+        }
+      };
+      LX.Store.modo = 'supabase';
+      LX.Sync.iniciar(__app);
+    });
 
     /* ---------- programar no editor e rodar ---------- */
     await runEditor(page, "console.log('Olá', 1 + 1, { a: [1, 2] });\nconsole.warn('cuidado');");
@@ -74,6 +102,22 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     /* o programa foi salvo como arquivo no laboratório */
     const salvo = await page.evaluate(() => __app.term.sh.m.fs.readFile('/home/aluno/js/rascunho.js', __app.term.sh.fsopts()));
     assert.match(salvo, /console\.log\('Olá'/, 'o editor salvou o código no VFS');
+    await page.waitForFunction(() => window.__workspaceRemoto !== null, null, { timeout: 5000 });
+    const salvoNaNuvem = await page.evaluate(() => {
+      const restaurado = LX.Workspace.importState(window.__workspaceRemoto.doc.snapshot);
+      return restaurado.machine.fs.readFile('/home/aluno/js/rascunho.js');
+    });
+    assert.match(salvoNaNuvem, /console\.log\('Olá'/, 'o editor agenda e envia o workspace pelo provider Supabase');
+
+    /* Logout/reload pode ocorrer antes dos 700 ms do autosave. capturarAgora
+       força esse buffer para o VFS e para o provider antes de encerrar. */
+    await page.fill('#js-editor', "console.log('buffer imediato');");
+    await page.evaluate(async () => { window.__workspaceRemoto = null; await LX.Sync.capturarAgora(); });
+    const bufferCapturado = await page.evaluate(() => {
+      const restaurado = LX.Workspace.importState(window.__workspaceRemoto.doc.snapshot);
+      return restaurado.machine.fs.readFile('/home/aluno/js/rascunho.js');
+    });
+    assert.match(bufferCapturado, /buffer imediato/, 'capturarAgora inclui o buffer ainda dentro do debounce');
 
     /* ---------- assíncrono real no navegador: promise + timer drenam antes do fim ---------- */
     await runEditor(page, [
@@ -117,6 +161,12 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     await page.waitForFunction(() => ![...document.querySelectorAll('#js-files .js-file-name')].some(b => b.textContent === 'util.js'));
     const utilApagado = await page.evaluate(() => { try { __app.term.sh.m.fs.readFile('/home/aluno/js/util.js', __app.term.sh.fsopts()); return true; } catch (e) { return false; } });
     assert.equal(utilApagado, false, 'o arquivo excluído sumiu do VFS');
+    // a próxima execução usa um retrato novo; o módulo apagado não pode sobreviver na sessão
+    await page.evaluate(() => LX.JSWorkspace.clear());
+    await page.click('#js-run');
+    await waitConsole(page, 'Módulo não encontrado');
+    text = await consoleText(page);
+    assert.match(text, /\.\/util\.js/, 'o runner não reutiliza um módulo removido de uma execução anterior');
 
     /* ---------- módulos Node embutidos no editor ---------- */
     await runEditor(page, "const path = require('path');\nconsole.log('base', path.basename('/a/b/c.js'), 'plataforma', process.platform);");
@@ -226,6 +276,16 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     await waitConsole(page, 'concluído');
     const salvoTs = await page.evaluate(() => __app.term.sh.m.fs.readFile('/home/aluno/js/soma.ts', __app.term.sh.fsopts()));
     assert.match(salvoTs, /: number/, 'o arquivo .ts guarda o código com tipos no VFS');
+
+    /* ---------- navegação responsiva entre aula e Code Lab ---------- */
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.locator('.mobile-tabs [data-m="term"] span').textContent(), 'Código', 'atalho móvel identifica o Code Lab');
+    assert.equal(await page.locator('#workspace-resizer').isVisible(), false, 'divisor de desktop não aparece no celular');
+    await page.click('.mobile-tabs [data-m="term"]');
+    assert.equal(await page.locator('#side-panel').isVisible(), true, 'atalho Código abre o Code Lab no celular');
+    assert.equal(await page.locator('#lesson-panel').isVisible(), false, 'a aula sai de cena enquanto o Code Lab está aberto');
+    await page.click('.mobile-tabs [data-m="lesson"]');
+    assert.equal(await page.locator('#lesson-panel').isVisible(), true, 'atalho Aula retorna ao conteúdo');
 
     assert.deepEqual(errors, [], 'nenhum erro de página');
     console.log('JavaScript UI: aba condicional ao curso, editor multi-arquivo (criar/alternar/excluir), async, test runner, módulos ESM, TypeScript compilado e rodando, erro localizado, isolamento de realm, timeout com UI viva e ação rodar do preview passaram.');
