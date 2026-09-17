@@ -635,6 +635,7 @@
       const all = this.allLessons();
       const prev = idx > 0 ? all[idx - 1] : null;
       const next = idx < all.length - 1 ? all[idx + 1] : null;
+      const lessonBody = lesson.brief || lesson.body || [];
 
       let html = `<div class="doc">
         <div class="doc-top">
@@ -646,12 +647,18 @@
         <h1 class="title">${esc(lesson.title)}</h1>`;
       if (lesson.goal) html += `<p class="lede">${lesson.goal}</p>`;
       /* "O que você vai aprender" — a partir dos títulos de seção da aula */
-      const pontos = lesson.objectives || (lesson.body || []).filter(b => b && b.h2).map(b => String(b.h2).replace(/<[^>]+>/g, '').trim()).filter(Boolean).slice(0, 5);
+      const pontos = lesson.objectives || lessonBody.filter(b => b && b.h2).map(b => String(b.h2).replace(/<[^>]+>/g, '').trim()).filter(Boolean).slice(0, 5);
       if (pontos.length >= 2) {
         html += `<div class="learn-box"><div class="learn-tt">${ICON.bulb} O que você vai aprender</div>
           <ul class="learn-list">${pontos.map(p => `<li>${ICON.check}<span>${esc(p)}</span></li>`).join('')}</ul></div>`;
       }
-      html += LX.renderBlocks(lesson.body || [], this);
+      html += LX.renderBlocks(lessonBody, this);
+      if (lesson.brief && (lesson.body || []).length) {
+        html += `<details class="lesson-deep-dive">
+          <summary>Ver explicação completa <span>opcional</span></summary>
+          <div class="lesson-deep-dive-body">${LX.renderBlocks(lesson.body, this)}</div>
+        </details>`;
+      }
       for (const t of (lesson.tasks || [])) html += this.renderTask(t);
       html += `</div>`;
       $('#page').innerHTML = html;

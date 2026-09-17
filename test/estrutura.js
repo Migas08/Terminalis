@@ -21,6 +21,14 @@ for (const mod of LX.COURSE.modules) {
     const ts = l.tasks || [];
     const kinds = ts.map(t => t.kind);
     let erro = null;
+    if (l.brief) {
+      const palavras = JSON.stringify(l.brief)
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/[^A-Za-zÀ-ÿ0-9]+/g, ' ')
+        .trim().split(/\s+/).filter(Boolean).length;
+      if (!Array.isArray(l.brief) || !l.brief.length) erro = 'o resumo direto está vazio';
+      else if (palavras > 220) erro = `o resumo direto tem ${palavras} palavras (máximo: 220)`;
+    }
     if (ts.length !== 3) erro = `tem ${ts.length} tarefa(s): ${kinds.join(', ') || '(nenhuma)'}`;
     else {
       for (let i = 0; i < 3; i++) {
