@@ -47,8 +47,9 @@ const DIST = path.join(__dirname, '../dist/terminalis.html');
     const pageTxt = await page.evaluate(() => document.querySelector('#page').innerText);
     assert.ok(pageTxt.includes('O que executa JavaScript'), 'título do módulo 01');
     assert.ok(pageTxt.includes('Assíncrono, event loop'), 'título do módulo 07');
+    /* todos os módulos agora têm ao menos uma aula: nenhum fica "em breve" */
     const emBreve = (pageTxt.match(/em breve/gi) || []).length;
-    assert.ok(emBreve >= 8, 'vários módulos marcados como em breve (' + emBreve + ')');
+    assert.equal(emBreve, 0, 'todos os módulos da trilha JS têm aula (nenhum "em breve")');
 
     /* cores neutras também nesta página */
     const colors = await page.evaluate(() => [...document.querySelectorAll('#app *')].flatMap(e => {
@@ -72,7 +73,7 @@ const DIST = path.join(__dirname, '../dist/terminalis.html');
     assert.ok(consoleTxt.includes('4'), 'a saída mostra 2 + 2 = 4');
 
     assert.deepEqual(errors, [], 'nenhum erro de página');
-    console.log('JavaScript course: trilha visível, ' + emBreve + ' módulos em breve, cores neutras e aula-piloto rodando no playground.');
+    console.log('JavaScript course: trilha visível com todos os módulos com aula, cores neutras e aula-piloto rodando no playground.');
   } finally {
     if (browser) await browser.close();
     server.close();

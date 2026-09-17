@@ -47,6 +47,7 @@ JS_GROUPS = (
         "39-js-protocol.js",
         "39-js-runner.js",
         "39-js-sandbox.js",
+        "39-js-typescript.js",
     )),
     ("motor Docker", (
         "40-docker.js",

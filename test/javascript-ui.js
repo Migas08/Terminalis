@@ -96,9 +96,59 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     await waitConsole(page, 'dobro de 21 é 42');
     await waitConsole(page, 'concluído');
 
+    /* ---------- editor multi-arquivo: criar, alternar e importar entre arquivos ---------- */
+    await page.evaluate(() => LX.JSWorkspace.onShow(__app));           // garante a faixa desenhada
+    await page.click('#js-file-new');                                 // botão "+"
+    await page.fill('.js-file-input', 'util.js');
+    await page.press('.js-file-input', 'Enter');
+    await page.waitForFunction(() => [...document.querySelectorAll('#js-files .js-file-name')].some(b => b.textContent === 'util.js'));
+    assert.equal(await page.locator('#js-files .js-file.active .js-file-name').textContent(), 'util.js', 'o arquivo recém-criado fica ativo');
+    await page.fill('#js-editor', 'export const soma = function (a, b) { return a + b; };\n');
+    // alternar de aba salva o arquivo inativo no VFS
+    await page.locator('#js-files .js-file-name', { hasText: 'rascunho.js' }).click();
+    assert.equal(await page.locator('#js-files .js-file.active .js-file-name').textContent(), 'rascunho.js', 'clicar em outra aba troca o arquivo ativo');
+    const utilSalvo = await page.evaluate(() => __app.term.sh.m.fs.readFile('/home/aluno/js/util.js', __app.term.sh.fsopts()));
+    assert.match(utilSalvo, /export const soma/, 'o arquivo aberto antes foi salvo no VFS ao alternar');
+    // importar do arquivo criado pela interface
+    await runEditor(page, "import { soma } from './util.js';\nconsole.log('soma', soma(2, 3));");
+    await waitConsole(page, 'soma 5');
+    // excluir um arquivo pela faixa e conferir que sumiu do VFS
+    await page.click('.js-file-x[title="Excluir util.js"]');
+    await page.waitForFunction(() => ![...document.querySelectorAll('#js-files .js-file-name')].some(b => b.textContent === 'util.js'));
+    const utilApagado = await page.evaluate(() => { try { __app.term.sh.m.fs.readFile('/home/aluno/js/util.js', __app.term.sh.fsopts()); return true; } catch (e) { return false; } });
+    assert.equal(utilApagado, false, 'o arquivo excluído sumiu do VFS');
+
     /* ---------- módulos Node embutidos no editor ---------- */
     await runEditor(page, "const path = require('path');\nconsole.log('base', path.basename('/a/b/c.js'), 'plataforma', process.platform);");
     await waitConsole(page, 'base c.js plataforma browser');
+
+    /* ---------- fs sobre o VFS por capability ---------- */
+    await runEditor(page, [
+      "const fs = require('fs');",
+      "async function main() {",
+      "  await fs.promises.writeFile('anotacao.txt', 'salvo pelo aluno');",
+      "  const c = await fs.promises.readFile('anotacao.txt');",
+      "  console.log('conteudo:', c);",
+      "}",
+      "main();"
+    ].join('\n'));
+    await waitConsole(page, 'conteudo: salvo pelo aluno');
+    const gravado = await page.evaluate(() => __app.term.sh.m.fs.readFile('/home/aluno/js/anotacao.txt', __app.term.sh.fsopts()));
+    assert.equal(gravado, 'salvo pelo aluno', 'fs.writeFile persistiu no VFS');
+
+    /* rede negada por padrão no editor (nenhuma capability fetch) */
+    await runEditor(page, "fetch('https://exemplo.com').then(function () { console.log('CONECTOU'); }, function (e) { console.log('rede:', e.message); });");
+    await waitConsole(page, 'rede:');
+    text = await consoleText(page);
+    assert.ok(!/CONECTOU/.test(text), 'sem rede real');
+    assert.match(text, /negada/i, 'fetch negado por padrão');
+
+    /* fuga de path é barrada */
+    await runEditor(page, "require('fs').promises.readFile('../../../etc/passwd').then(function () { console.log('VAZOU'); }, function (e) { console.log('bloqueado:', e.message); });");
+    await waitConsole(page, 'bloqueado:');
+    text = await consoleText(page);
+    assert.ok(!/VAZOU/.test(text), 'não vazou arquivo fora da área');
+    assert.match(text, /fora da área permitida/, 'escape de path barrado');
 
     /* ---------- test runner no editor ---------- */
     await runEditor(page, [
@@ -149,8 +199,36 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     await page.locator('#fb-prev-run').click();
     await waitConsole(page, 'Olá, JavaScript');
 
+    /* ---------- TypeScript: compila (compilador injetado) e roda na sandbox ----------
+       O compilador real é carregado de uma CDN em produção; aqui injetamos um
+       compilador de mentira que remove as anotações de tipo, para provar toda a
+       ligação editor → transpilação → execução isolada sem depender de rede. */
+    await page.evaluate(() => {
+      LX.JS.TypeScript.configureLoader(() => ({
+        ModuleKind: { ESNext: 99 }, ScriptTarget: { ES2020: 7 },
+        flattenDiagnosticMessageText: (m) => String(m),
+        transpileModule(source) {
+          return { outputText: String(source).replace(/:\s*(number|string|boolean)\b/g, ''), diagnostics: [] };
+        }
+      }));
+      LX.JSWorkspace.clear();
+      __app.switchTab('js');
+      LX.JSWorkspace.onShow(__app);
+    });
+    await page.click('#js-file-new');
+    await page.fill('.js-file-input', 'soma.ts');
+    await page.press('.js-file-input', 'Enter');
+    await page.waitForFunction(() => [...document.querySelectorAll('#js-files .js-file-name')].some(b => b.textContent === 'soma.ts'));
+    await page.fill('#js-editor', "const soma = (a: number, b: number): number => a + b;\nconsole.log('soma', soma(2, 3));");
+    await page.click('#js-run');
+    await waitConsole(page, 'compilando TypeScript');
+    await waitConsole(page, 'soma 5');
+    await waitConsole(page, 'concluído');
+    const salvoTs = await page.evaluate(() => __app.term.sh.m.fs.readFile('/home/aluno/js/soma.ts', __app.term.sh.fsopts()));
+    assert.match(salvoTs, /: number/, 'o arquivo .ts guarda o código com tipos no VFS');
+
     assert.deepEqual(errors, [], 'nenhum erro de página');
-    console.log('JavaScript UI: aba condicional ao curso, editor que salva arquivo, async, test runner, módulos ESM, erro localizado, isolamento de realm, timeout com UI viva e ação rodar do preview passaram.');
+    console.log('JavaScript UI: aba condicional ao curso, editor multi-arquivo (criar/alternar/excluir), async, test runner, módulos ESM, TypeScript compilado e rodando, erro localizado, isolamento de realm, timeout com UI viva e ação rodar do preview passaram.');
   } finally {
     if (browser) await browser.close();
     server.close();
