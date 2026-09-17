@@ -425,6 +425,12 @@ h1.title { font-size: 32px; font-weight: 680; letter-spacing: -.03em; line-heigh
 .doc strong { font-weight: 620; color: #ffffff; }
 .doc hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
 
+.lesson-deep-dive { margin: 22px 0 28px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2); }
+.lesson-deep-dive summary { cursor: pointer; padding: 13px 16px; color: var(--tx-2); font-size: 13px; font-weight: 600; list-style-position: inside; }
+.lesson-deep-dive summary span { margin-left: 6px; color: var(--tx-3); font-family: var(--f-mono); font-size: 10px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+.lesson-deep-dive-body { padding: 0 18px 18px; border-top: 1px solid var(--line); }
+.lesson-deep-dive-body > :first-child { margin-top: 18px; }
+
 code {
   font-family: var(--f-mono); font-size: .87em;
   background: var(--surface-3); border: 1px solid var(--line);
@@ -24921,6 +24927,12 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   LX.lesson('m01', {
     id: 'l1-1', n: '1.1', title: 'O que é Linux, de verdade',
     goal: 'Separar três coisas que quase sempre se misturam: o kernel, a distribuição e o shell. Sem isso, tudo o que vem depois vira decoreba.',
+    brief: [
+      { h2: 'O necessário' },
+      { p: '<strong>Linux</strong> é o kernel: ele controla CPU, memória, discos e processos. A <strong>distribuição</strong> junta esse kernel com programas e um gerenciador de pacotes. O <strong>shell</strong> interpreta os comandos que você digita.' },
+      { code: ['$ uname -r', '$ cat /etc/os-release'] },
+      { p: '<code>uname -r</code> mostra o kernel. <code>/etc/os-release</code> identifica a distribuição. Você só precisa distinguir essas duas respostas antes de seguir.' }
+    ],
     body: [
       { h2: 'O kernel é só o miolo' },
       { p: 'Estritamente falando, <strong>Linux é um kernel</strong> — um programa que fica entre o hardware e o resto do software. Ele foi publicado por Linus Torvalds em 1991 e continua sendo desenvolvido até hoje.' },
@@ -25076,6 +25088,12 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   LX.lesson('m01', {
     id: 'l1-2', n: '1.2', title: 'Terminal, shell e a anatomia de um comando',
     goal: 'Entender o que acontece entre você apertar Enter e o resultado aparecer — e aprender a ler qualquer comando, mesmo os que você nunca viu.',
+    brief: [
+      { h2: 'Leia qualquer comando' },
+      { p: 'O <strong>terminal</strong> é a interface onde você digita. O <strong>shell</strong> é o programa que interpreta a linha. Um comando costuma ter esta forma: <code>programa opções argumentos</code>.' },
+      { code: ['$ ls -lah /etc', '$ ls --help', '$ man ls'] },
+      { p: 'Em <code>ls -lah /etc</code>, <code>ls</code> é o programa, <code>-lah</code> reúne opções e <code>/etc</code> é o argumento. Quando não souber uma opção, consulte <code>--help</code> ou <code>man</code>.' }
+    ],
     body: [
       { h2: 'Terminal não é shell' },
       { p: 'Mais uma confusão comum, e vale desfazer agora:' },
@@ -25242,6 +25260,12 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   LX.lesson('m01', {
     id: 'l1-3', n: '1.3', title: 'A árvore de diretórios',
     goal: 'Entender por que o Linux não tem C: nem D:, o que é a raiz / e como o FHS torna qualquer servidor Linux previsível.',
+    brief: [
+      { h2: 'Uma árvore começa em /' },
+      { p: 'No Linux, arquivos e discos aparecem em uma única árvore. A raiz é <code>/</code>. Um disco adicional é montado em um diretório, como <code>/mnt/backup</code>, em vez de receber uma letra.' },
+      { code: ['$ ls /'] },
+      { p: 'Os diretórios seguem um padrão: configurações em <code>/etc</code>, usuários em <code>/home</code>, dados variáveis em <code>/var</code> e programas em <code>/usr</code>. Por enquanto, reconheça a raiz e esses quatro destinos.' }
+    ],
     body: [
       { h2: 'Uma única árvore' },
       { p: 'No Windows, cada disco ganha uma letra e vira uma árvore separada. No Linux existe <strong>uma árvore só</strong>, que começa em <code>/</code> — a raiz. Todo o resto pendura nela.' },
@@ -25379,6 +25403,12 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   LX.lesson('m01', {
     id: 'l1-4', n: '1.4', title: 'Caminhos: absolutos, relativos e atalhos',
     goal: 'Nunca mais se perder. Depois desta aula você sabe exatamente para onde um caminho aponta antes mesmo de apertar Enter.',
+    brief: [
+      { h2: 'Descubra de onde o caminho parte' },
+      { p: 'Caminho <strong>absoluto</strong> começa com <code>/</code> e sempre parte da raiz. Caminho <strong>relativo</strong> parte do diretório atual, mostrado por <code>pwd</code>.' },
+      { code: ['$ pwd', '$ cd /var/log', '$ cd ..', '$ cd ~', '$ cd -'] },
+      { p: '<code>.</code> significa o diretório atual, <code>..</code> sobe um nível, <code>~</code> representa seu diretório pessoal e <code>cd -</code> volta ao diretório anterior.' }
+    ],
     body: [
       { h2: 'Duas formas de dizer onde algo está' },
       { p: 'Todo caminho no Linux é <strong>absoluto</strong> ou <strong>relativo</strong>, e a diferença é uma só: <strong>começa com <code>/</code> ou não</strong>.' },
@@ -25507,6 +25537,17 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   LX.lesson('m01', {
     id: 'l1-5', n: '1.5', title: 'Os diretórios do sistema, um por um',
     goal: 'Saber o que existe dentro de /etc, /var, /usr e /opt — e por que você vai passar boa parte da sua vida de administrador nesses quatro lugares.',
+    brief: [
+      { h2: 'Quatro lugares para lembrar' },
+      { ul: [
+        '<code>/etc</code>: configurações do sistema e dos serviços.',
+        '<code>/var</code>: dados que mudam, como logs e caches.',
+        '<code>/usr</code>: programas, bibliotecas e arquivos compartilhados.',
+        '<code>/opt</code>: aplicações instaladas fora do gerenciador de pacotes.'
+      ] },
+      { code: ['$ cat /etc/hosts', '$ ls /var/log', '$ which ls', '$ du -sh /var/log'] },
+      { p: 'Você não precisa decorar cada subdiretório. Saiba escolher onde procurar configuração, log, programa ou aplicação externa.' }
+    ],
     body: [
       { h2: '/etc — a sala de controle' },
       { p: 'Tudo o que configura o comportamento do sistema mora aqui, em <strong>arquivos de texto puro</strong>. Não há registro binário, não há banco de configurações: você abre com um editor, muda uma linha, reinicia o serviço.' },
@@ -25666,6 +25707,12 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   LX.lesson('m01', {
     id: 'l1-6', n: '1.6', title: '/proc, /sys e /dev: o kernel como arquivo',
     goal: 'Conhecer os três diretórios que não existem no disco — e usar isso para inspecionar a máquina sem instalar nada.',
+    brief: [
+      { h2: 'Estado do sistema como arquivos' },
+      { p: '<code>/proc</code> e <code>/sys</code> são gerados pelo kernel em memória. <code>/proc</code> expõe processos e métricas; <code>/sys</code>, dispositivos e drivers. <code>/dev</code> contém interfaces para dispositivos.' },
+      { code: ['$ cat /proc/uptime', '$ cat /proc/meminfo', '$ cat /sys/class/net/eth0/address', '$ ls -l /dev/null /dev/vda'] },
+      { p: 'Esses caminhos permitem inspecionar a máquina com ferramentas comuns como <code>cat</code> e <code>ls</code>. Eles parecem arquivos normais, mas representam estado do kernel.' }
+    ],
     body: [
       { h2: 'Diretórios que são mentira (do bom tipo)' },
       { p: 'Se você desligar a máquina e olhar o disco, não vai encontrar <code>/proc</code> nem <code>/sys</code>. Eles são <strong>sistemas de arquivos virtuais</strong>: existem apenas na memória e são gerados pelo kernel <em>no momento em que você lê</em>.' },
@@ -25808,6 +25855,11 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   LX.lesson('m02', {
     id: 'l2-1', n: '2.1', title: 'Navegar: pwd, ls e cd',
     goal: 'Os três comandos que você mais vai digitar na vida. Aqui eles deixam de ser "olhar a pasta" e viram uma ferramenta de investigação.',
+    brief: [
+      { p: '<code>pwd</code> mostra onde você está, <code>ls</code> lista o conteúdo e <code>cd</code> troca de diretório. Antes de alterar ou apagar algo, confirme o caminho com <code>pwd</code> e veja os arquivos com <code>ls -lah</code>.' },
+      { code: ['$ pwd', '$ ls -lah', '$ cd ~/projetos', '$ cd -'] },
+      { p: 'Use <code>ls -lt</code> para colocar os itens mais recentes primeiro. Caminhos iniciados por <code>/</code> são absolutos; os demais partem do diretório atual. <code>cd -</code> volta ao diretório anterior.' }
+    ],
     body: [
       { cmd: 'pwd' },
       { p: 'Responde a única pergunta que importa antes de qualquer comando destrutivo: <strong>onde eu estou?</strong> Sem opções relevantes, sem surpresas.' },
@@ -26023,6 +26075,11 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   LX.lesson('m02', {
     id: 'l2-2', n: '2.2', title: 'Criar: mkdir e touch',
     goal: 'Criar estruturas de diretórios inteiras em um comando e entender o que o touch realmente faz (não é "criar arquivo").',
+    brief: [
+      { p: '<code>mkdir</code> cria diretórios. Com <code>-p</code>, ele também cria os diretórios intermediários e não falha se eles já existirem. <code>touch</code> cria um arquivo vazio quando ele não existe; se existir, apenas atualiza suas datas.' },
+      { code: ['$ mkdir -p app/{src,tests,docs}', '$ touch app/README.md', '$ ls -R app'] },
+      { p: 'Para montar estruturas em scripts, prefira <code>mkdir -p</code>. Antes de usar <code>touch</code> em um arquivo existente, lembre que a data de modificação será alterada.' }
+    ],
     body: [
       { cmd: 'mkdir' },
       { p: '<em>Make directory</em>. Cria um diretório vazio.' },
@@ -26187,6 +26244,11 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   LX.lesson('m02', {
     id: 'l2-3', n: '2.3', title: 'Ler arquivos: cat, less, head e tail',
     goal: 'Escolher a ferramenta certa para cada tamanho de arquivo — e nunca mais travar o terminal tentando dar cat em um log de 2 GB.',
+    brief: [
+      { p: 'Escolha pelo tamanho e pela parte que interessa: <code>cat</code> mostra um arquivo pequeno inteiro; <code>less</code> permite navegar e buscar em arquivos grandes; <code>head</code> mostra o começo; <code>tail</code> mostra o fim.' },
+      { code: ['$ less /var/log/syslog', '$ head -n 5 arquivo.csv', '$ tail -n 20 app.log', '$ tail -f app.log'] },
+      { p: 'Use <code>tail -f</code> para acompanhar novas linhas de um log em tempo real e pressione <code>Ctrl+C</code> para sair. Evite <code>cat</code> em arquivos grandes.' }
+    ],
     body: [
       { p: 'Ler arquivo é a operação mais frequente na administração de sistemas. Existem quatro comandos e a escolha entre eles depende de uma única pergunta: <strong>quanto do arquivo você precisa ver?</strong>' },
       {
@@ -26344,6 +26406,11 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
   LX.lesson('m02', {
     id: 'l2-4', n: '2.4', title: 'Copiar e mover: cp e mv',
     goal: 'Dominar as duas operações que mais causam acidentes — e entender por que renomear e mover são a mesma coisa no Linux.',
+    brief: [
+      { p: '<code>cp ORIGEM DESTINO</code> copia arquivos; para diretórios, use <code>cp -r</code>. <code>mv</code> move um item ou o renomeia quando origem e destino ficam no mesmo diretório.' },
+      { code: ['$ cp -i config.ini config.backup.ini', '$ cp -r site site-backup', '$ mv rascunho.txt relatorio.txt'] },
+      { p: 'Um destino existente pode ser sobrescrito. Enquanto estiver aprendendo, use <code>-i</code> para pedir confirmação e confira origem e destino com <code>ls</code> antes da operação.' }
+    ],
     body: [
       { cmd: 'cp' },
       { p: 'Copia. A forma é sempre <code>cp ORIGEM DESTINO</code>.' },
@@ -26514,6 +26581,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m02', {
     id: 'l2-5', n: '2.5', title: 'Apagar sem se arrepender: rm e rmdir',
     goal: 'Aprender o comando mais perigoso do Linux junto com os hábitos que impedem você de destruir um servidor às três da manhã.',
+    brief: [
+      { p: '<code>rm</code> apaga arquivos sem passar pela lixeira. <code>rmdir</code> remove apenas diretórios vazios. Para apagar uma árvore, <code>rm</code> exige <code>-r</code>, o que torna a conferência do caminho essencial.' },
+      { code: ['$ ls -lah ./temporarios', '$ rm -i ./temporarios/rascunho.txt', '$ rmdir ./temporarios'] },
+      { p: 'Antes de apagar, rode <code>pwd</code> e <code>ls</code> no destino. Prefira caminhos explícitos e <code>-i</code> durante o aprendizado. Use <code>rmdir</code> quando a pasta deveria estar vazia: ele falha se ainda houver conteúdo.' }
+    ],
     body: [
       {
         box: 'warn', label: 'Leia antes de tudo', body: [
@@ -26669,6 +26741,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m02', {
     id: 'l2-6', n: '2.6', title: 'Investigar: file, stat, tree, which, whereis e type',
     goal: 'Descobrir o que é um arquivo sem abri-lo, e descobrir exatamente qual programa o shell vai executar quando você digita um nome.',
+    brief: [
+      { p: '<code>file</code> identifica o tipo real pelo conteúdo; <code>stat</code> mostra tamanho, dono, permissões e datas; <code>tree</code> exibe a hierarquia de uma pasta.' },
+      { code: ['$ file relatorio', '$ stat relatorio', '$ type ls', '$ which python3'] },
+      { p: 'Para descobrir o que o shell executará, prefira <code>type</code>: ele reconhece aliases, funções, comandos internos e programas. <code>which</code> procura executáveis no <code>PATH</code>; <code>whereis</code> também busca páginas de manual e caminhos relacionados.' }
+    ],
     body: [
       { h2: 'O que é este arquivo?' },
       { cmd: 'file' },
@@ -26826,6 +26903,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m02', {
     id: 'l2-7', n: '2.7', title: 'Histórico, ajuda e o fluxo de trabalho',
     goal: 'Parar de redigitar. Aproveitar tudo o que você já escreveu e transformar o terminal numa ferramenta rápida.',
+    brief: [
+      { p: '<code>history</code> mostra comandos anteriores. A seta para cima recupera os mais recentes e <code>Ctrl+R</code> busca por um trecho. Revise sempre a linha recuperada antes de executá-la.' },
+      { code: ['$ history 10', '$ history | grep docker', '$ comando1 && comando2', '$ echo $?'] },
+      { p: '<code>&&</code> executa o segundo comando apenas se o primeiro funcionar; <code>||</code>, apenas se falhar; <code>;</code>, sempre. <code>$?</code> contém o código de saída do último comando: zero indica sucesso.' }
+    ],
     body: [
       { cmd: 'history' },
       { p: 'O Bash guarda tudo o que você digita. Por padrão, mil comandos na memória e dois mil no arquivo <code>~/.bash_history</code>.' },
@@ -27015,6 +27097,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m03', {
     id: 'l3-1', n: '4.1', title: 'grep: encontrar a agulha',
     goal: 'O comando que transforma um log de meio milhão de linhas em três linhas relevantes. Depois desta aula você vai usá-lo todo dia.',
+    brief: [
+      { p: '<code>grep PADRÃO ARQUIVO</code> imprime as linhas que contêm o padrão. Ele diferencia maiúsculas de minúsculas; use <code>-i</code> para ignorar isso, <code>-n</code> para ver os números das linhas e <code>-r</code> para buscar em uma pasta.' },
+      { code: ['$ grep -in "erro" app.log', '$ grep -rn "porta=8080" ./config'] },
+      { p: '<code>-v</code> mostra as linhas que não casam e <code>-C 3</code> inclui três linhas de contexto antes e depois. Coloque padrões com espaços ou símbolos entre aspas.' }
+    ],
     body: [
       { p: 'O nome vem de um comando do editor <code>ed</code>: <code>g/re/p</code> — <em>globally search a regular expression and print</em>. Ele faz exatamente isso: procura um padrão e imprime as linhas que casam.' },
       { code: ['$ grep erro /var/log/app/erro.log', '$ grep ERROR /var/log/app/erro.log'] },
@@ -27168,6 +27255,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m03', {
     id: 'l3-2', n: '4.2', title: 'Expressões regulares na prática',
     goal: 'Aprender o suficiente de regex para ser perigoso — sem virar um curso de regex. Só o que você realmente usa no terminal.',
+    brief: [
+      { p: 'Regex descreve padrões dentro do texto. <code>^</code> marca o início da linha, <code>$</code> o fim, <code>.</code> aceita um caractere e classes como <code>[0-9]</code> aceitam um conjunto.' },
+      { code: ['$ grep -E "^ERROR|^WARN" app.log', '$ grep -E "[0-9]{3}" codigos.txt'] },
+      { p: 'Com <code>grep -E</code>, use <code>+</code> para uma ou mais repetições, <code>?</code> para zero ou uma e <code>{n}</code> para uma quantidade exata. Regex e o curinga <code>*</code> do shell têm regras diferentes.' }
+    ],
     body: [
       { p: 'Uma expressão regular é um padrão que descreve um conjunto de textos. Você já usou um parente delas: o <em>glob</em> do shell. Regex é mais expressiva e funciona <strong>dentro</strong> das linhas, não em nomes de arquivo.' },
       {
@@ -27358,6 +27450,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m03', {
     id: 'l3-3', n: '4.3', title: 'find: encontrar arquivos por critério',
     goal: 'Localizar arquivos por nome, tamanho, data, dono ou permissão — e executar ações em massa sobre o que encontrar.',
+    brief: [
+      { p: '<code>find ONDE CRITÉRIOS</code> procura arquivos e diretórios. Combine <code>-type f</code> para arquivos, <code>-type d</code> para pastas, <code>-name</code> para nome, <code>-size</code> para tamanho e <code>-mtime</code> para data.' },
+      { code: ['$ find . -type f -name "*.log"', '$ find /var/log -type f -size +10M', '$ find . -type f -mtime -7'] },
+      { p: 'Coloque padrões como <code>*.log</code> entre aspas para o shell não expandi-los antes do <code>find</code>. Vários critérios na mesma linha precisam ser verdadeiros ao mesmo tempo.' }
+    ],
     body: [
       { p: 'Se o <code>grep</code> procura <em>dentro</em> dos arquivos, o <code>find</code> procura <em>os</em> arquivos. A forma geral é:' },
       { code: ['find ONDE CRITÉRIOS AÇÃO'], run: false, mixed: false, lang: 'text' },
@@ -27538,6 +27635,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m03', {
     id: 'l3-4', n: '4.4', title: 'Recortar e resumir: cut, sort, uniq, tr e wc',
     goal: 'Cinco ferramentas pequenas que, combinadas, respondem quase qualquer pergunta sobre um arquivo de dados.',
+    brief: [
+      { p: '<code>cut</code> seleciona campos, <code>sort</code> ordena, <code>uniq</code> agrupa linhas repetidas, <code>tr</code> troca caracteres e <code>wc</code> conta. O valor aparece quando você conecta essas ferramentas com pipes.' },
+      { code: ['$ cut -d, -f3 servidores.csv | sort | uniq -c | sort -rn', '$ wc -l app.log'] },
+      { p: 'Use <code>sort -n</code> para números. Como <code>uniq</code> reconhece apenas repetições adjacentes, normalmente ele vem depois de <code>sort</code>. Em CSV complexo, com vírgulas entre aspas, essas ferramentas simples não bastam.' }
+    ],
     body: [
       { p: 'A filosofia Unix em uma frase: <em>programas pequenos que fazem uma coisa bem e se encaixam</em>. Este é o kit de encaixe.' },
 
@@ -27724,6 +27826,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m03', {
     id: 'l3-5', n: '4.5', title: 'sed: editar sem abrir o arquivo',
     goal: 'Substituir texto em massa, apagar linhas e transformar arquivos por script — a ferramenta que automatiza o "abre e troca".',
+    brief: [
+      { p: '<code>sed</code> transforma texto linha por linha. A forma mais usada é <code>s/procurar/trocar/</code>; a flag <code>g</code> troca todas as ocorrências da linha. Sem <code>-i</code>, o arquivo original não muda.' },
+      { code: ['$ sed "s/8080/9090/g" app.conf', '$ sed "/^#/d" app.conf'] },
+      { p: 'Primeiro confira a saída na tela. Só depois use <code>sed -i.bak</code> para editar o arquivo e criar uma cópia de segurança. Quando o texto contém barras, outro separador deixa o comando mais legível: <code>s|/antigo|/novo|</code>.' }
+    ],
     body: [
       { p: '<code>sed</code> é o <em>stream editor</em>: ele lê linha por linha, aplica um comando e imprime o resultado. Por padrão <strong>não altera o arquivo</strong> — só mostra na tela o que sairia.' },
 
@@ -27932,6 +28039,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m03', {
     id: 'l3-6', n: '4.6', title: 'awk: a linguagem das colunas',
     goal: 'Processar dados tabulares com condições, cálculos e relatórios — em uma linha de comando.',
+    brief: [
+      { p: '<code>awk</code> lê cada linha, separa campos e executa uma ação. <code>$1</code> é o primeiro campo, <code>$NF</code> o último, <code>NR</code> o número da linha e <code>-F</code> define o separador.' },
+      { code: ['$ awk -F, \'NR > 1 {print $1, $5}\' servidores.csv', '$ awk -F, \'$5 > 8 {print $1}\' servidores.csv'] },
+      { p: 'A forma geral é <code>awk \'condição { ação }\' arquivo</code>. Sem uma ação, as linhas que passam pela condição são impressas. Use <code>BEGIN</code> para preparar valores e <code>END</code> para imprimir totais.' }
+    ],
     body: [
       { p: 'O <code>awk</code> é uma linguagem de programação completa disfarçada de comando. Mas você não precisa aprender a linguagem inteira: <strong>cinco construções resolvem quase tudo</strong>.' },
       { p: 'A ideia central: o awk lê linha por linha, quebra cada linha em <strong>campos</strong> e executa um bloco de código para cada linha.' },
@@ -28136,6 +28248,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m03', {
     id: 'l3-7', n: '4.7', title: 'Comparar e distribuir: diff, cmp, tee e xargs',
     goal: 'Fechar o kit de texto: comparar versões, gravar e mostrar ao mesmo tempo, e transformar listas em comandos.',
+    brief: [
+      { p: '<code>diff -u</code> mostra diferenças de texto; <code>cmp</code> compara byte a byte; <code>tee</code> exibe uma saída e também a grava; <code>xargs</code> transforma a entrada em argumentos de outro comando.' },
+      { code: ['$ diff -u app.conf app.conf.novo', '$ comando | tee resultado.txt', '$ find scripts -type f -print0 | xargs -0 chmod +x'] },
+      { p: 'Use o par <code>-print0</code> e <code>xargs -0</code> quando nomes podem conter espaços. Antes de executar uma ação em massa, troque temporariamente o comando final por <code>printf</code> ou <code>echo</code> e confira a lista.' }
+    ],
     body: [
       { cmd: 'diff' },
       { p: 'Mostra as diferenças entre dois arquivos. É como você descobre "o que mudou desde ontem?" em uma configuração.' },
@@ -28347,6 +28464,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m04', {
     id: 'l4-1', n: '3.1', title: 'Os três canais: stdin, stdout e stderr',
     goal: 'Entender o modelo que sustenta todo o resto do terminal. Depois desta aula, redirecionamento deixa de ser decoreba e vira consequência.',
+    brief: [
+      { p: 'Todo comando recebe dados por <code>stdin</code> (canal 0), devolve o resultado por <code>stdout</code> (canal 1) e envia mensagens de erro por <code>stderr</code> (canal 2). O terminal mostra as duas saídas, mas elas continuam separadas.' },
+      { code: ['$ ls /etc /naoexiste > saida.txt 2> erros.txt', '$ cat saida.txt', '$ cat erros.txt'] },
+      { p: 'Essa separação permite guardar ou encadear o resultado sem misturá-lo com falhas. Nos redirecionamentos, o número indica qual canal será alterado.' }
+    ],
     body: [
       { p: 'Todo processo no Linux nasce com três canais de comunicação já abertos. Eles são numerados, e é esse número que aparece nos comandos que você vai escrever.' },
       {
@@ -28500,6 +28622,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m04', {
     id: 'l4-2', n: '3.2', title: 'Redirecionar a saída: > e >>',
     goal: 'Gravar resultados em arquivos sem esquecer que um dos dois operadores apaga tudo antes de escrever.',
+    brief: [
+      { p: '<code>&gt;</code> envia a saída normal para um arquivo, criando-o ou apagando seu conteúdo anterior. <code>&gt;&gt;</code> acrescenta a nova saída no final. O shell prepara o arquivo antes de executar o comando.' },
+      { code: ['$ echo "primeira linha" > relatorio.txt', '$ echo "segunda linha" >> relatorio.txt', '$ cat relatorio.txt'] },
+      { p: 'Não use o mesmo arquivo como entrada e destino com <code>&gt;</code>, como em <code>sort dados.txt &gt; dados.txt</code>: ele será esvaziado antes da leitura. Use um arquivo temporário ou uma opção própria do comando.' }
+    ],
     body: [
       { cmd: '>' },
       { p: 'Manda o <strong>canal 1</strong> para um arquivo. Se o arquivo não existe, cria. Se existe, <strong>esvazia primeiro</strong>.' },
@@ -28657,6 +28784,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m04', {
     id: 'l4-3', n: '3.3', title: 'Erros: 2>, 2>&1 e /dev/null',
     goal: 'Dominar a notação que mais confunde iniciantes — e entender por que a ordem dos redirecionamentos muda o resultado.',
+    brief: [
+      { p: '<code>2&gt; erros.log</code> grava apenas o canal de erro. <code>2&gt;/dev/null</code> o descarta. Para guardar saída e erro juntos, primeiro redirecione o canal 1 e depois aponte o 2 para ele.' },
+      { code: ['$ comando > tudo.log 2>&1', '$ find /etc -name "*.conf" 2>/dev/null'] },
+      { p: 'A ordem é aplicada da esquerda para a direita. Em <code>comando 2&gt;&amp;1 &gt; tudo.log</code>, o erro continua na tela porque o canal 2 copiou o destino antigo do canal 1. No Bash, <code>&amp;&gt; tudo.log</code> é o atalho para juntar ambos.' }
+    ],
     body: [
       { h2: 'Descartar erros' },
       { p: 'Comandos que percorrem o sistema quase sempre esbarram em diretórios sem permissão, e enchem a tela de "Permission denied". Como o que interessa é o resultado, manda-se o canal 2 para o buraco:' },
@@ -28816,6 +28948,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m04', {
     id: 'l4-4', n: '3.4', title: 'Entrada: <, << e <<<',
     goal: 'Alimentar comandos com dados de arquivos, blocos de texto ou strings — sem depender do teclado.',
+    brief: [
+      { p: '<code>&lt;</code> faz um comando ler de um arquivo. <code>&lt;&lt;</code> inicia um heredoc, um bloco com várias linhas. <code>&lt;&lt;&lt;</code> envia uma única string pela entrada padrão.' },
+      { code: ['$ wc -l < dados.txt', '$ grep erro <<< "erro ao conectar"'] },
+      { p: 'Em um heredoc, o bloco termina quando o delimitador aparece sozinho em uma linha. Use um delimitador entre aspas, como <code>&lt;&lt; \'EOF\'</code>, quando quiser preservar variáveis e substituições como texto literal.' }
+    ],
     body: [
       { cmd: '<' },
       { p: 'Aponta o <strong>canal 0</strong> para um arquivo: o comando lê dali em vez de esperar você digitar.' },
@@ -29008,6 +29145,11 @@ cat ~/limpar.sh
   LX.lesson('m04', {
     id: 'l4-5', n: '3.5', title: 'Pipes: a ideia central do Unix',
     goal: 'Encaixar comandos como peças de encanamento — e entender o que acontece por baixo quando você digita uma barra vertical.',
+    brief: [
+      { p: 'O pipe <code>|</code> liga o <code>stdout</code> do comando à esquerda ao <code>stdin</code> do comando à direita. Assim você resolve um problema em etapas pequenas, sem criar arquivos intermediários.' },
+      { code: ['$ cut -d, -f3 servidores.csv | sort | uniq -c | sort -rn', '$ grep ERROR app.log | wc -l'] },
+      { p: 'Monte e confira o pipeline uma etapa por vez. Mensagens em <code>stderr</code> não entram no pipe por padrão. Comandos como <code>grep</code>, <code>sort</code> e <code>wc</code> leem stdin; comandos como <code>rm</code> esperam argumentos.' }
+    ],
     body: [
       { p: 'O pipe <code>|</code> conecta o <strong>stdout</strong> de um comando ao <strong>stdin</strong> do próximo. Só isso. E é a partir dessa regra simples que surge quase todo o poder do terminal.' },
       {
@@ -29183,6 +29325,11 @@ cat ~/limpar.sh
   LX.lesson('m05', {
     id: 'l5-1', n: '5.1', title: 'O modelo: dono, grupo e outros',
     goal: 'Ler qualquer linha de ls -l sem hesitar e entender por que o mesmo bit significa coisas diferentes em arquivos e em diretórios.',
+    brief: [
+      { p: '<code>ls -l</code> mostra três blocos de permissões: dono, grupo e outros. Em cada bloco, <code>r</code> permite ler, <code>w</code> escrever e <code>x</code> executar. O kernel usa apenas a primeira classe que corresponde ao usuário.' },
+      { code: ['$ ls -l /etc/passwd', '$ stat -c "%A %U %G %n" /etc/passwd'] },
+      { p: 'Em diretórios, <code>r</code> lista nomes, <code>w</code> altera entradas e <code>x</code> permite atravessar o caminho. Apagar um arquivo depende da permissão do diretório que o contém, não do próprio arquivo.' }
+    ],
     body: [
       { lede: 'Linux não pergunta "você tem permissão?". Ele pergunta "quem é você em relação a este arquivo?" — e a resposta só pode ser uma de três: dono, membro do grupo, ou o resto do mundo.' },
       { p: 'Todo arquivo carrega três informações de segurança gravadas junto com ele: um <strong>UID</strong> (o dono), um <strong>GID</strong> (o grupo) e doze bits de permissão. Nada mais. Não existe lista de usuários autorizados por arquivo — essa é justamente a limitação que as ACLs, no fim deste módulo, vieram resolver.' },
@@ -29359,6 +29506,11 @@ cat ~/limpar.sh
   LX.lesson('m05', {
     id: 'l5-2', n: '5.2', title: 'chmod simbólico: dizer o que muda',
     goal: 'Alterar permissões descrevendo a mudança, sem precisar recalcular o modo inteiro — e entender quando essa é a forma mais segura.',
+    brief: [
+      { p: '<code>chmod</code> simbólico descreve quem muda, a operação e a permissão. <code>u</code> é o dono, <code>g</code> o grupo, <code>o</code> os outros e <code>a</code> todos; <code>+</code> adiciona, <code>-</code> remove e <code>=</code> define exatamente.' },
+      { code: ['$ chmod u+x script.sh', '$ chmod g+w,o-rwx relatorio.txt', '$ chmod -R g+rwX projeto'] },
+      { p: 'A letra <code>X</code> adiciona execução somente a diretórios ou itens que já eram executáveis. Ela é mais segura que <code>x</code> em alterações recursivas, pois não transforma arquivos comuns em programas.' }
+    ],
     body: [
       { p: 'O <code>chmod</code> tem duas linguagens. A simbólica descreve <strong>uma mudança</strong>; a octal (próxima aula) descreve <strong>o estado final</strong>. As duas são úteis, e escolher errado é uma fonte real de acidentes.' },
       { cmd: 'chmod' },
@@ -29566,6 +29718,11 @@ cat ~/limpar.sh
   LX.lesson('m05', {
     id: 'l5-3', n: '5.3', title: 'chmod octal: dizer como fica',
     goal: 'Converter rwx em números sem tabela de consulta, reconhecer os modos padrão de cabeça e saber quando o octal é perigoso.',
+    brief: [
+      { p: 'No modo octal, <code>r=4</code>, <code>w=2</code> e <code>x=1</code>. Some os bits de cada classe e escreva os três resultados na ordem dono, grupo e outros.' },
+      { code: ['$ chmod 644 relatorio.txt', '$ chmod 755 script.sh', '$ chmod 600 .env'] },
+      { p: '<code>644</code> serve para arquivos públicos de leitura, <code>755</code> para diretórios e programas públicos, <code>600</code> para segredos e <code>700</code> para diretórios privados. O octal substitui o modo inteiro; confira antes de aplicá-lo recursivamente.' }
+    ],
     body: [
       { p: 'Cada faixa de três bits é um número de 0 a 7. A conta é sempre a mesma:' },
       {
@@ -29742,6 +29899,11 @@ cat ~/limpar.sh
   LX.lesson('m05', {
     id: 'l5-4', n: '5.4', title: 'Dono e grupo: chown e chgrp',
     goal: 'Mudar a identidade de um arquivo, entender por que só o root pode doar arquivos e usar grupos para resolver acesso compartilhado sem abrir tudo.',
+    brief: [
+      { p: '<code>chown</code> muda o dono e, opcionalmente, o grupo; <code>chgrp</code> muda apenas o grupo. Trocar o dono exige privilégio administrativo. Um usuário só pode apontar seus arquivos para grupos dos quais participa.' },
+      { code: ['$ sudo chown ana:devs relatorio.txt', '$ chgrp devs relatorio.txt', '$ sudo chown -R ana:devs /srv/projeto'] },
+      { p: 'Para compartilhar uma pasta, crie um grupo, adicione os usuários e dê acesso ao grupo. Isso preserva o controle e evita abrir escrita para todos com <code>chmod 777</code>.' }
+    ],
     body: [
       { p: 'Permissão sem identidade não significa nada. <code>rw-r-----</code> só é útil quando se sabe <em>quem</em> é o dono e <em>qual</em> é o grupo — e é isso que <code>chown</code> e <code>chgrp</code> definem.' },
       { cmd: 'chown' },
@@ -29912,6 +30074,11 @@ cat ~/limpar.sh
   LX.lesson('m05', {
     id: 'l5-5', n: '5.5', title: 'umask: por que os arquivos nascem 644',
     goal: 'Entender de onde vem a permissão de um arquivo recém-criado e como mudá-la para a sessão inteira ou permanentemente.',
+    brief: [
+      { p: '<code>umask</code> remove permissões do modo pedido pelo programa. Arquivos partem de <code>666</code> e diretórios de <code>777</code>; com a máscara <code>022</code>, eles normalmente nascem como <code>644</code> e <code>755</code>.' },
+      { code: ['$ umask', '$ umask 077', '$ touch segredo.txt', '$ stat -c "%a %n" segredo.txt'] },
+      { p: 'A máscara <code>077</code> cria itens privados; <code>002</code> permite escrita do grupo. A mudança vale para a sessão e seus processos filhos. Arquivos comuns não ganham execução pela umask, pois o modo base <code>666</code> não contém <code>x</code>.' }
+    ],
     body: [
       { p: 'Ninguém roda <code>chmod</code> depois de cada <code>touch</code>, e mesmo assim seus arquivos nascem <code>rw-r--r--</code> e seus diretórios <code>rwxr-xr-x</code>. Quem decide isso é a <strong>umask</strong>.' },
       { p: 'A ideia é o inverso do <code>chmod</code>: a umask é uma <strong>máscara de remoção</strong>. Os programas pedem ao kernel um modo generoso, e a umask apaga bits desse pedido.' },
@@ -30065,6 +30232,11 @@ resultado               arquivos: 666 - 022 = 644  (rw-r--r--)
   LX.lesson('m05', {
     id: 'l5-6', n: '5.6', title: 'Bits especiais: SUID, SGID e sticky',
     goal: 'Entender os três bits que quebram as regras normais — por que existem, onde são indispensáveis e por que são o primeiro lugar que um invasor olha.',
+    brief: [
+      { p: 'SUID (<code>4000</code>) executa um programa com a identidade do dono. SGID (<code>2000</code>) faz arquivos novos em um diretório herdarem seu grupo. Sticky (<code>1000</code>) impede que usuários apaguem arquivos alheios em uma pasta compartilhada.' },
+      { code: ['$ stat -c "%a %A %n" /usr/bin/passwd /tmp', '$ chmod 2770 /srv/equipe', '$ chmod 1777 /srv/publico'] },
+      { p: 'SUID em programas do root exige auditoria rigorosa. Para diretórios de equipe, SGID mantém o grupo correto; para áreas públicas como <code>/tmp</code>, sticky permite criação sem liberar a remoção dos arquivos dos outros.' }
+    ],
     body: [
       { p: 'Os nove bits de <code>rwx</code> resolvem quase tudo. Sobram três problemas que eles não conseguem resolver, e para cada um existe um bit especial — o quarto dígito do <code>chmod</code>.' },
       {
@@ -30229,6 +30401,11 @@ você ──▶ programa (roda como você) você ──▶ programa (roda como R
   LX.lesson('m05', {
     id: 'l5-7', n: '5.7', title: 'sudo, su e o root',
     goal: 'Usar privilégio administrativo do jeito atual: pontual, registrado e reversível — e entender por que "virar root" é a última opção.',
+    brief: [
+      { p: '<code>sudo COMANDO</code> eleva apenas uma operação, verifica a política e registra o uso. <code>sudo -u USUÁRIO</code> executa com outra identidade; isso ajuda a reproduzir problemas de serviços.' },
+      { code: ['$ sudo -l', '$ sudo systemctl restart nginx', '$ sudo -u www-data cat /var/www/site/index.html'] },
+      { p: 'Prefira comandos pontuais. Use <code>sudo -i</code> somente quando uma sequência realmente exigir um shell administrativo e saia assim que terminar. Confira caminhos e argumentos antes de executar algo como root.' }
+    ],
     body: [
       { p: 'O root não passa por checagem de permissão. Isso resolve qualquer problema e cria outro: um comando errado como root não tem rede de proteção. A prática atual é passar o menor tempo possível com esse poder na mão.' },
 
@@ -30404,6 +30581,11 @@ você ──▶ programa (roda como você) você ──▶ programa (roda como R
   LX.lesson('m05', {
     id: 'l5-8', n: '5.8', title: 'ACLs: quando três classes não bastam',
     goal: 'Conceder acesso a um usuário específico sem inventar grupos nem afrouxar o modo — e ler a saída de getfacl sem se perder na máscara.',
+    brief: [
+      { p: 'ACLs dão permissão a usuários ou grupos específicos sem trocar dono, grupo principal ou acesso de outros. Um <code>+</code> no fim de <code>ls -l</code> indica que o modo tradicional não conta toda a história.' },
+      { code: ['$ setfacl -m u:ana:r relatorio.txt', '$ getfacl relatorio.txt', '$ setfacl -x u:ana relatorio.txt'] },
+      { p: 'A entrada <code>mask</code> limita as permissões efetivas dos usuários nomeados e grupos. Para herança em diretórios, configure uma ACL padrão com <code>setfacl -d</code>. Ao diagnosticar acesso, sempre leia <code>getfacl</code> quando houver o sinal <code>+</code>.' }
+    ],
     body: [
       { p: 'O modelo dono/grupo/outros é elegante e resolve 90% dos casos. O restante costuma ser este pedido: "<em>a Ana, e só a Ana, precisa ler este arquivo</em>". Com três classes, as opções seriam trocar o dono, criar um grupo novo só para isso, ou abrir para todos.' },
       { p: 'As <strong>ACLs</strong> (listas de controle de acesso) resolvem: elas acrescentam entradas por usuário e por grupo, sem tocar no dono nem no grupo do arquivo. Estão disponíveis por padrão em ext4, XFS e Btrfs.' },
@@ -30582,6 +30764,11 @@ other::---       ← outros (também não é afetado pela máscara)`
   LX.lesson('m05', {
     id: 'l5-9', n: '5.9', title: 'Diagnóstico: por que "Permission denied"?',
     goal: 'Ter um método fixo para resolver qualquer erro de permissão em minutos, em vez de tentar coisas até funcionar.',
+    brief: [
+      { p: 'Diagnostique na mesma ordem: confirme a identidade com <code>id</code>, defina a operação que falhou, inspecione o caminho inteiro e procure camadas extras. Não tente corrigir com permissões mais abertas antes de encontrar a causa.' },
+      { code: ['$ id', '$ namei -l /var/www/site/index.html', '$ getfacl /var/www/site/index.html', '$ mount | grep " /var "'] },
+      { p: 'Cada diretório do caminho precisa de <code>x</code> para ser atravessado. Se o modo parece correto, verifique ACL, sistema de arquivos somente leitura, atributo imutável e controles como AppArmor ou SELinux.' }
+    ],
     body: [
       { lede: 'O erro é sempre a mesma frase e quase nunca a mesma causa. Um método curto resolve mais rápido do que a intuição.' },
       { h2: 'As quatro perguntas, nesta ordem' },
@@ -45252,6 +45439,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       const all = this.allLessons();
       const prev = idx > 0 ? all[idx - 1] : null;
       const next = idx < all.length - 1 ? all[idx + 1] : null;
+      const lessonBody = lesson.brief || lesson.body || [];
 
       let html = `<div class="doc">
         <div class="doc-top">
@@ -45263,12 +45451,18 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         <h1 class="title">${esc(lesson.title)}</h1>`;
       if (lesson.goal) html += `<p class="lede">${lesson.goal}</p>`;
       /* "O que você vai aprender" — a partir dos títulos de seção da aula */
-      const pontos = lesson.objectives || (lesson.body || []).filter(b => b && b.h2).map(b => String(b.h2).replace(/<[^>]+>/g, '').trim()).filter(Boolean).slice(0, 5);
+      const pontos = lesson.objectives || lessonBody.filter(b => b && b.h2).map(b => String(b.h2).replace(/<[^>]+>/g, '').trim()).filter(Boolean).slice(0, 5);
       if (pontos.length >= 2) {
         html += `<div class="learn-box"><div class="learn-tt">${ICON.bulb} O que você vai aprender</div>
           <ul class="learn-list">${pontos.map(p => `<li>${ICON.check}<span>${esc(p)}</span></li>`).join('')}</ul></div>`;
       }
-      html += LX.renderBlocks(lesson.body || [], this);
+      html += LX.renderBlocks(lessonBody, this);
+      if (lesson.brief && (lesson.body || []).length) {
+        html += `<details class="lesson-deep-dive">
+          <summary>Ver explicação completa <span>opcional</span></summary>
+          <div class="lesson-deep-dive-body">${LX.renderBlocks(lesson.body, this)}</div>
+        </details>`;
+      }
       for (const t of (lesson.tasks || [])) html += this.renderTask(t);
       html += `</div>`;
       $('#page').innerHTML = html;
