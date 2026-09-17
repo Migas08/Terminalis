@@ -150,6 +150,7 @@ JS_GROUPS = (
     )),
     ("curso JavaScript", (
         "89-js-course.js",
+        "89-z-js-course-extended.js",
     )),
 )
 

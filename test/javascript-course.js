@@ -1,7 +1,6 @@
-/* Trilha de JavaScript no navegador: a trilha aparece disponível, os módulos
-   sem aula ainda aparecem como "em breve", e a aula-piloto (js1-1) roda o
-   exemplo no playground isolado. O SDK do Supabase (CDN) vira um stub vazio para
-   o teste rodar sem rede. */
+/* Trilha de JavaScript no navegador: valida o currículo completo e executa uma
+   aula no playground isolado. O SDK do Supabase (CDN) vira um stub vazio para o
+   teste rodar sem rede. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const http = require('node:http');
@@ -41,6 +40,19 @@ const DIST = path.join(__dirname, '../dist/terminalis.html');
     assert.equal(t.estado, 'disponivel');
     assert.equal(t.mods, 13, '12 módulos + projeto final');
 
+    const curriculo = await page.evaluate(() => {
+      const trilha = LX.trilhaPorId('js');
+      const modulos = trilha.mods.map(id => LX.COURSE.modules.find(modulo => modulo.id === id));
+      return {
+        aulas: modulos.reduce((total, modulo) => total + modulo.lessons.length, 0),
+        porModulo: modulos.map(modulo => [modulo.id, modulo.lessons.length]),
+        ids: modulos.flatMap(modulo => modulo.lessons.map(aula => aula.id))
+      };
+    });
+    assert.equal(curriculo.aulas, 65, 'currículo completo com 65 aulas');
+    assert.ok(curriculo.porModulo.every(([, quantidade]) => quantidade === 5), 'cinco aulas por módulo');
+    assert.equal(new Set(curriculo.ids).size, 65, 'IDs de aula únicos');
+
     /* ---------- a página do curso mostra os títulos e "em breve" ---------- */
     await page.evaluate(() => __app.goCurso('js'));
     await page.locator('#page').waitFor();
@@ -73,7 +85,7 @@ const DIST = path.join(__dirname, '../dist/terminalis.html');
     assert.ok(consoleTxt.includes('4'), 'a saída mostra 2 + 2 = 4');
 
     assert.deepEqual(errors, [], 'nenhum erro de página');
-    console.log('JavaScript course: trilha visível com todos os módulos com aula, cores neutras e aula-piloto rodando no playground.');
+    console.log('JavaScript course: 65 aulas visíveis, módulos completos, cores neutras e playground funcionando.');
   } finally {
     if (browser) await browser.close();
     server.close();
