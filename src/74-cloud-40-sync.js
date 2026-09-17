@@ -68,7 +68,10 @@
         window.addEventListener('online', () => this._voltouOnline());
         window.addEventListener('offline', () => this.status('offline'));
         window.addEventListener('beforeunload', () => {
-          try { this._cacheProgresso(); }
+          try {
+            if (LX.JSWorkspace && typeof LX.JSWorkspace.flush === 'function') LX.JSWorkspace.flush();
+            this._cacheProgresso();
+          }
           catch (e) { /* o navegador está encerrando; não há interface disponível para diagnóstico */ }
         });
         this._ligado = true;
@@ -251,6 +254,7 @@
 
     /* Grava agora, sem esperar o debounce (logout, troca de conta). */
     async capturarAgora() {
+      if (LX.JSWorkspace && typeof LX.JSWorkspace.flush === 'function') LX.JSWorkspace.flush();
       if (this._timer) { clearTimeout(this._timer); this._timer = null; }
       this._cacheProgresso();
       if (this._sujo || this._pendente) await this.flushWorkspace();

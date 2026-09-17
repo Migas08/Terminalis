@@ -27,6 +27,7 @@
   let running = false;
   let bound = false;
   let salvarTimer = null;
+  let machineRef = null;
 
   const RAIZ = '/home/aluno';
 
@@ -51,16 +52,37 @@
     return {
       fs: {
         readFile: (p) => sh().m.fs.readFile(resolverVfs(p), sh().fsopts()),
-        writeFile: (p, d) => { const full = resolverVfs(p); sh().m.fs.mkdirp(dirName(full), sh().fsopts()); sh().m.fs.writeFile(full, String(d), sh().fsopts()); return true; },
+        writeFile: (p, d) => {
+          const full = resolverVfs(p);
+          sh().m.fs.mkdirp(dirName(full), sh().fsopts());
+          sh().m.fs.writeFile(full, String(d), sh().fsopts());
+          marcarWorkspaceSujo();
+          return true;
+        },
         readdir: (p) => (sh().m.fs.readdir(resolverVfs(p), sh().fsopts()) || []).filter(n => typeof n === 'string'),
-        mkdir: (p) => { sh().m.fs.mkdirp(resolverVfs(p), sh().fsopts()); return true; },
+        mkdir: (p) => { sh().m.fs.mkdirp(resolverVfs(p), sh().fsopts()); marcarWorkspaceSujo(); return true; },
         stat: (p) => { const s = sh().m.fs.stat(resolverVfs(p), sh().fsopts()); return { type: s.type, size: s.size, mode: s.mode & 0o7777, isDirectory: s.type === 'dir', isFile: s.type === 'file' }; }
       }
     };
   }
 
+  function resetarContextoDaMachine() {
+    if (salvarTimer) { clearTimeout(salvarTimer); salvarTimer = null; }
+    if (runner && sessionId) runner.dispose(sessionId);
+    sessionId = runner ? runner.createSession() : null;
+    entry = null;
+    runId = null;
+    setRunning(false);
+    const ed = editorEl(); if (ed) ed.value = '';
+    const out = consoleEl(); if (out) out.innerHTML = '';
+  }
+
   function ensure(a) {
-    app = a || app;
+    const proximaApp = a || app;
+    const proximaMachine = proximaApp && proximaApp.term && proximaApp.term.sh ? proximaApp.term.sh.m : null;
+    if (machineRef && proximaMachine && proximaMachine !== machineRef) resetarContextoDaMachine();
+    app = proximaApp;
+    machineRef = proximaMachine;
     if (!runner) {
       runner = LX.JS.createRunner({ transport: LX.JS.Sandbox.createBrowserTransport(), capabilities: fsCapabilities() });
       runner.subscribe(onEvent);
@@ -77,7 +99,7 @@
     const ed = $('#js-editor');
     if (ed) {
       // Salva o buffer no VFS com debounce, para o programa persistir mesmo sem rodar.
-      ed.addEventListener('input', () => { clearTimeout(salvarTimer); salvarTimer = setTimeout(salvar, 700); });
+      ed.addEventListener('input', agendarSalvar);
       // Tab insere dois espaços em vez de mudar o foco — é um editor de código.
       ed.addEventListener('keydown', e => {
         if (e.key === 'Tab') {
@@ -85,6 +107,7 @@
           const s = ed.selectionStart, t = ed.selectionEnd;
           ed.value = ed.value.slice(0, s) + '  ' + ed.value.slice(t);
           ed.selectionStart = ed.selectionEnd = s + 2;
+          agendarSalvar();
         }
       });
     }
@@ -151,6 +174,15 @@
     return LX.FileSystem && LX.FileSystem.dirname ? LX.FileSystem.dirname(path) : path.replace(/\/[^/]*$/, '') || '/';
   }
 
+  function marcarWorkspaceSujo() {
+    if (LX.Sync && typeof LX.Sync.marcarSujo === 'function') LX.Sync.marcarSujo('workspace');
+  }
+
+  function agendarSalvar() {
+    clearTimeout(salvarTimer);
+    salvarTimer = setTimeout(salvar, 700);
+  }
+
   function setEntry(path) {
     entry = path || PADRAO;
     const el = $('#js-entry');
@@ -159,13 +191,18 @@
 
   /* Grava o conteúdo do editor no VFS (cria o diretório se preciso). */
   function salvar() {
+    if (salvarTimer) { clearTimeout(salvarTimer); salvarTimer = null; }
     if (!app || !entry) return;
     const ed = editorEl();
     if (!ed) return;
     const sh = app.term.sh;
     try {
+      let atual = null;
+      try { atual = sh.m.fs.readFile(entry, sh.fsopts()); } catch (error) { atual = null; }
+      if (atual === ed.value) return;
       sh.m.fs.mkdirp(dirName(entry), sh.fsopts());
       sh.m.fs.writeFile(entry, ed.value, sh.fsopts());
+      marcarWorkspaceSujo();
     } catch (error) { /* sem permissão de escrita: silencioso, o run reporta */ }
   }
 
@@ -245,7 +282,10 @@
         sh.m.fs.mkdirp(projDir(), sh.fsopts());
         let existe = false;
         try { sh.m.fs.lstat(full, sh.fsopts()); existe = true; } catch (error) { existe = false; }
-        if (!existe) sh.m.fs.writeFile(full, MODELO_NOVO, sh.fsopts());
+        if (!existe) {
+          sh.m.fs.writeFile(full, MODELO_NOVO, sh.fsopts());
+          marcarWorkspaceSujo();
+        }
       } catch (error) { renderArquivos(); return; }
       salvar();
       carregar(full);
@@ -268,6 +308,7 @@
         if (ocupado) { renderArquivos(); return; }
         if (full === entry) salvar();
         sh.m.fs.rename(full, alvo, sh.fsopts());
+        marcarWorkspaceSujo();
       } catch (error) { renderArquivos(); return; }
       if (full === entry) carregar(alvo);
       renderArquivos();
@@ -280,7 +321,7 @@
     const sh = app.term.sh;
     const nomes = listarArquivos();
     if (nomes.length <= 1) return;
-    try { sh.m.fs.rmrf(full, sh.fsopts()); } catch (error) { return; }
+    try { sh.m.fs.rmrf(full, sh.fsopts()); marcarWorkspaceSujo(); } catch (error) { return; }
     if (full === entry) {
       const resta = listarArquivos();
       carregar(resta.length ? projDir() + '/' + resta[0] : PADRAO);
@@ -384,6 +425,10 @@
   /* Entrega os arquivos ao runner e dispara a execução na sandbox. */
   function iniciar(files, entryName) {
     try {
+      /* Cada execução recebe o retrato atual do projeto. Reusar a sessão faria
+         arquivos excluídos ou renomeados sobreviverem no mapa interno. */
+      if (sessionId) runner.dispose(sessionId);
+      sessionId = runner.createSession();
       runner.putFiles(sessionId, files);
       setRunning(true);
       runId = runner.run(sessionId, entryName);
@@ -426,6 +471,12 @@
 
   JSW.cancel = function () {
     if (runner && runId) runner.cancel(runId);
+  };
+
+  /* Força o buffer pendente para o VFS antes de logout/reload; marcarSujo cria
+     o cache síncrono e o Sync decide se também deve enviar ao Supabase. */
+  JSW.flush = function () {
+    salvar();
   };
 
   JSW.clear = function () {
