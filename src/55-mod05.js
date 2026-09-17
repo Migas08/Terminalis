@@ -9,6 +9,11 @@
   LX.lesson('m05', {
     id: 'l5-1', n: '5.1', title: 'O modelo: dono, grupo e outros',
     goal: 'Ler qualquer linha de ls -l sem hesitar e entender por que o mesmo bit significa coisas diferentes em arquivos e em diretórios.',
+    brief: [
+      { p: '<code>ls -l</code> mostra três blocos de permissões: dono, grupo e outros. Em cada bloco, <code>r</code> permite ler, <code>w</code> escrever e <code>x</code> executar. O kernel usa apenas a primeira classe que corresponde ao usuário.' },
+      { code: ['$ ls -l /etc/passwd', '$ stat -c "%A %U %G %n" /etc/passwd'] },
+      { p: 'Em diretórios, <code>r</code> lista nomes, <code>w</code> altera entradas e <code>x</code> permite atravessar o caminho. Apagar um arquivo depende da permissão do diretório que o contém, não do próprio arquivo.' }
+    ],
     body: [
       { lede: 'Linux não pergunta "você tem permissão?". Ele pergunta "quem é você em relação a este arquivo?" — e a resposta só pode ser uma de três: dono, membro do grupo, ou o resto do mundo.' },
       { p: 'Todo arquivo carrega três informações de segurança gravadas junto com ele: um <strong>UID</strong> (o dono), um <strong>GID</strong> (o grupo) e doze bits de permissão. Nada mais. Não existe lista de usuários autorizados por arquivo — essa é justamente a limitação que as ACLs, no fim deste módulo, vieram resolver.' },
@@ -185,6 +190,11 @@
   LX.lesson('m05', {
     id: 'l5-2', n: '5.2', title: 'chmod simbólico: dizer o que muda',
     goal: 'Alterar permissões descrevendo a mudança, sem precisar recalcular o modo inteiro — e entender quando essa é a forma mais segura.',
+    brief: [
+      { p: '<code>chmod</code> simbólico descreve quem muda, a operação e a permissão. <code>u</code> é o dono, <code>g</code> o grupo, <code>o</code> os outros e <code>a</code> todos; <code>+</code> adiciona, <code>-</code> remove e <code>=</code> define exatamente.' },
+      { code: ['$ chmod u+x script.sh', '$ chmod g+w,o-rwx relatorio.txt', '$ chmod -R g+rwX projeto'] },
+      { p: 'A letra <code>X</code> adiciona execução somente a diretórios ou itens que já eram executáveis. Ela é mais segura que <code>x</code> em alterações recursivas, pois não transforma arquivos comuns em programas.' }
+    ],
     body: [
       { p: 'O <code>chmod</code> tem duas linguagens. A simbólica descreve <strong>uma mudança</strong>; a octal (próxima aula) descreve <strong>o estado final</strong>. As duas são úteis, e escolher errado é uma fonte real de acidentes.' },
       { cmd: 'chmod' },
@@ -392,6 +402,11 @@
   LX.lesson('m05', {
     id: 'l5-3', n: '5.3', title: 'chmod octal: dizer como fica',
     goal: 'Converter rwx em números sem tabela de consulta, reconhecer os modos padrão de cabeça e saber quando o octal é perigoso.',
+    brief: [
+      { p: 'No modo octal, <code>r=4</code>, <code>w=2</code> e <code>x=1</code>. Some os bits de cada classe e escreva os três resultados na ordem dono, grupo e outros.' },
+      { code: ['$ chmod 644 relatorio.txt', '$ chmod 755 script.sh', '$ chmod 600 .env'] },
+      { p: '<code>644</code> serve para arquivos públicos de leitura, <code>755</code> para diretórios e programas públicos, <code>600</code> para segredos e <code>700</code> para diretórios privados. O octal substitui o modo inteiro; confira antes de aplicá-lo recursivamente.' }
+    ],
     body: [
       { p: 'Cada faixa de três bits é um número de 0 a 7. A conta é sempre a mesma:' },
       {
@@ -568,6 +583,11 @@
   LX.lesson('m05', {
     id: 'l5-4', n: '5.4', title: 'Dono e grupo: chown e chgrp',
     goal: 'Mudar a identidade de um arquivo, entender por que só o root pode doar arquivos e usar grupos para resolver acesso compartilhado sem abrir tudo.',
+    brief: [
+      { p: '<code>chown</code> muda o dono e, opcionalmente, o grupo; <code>chgrp</code> muda apenas o grupo. Trocar o dono exige privilégio administrativo. Um usuário só pode apontar seus arquivos para grupos dos quais participa.' },
+      { code: ['$ sudo chown ana:devs relatorio.txt', '$ chgrp devs relatorio.txt', '$ sudo chown -R ana:devs /srv/projeto'] },
+      { p: 'Para compartilhar uma pasta, crie um grupo, adicione os usuários e dê acesso ao grupo. Isso preserva o controle e evita abrir escrita para todos com <code>chmod 777</code>.' }
+    ],
     body: [
       { p: 'Permissão sem identidade não significa nada. <code>rw-r-----</code> só é útil quando se sabe <em>quem</em> é o dono e <em>qual</em> é o grupo — e é isso que <code>chown</code> e <code>chgrp</code> definem.' },
       { cmd: 'chown' },
@@ -738,6 +758,11 @@
   LX.lesson('m05', {
     id: 'l5-5', n: '5.5', title: 'umask: por que os arquivos nascem 644',
     goal: 'Entender de onde vem a permissão de um arquivo recém-criado e como mudá-la para a sessão inteira ou permanentemente.',
+    brief: [
+      { p: '<code>umask</code> remove permissões do modo pedido pelo programa. Arquivos partem de <code>666</code> e diretórios de <code>777</code>; com a máscara <code>022</code>, eles normalmente nascem como <code>644</code> e <code>755</code>.' },
+      { code: ['$ umask', '$ umask 077', '$ touch segredo.txt', '$ stat -c "%a %n" segredo.txt'] },
+      { p: 'A máscara <code>077</code> cria itens privados; <code>002</code> permite escrita do grupo. A mudança vale para a sessão e seus processos filhos. Arquivos comuns não ganham execução pela umask, pois o modo base <code>666</code> não contém <code>x</code>.' }
+    ],
     body: [
       { p: 'Ninguém roda <code>chmod</code> depois de cada <code>touch</code>, e mesmo assim seus arquivos nascem <code>rw-r--r--</code> e seus diretórios <code>rwxr-xr-x</code>. Quem decide isso é a <strong>umask</strong>.' },
       { p: 'A ideia é o inverso do <code>chmod</code>: a umask é uma <strong>máscara de remoção</strong>. Os programas pedem ao kernel um modo generoso, e a umask apaga bits desse pedido.' },
@@ -891,6 +916,11 @@ resultado               arquivos: 666 - 022 = 644  (rw-r--r--)
   LX.lesson('m05', {
     id: 'l5-6', n: '5.6', title: 'Bits especiais: SUID, SGID e sticky',
     goal: 'Entender os três bits que quebram as regras normais — por que existem, onde são indispensáveis e por que são o primeiro lugar que um invasor olha.',
+    brief: [
+      { p: 'SUID (<code>4000</code>) executa um programa com a identidade do dono. SGID (<code>2000</code>) faz arquivos novos em um diretório herdarem seu grupo. Sticky (<code>1000</code>) impede que usuários apaguem arquivos alheios em uma pasta compartilhada.' },
+      { code: ['$ stat -c "%a %A %n" /usr/bin/passwd /tmp', '$ chmod 2770 /srv/equipe', '$ chmod 1777 /srv/publico'] },
+      { p: 'SUID em programas do root exige auditoria rigorosa. Para diretórios de equipe, SGID mantém o grupo correto; para áreas públicas como <code>/tmp</code>, sticky permite criação sem liberar a remoção dos arquivos dos outros.' }
+    ],
     body: [
       { p: 'Os nove bits de <code>rwx</code> resolvem quase tudo. Sobram três problemas que eles não conseguem resolver, e para cada um existe um bit especial — o quarto dígito do <code>chmod</code>.' },
       {
@@ -1055,6 +1085,11 @@ você ──▶ programa (roda como você) você ──▶ programa (roda como R
   LX.lesson('m05', {
     id: 'l5-7', n: '5.7', title: 'sudo, su e o root',
     goal: 'Usar privilégio administrativo do jeito atual: pontual, registrado e reversível — e entender por que "virar root" é a última opção.',
+    brief: [
+      { p: '<code>sudo COMANDO</code> eleva apenas uma operação, verifica a política e registra o uso. <code>sudo -u USUÁRIO</code> executa com outra identidade; isso ajuda a reproduzir problemas de serviços.' },
+      { code: ['$ sudo -l', '$ sudo systemctl restart nginx', '$ sudo -u www-data cat /var/www/site/index.html'] },
+      { p: 'Prefira comandos pontuais. Use <code>sudo -i</code> somente quando uma sequência realmente exigir um shell administrativo e saia assim que terminar. Confira caminhos e argumentos antes de executar algo como root.' }
+    ],
     body: [
       { p: 'O root não passa por checagem de permissão. Isso resolve qualquer problema e cria outro: um comando errado como root não tem rede de proteção. A prática atual é passar o menor tempo possível com esse poder na mão.' },
 
@@ -1230,6 +1265,11 @@ você ──▶ programa (roda como você) você ──▶ programa (roda como R
   LX.lesson('m05', {
     id: 'l5-8', n: '5.8', title: 'ACLs: quando três classes não bastam',
     goal: 'Conceder acesso a um usuário específico sem inventar grupos nem afrouxar o modo — e ler a saída de getfacl sem se perder na máscara.',
+    brief: [
+      { p: 'ACLs dão permissão a usuários ou grupos específicos sem trocar dono, grupo principal ou acesso de outros. Um <code>+</code> no fim de <code>ls -l</code> indica que o modo tradicional não conta toda a história.' },
+      { code: ['$ setfacl -m u:ana:r relatorio.txt', '$ getfacl relatorio.txt', '$ setfacl -x u:ana relatorio.txt'] },
+      { p: 'A entrada <code>mask</code> limita as permissões efetivas dos usuários nomeados e grupos. Para herança em diretórios, configure uma ACL padrão com <code>setfacl -d</code>. Ao diagnosticar acesso, sempre leia <code>getfacl</code> quando houver o sinal <code>+</code>.' }
+    ],
     body: [
       { p: 'O modelo dono/grupo/outros é elegante e resolve 90% dos casos. O restante costuma ser este pedido: "<em>a Ana, e só a Ana, precisa ler este arquivo</em>". Com três classes, as opções seriam trocar o dono, criar um grupo novo só para isso, ou abrir para todos.' },
       { p: 'As <strong>ACLs</strong> (listas de controle de acesso) resolvem: elas acrescentam entradas por usuário e por grupo, sem tocar no dono nem no grupo do arquivo. Estão disponíveis por padrão em ext4, XFS e Btrfs.' },
@@ -1408,6 +1448,11 @@ other::---       ← outros (também não é afetado pela máscara)`
   LX.lesson('m05', {
     id: 'l5-9', n: '5.9', title: 'Diagnóstico: por que "Permission denied"?',
     goal: 'Ter um método fixo para resolver qualquer erro de permissão em minutos, em vez de tentar coisas até funcionar.',
+    brief: [
+      { p: 'Diagnostique na mesma ordem: confirme a identidade com <code>id</code>, defina a operação que falhou, inspecione o caminho inteiro e procure camadas extras. Não tente corrigir com permissões mais abertas antes de encontrar a causa.' },
+      { code: ['$ id', '$ namei -l /var/www/site/index.html', '$ getfacl /var/www/site/index.html', '$ mount | grep " /var "'] },
+      { p: 'Cada diretório do caminho precisa de <code>x</code> para ser atravessado. Se o modo parece correto, verifique ACL, sistema de arquivos somente leitura, atributo imutável e controles como AppArmor ou SELinux.' }
+    ],
     body: [
       { lede: 'O erro é sempre a mesma frase e quase nunca a mesma causa. Um método curto resolve mais rápido do que a intuição.' },
       { h2: 'As quatro perguntas, nesta ordem' },

@@ -9,6 +9,11 @@
   LX.lesson('m02', {
     id: 'l2-1', n: '2.1', title: 'Navegar: pwd, ls e cd',
     goal: 'Os três comandos que você mais vai digitar na vida. Aqui eles deixam de ser "olhar a pasta" e viram uma ferramenta de investigação.',
+    brief: [
+      { p: '<code>pwd</code> mostra onde você está, <code>ls</code> lista o conteúdo e <code>cd</code> troca de diretório. Antes de alterar ou apagar algo, confirme o caminho com <code>pwd</code> e veja os arquivos com <code>ls -lah</code>.' },
+      { code: ['$ pwd', '$ ls -lah', '$ cd ~/projetos', '$ cd -'] },
+      { p: 'Use <code>ls -lt</code> para colocar os itens mais recentes primeiro. Caminhos iniciados por <code>/</code> são absolutos; os demais partem do diretório atual. <code>cd -</code> volta ao diretório anterior.' }
+    ],
     body: [
       { cmd: 'pwd' },
       { p: 'Responde a única pergunta que importa antes de qualquer comando destrutivo: <strong>onde eu estou?</strong> Sem opções relevantes, sem surpresas.' },
@@ -224,6 +229,11 @@
   LX.lesson('m02', {
     id: 'l2-2', n: '2.2', title: 'Criar: mkdir e touch',
     goal: 'Criar estruturas de diretórios inteiras em um comando e entender o que o touch realmente faz (não é "criar arquivo").',
+    brief: [
+      { p: '<code>mkdir</code> cria diretórios. Com <code>-p</code>, ele também cria os diretórios intermediários e não falha se eles já existirem. <code>touch</code> cria um arquivo vazio quando ele não existe; se existir, apenas atualiza suas datas.' },
+      { code: ['$ mkdir -p app/{src,tests,docs}', '$ touch app/README.md', '$ ls -R app'] },
+      { p: 'Para montar estruturas em scripts, prefira <code>mkdir -p</code>. Antes de usar <code>touch</code> em um arquivo existente, lembre que a data de modificação será alterada.' }
+    ],
     body: [
       { cmd: 'mkdir' },
       { p: '<em>Make directory</em>. Cria um diretório vazio.' },
@@ -388,6 +398,11 @@
   LX.lesson('m02', {
     id: 'l2-3', n: '2.3', title: 'Ler arquivos: cat, less, head e tail',
     goal: 'Escolher a ferramenta certa para cada tamanho de arquivo — e nunca mais travar o terminal tentando dar cat em um log de 2 GB.',
+    brief: [
+      { p: 'Escolha pelo tamanho e pela parte que interessa: <code>cat</code> mostra um arquivo pequeno inteiro; <code>less</code> permite navegar e buscar em arquivos grandes; <code>head</code> mostra o começo; <code>tail</code> mostra o fim.' },
+      { code: ['$ less /var/log/syslog', '$ head -n 5 arquivo.csv', '$ tail -n 20 app.log', '$ tail -f app.log'] },
+      { p: 'Use <code>tail -f</code> para acompanhar novas linhas de um log em tempo real e pressione <code>Ctrl+C</code> para sair. Evite <code>cat</code> em arquivos grandes.' }
+    ],
     body: [
       { p: 'Ler arquivo é a operação mais frequente na administração de sistemas. Existem quatro comandos e a escolha entre eles depende de uma única pergunta: <strong>quanto do arquivo você precisa ver?</strong>' },
       {
@@ -545,6 +560,11 @@
   LX.lesson('m02', {
     id: 'l2-4', n: '2.4', title: 'Copiar e mover: cp e mv',
     goal: 'Dominar as duas operações que mais causam acidentes — e entender por que renomear e mover são a mesma coisa no Linux.',
+    brief: [
+      { p: '<code>cp ORIGEM DESTINO</code> copia arquivos; para diretórios, use <code>cp -r</code>. <code>mv</code> move um item ou o renomeia quando origem e destino ficam no mesmo diretório.' },
+      { code: ['$ cp -i config.ini config.backup.ini', '$ cp -r site site-backup', '$ mv rascunho.txt relatorio.txt'] },
+      { p: 'Um destino existente pode ser sobrescrito. Enquanto estiver aprendendo, use <code>-i</code> para pedir confirmação e confira origem e destino com <code>ls</code> antes da operação.' }
+    ],
     body: [
       { cmd: 'cp' },
       { p: 'Copia. A forma é sempre <code>cp ORIGEM DESTINO</code>.' },
@@ -715,6 +735,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m02', {
     id: 'l2-5', n: '2.5', title: 'Apagar sem se arrepender: rm e rmdir',
     goal: 'Aprender o comando mais perigoso do Linux junto com os hábitos que impedem você de destruir um servidor às três da manhã.',
+    brief: [
+      { p: '<code>rm</code> apaga arquivos sem passar pela lixeira. <code>rmdir</code> remove apenas diretórios vazios. Para apagar uma árvore, <code>rm</code> exige <code>-r</code>, o que torna a conferência do caminho essencial.' },
+      { code: ['$ ls -lah ./temporarios', '$ rm -i ./temporarios/rascunho.txt', '$ rmdir ./temporarios'] },
+      { p: 'Antes de apagar, rode <code>pwd</code> e <code>ls</code> no destino. Prefira caminhos explícitos e <code>-i</code> durante o aprendizado. Use <code>rmdir</code> quando a pasta deveria estar vazia: ele falha se ainda houver conteúdo.' }
+    ],
     body: [
       {
         box: 'warn', label: 'Leia antes de tudo', body: [
@@ -870,6 +895,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m02', {
     id: 'l2-6', n: '2.6', title: 'Investigar: file, stat, tree, which, whereis e type',
     goal: 'Descobrir o que é um arquivo sem abri-lo, e descobrir exatamente qual programa o shell vai executar quando você digita um nome.',
+    brief: [
+      { p: '<code>file</code> identifica o tipo real pelo conteúdo; <code>stat</code> mostra tamanho, dono, permissões e datas; <code>tree</code> exibe a hierarquia de uma pasta.' },
+      { code: ['$ file relatorio', '$ stat relatorio', '$ type ls', '$ which python3'] },
+      { p: 'Para descobrir o que o shell executará, prefira <code>type</code>: ele reconhece aliases, funções, comandos internos e programas. <code>which</code> procura executáveis no <code>PATH</code>; <code>whereis</code> também busca páginas de manual e caminhos relacionados.' }
+    ],
     body: [
       { h2: 'O que é este arquivo?' },
       { cmd: 'file' },
@@ -1027,6 +1057,11 @@ destino JÁ existe    →  põe origem DENTRO dele
   LX.lesson('m02', {
     id: 'l2-7', n: '2.7', title: 'Histórico, ajuda e o fluxo de trabalho',
     goal: 'Parar de redigitar. Aproveitar tudo o que você já escreveu e transformar o terminal numa ferramenta rápida.',
+    brief: [
+      { p: '<code>history</code> mostra comandos anteriores. A seta para cima recupera os mais recentes e <code>Ctrl+R</code> busca por um trecho. Revise sempre a linha recuperada antes de executá-la.' },
+      { code: ['$ history 10', '$ history | grep docker', '$ comando1 && comando2', '$ echo $?'] },
+      { p: '<code>&&</code> executa o segundo comando apenas se o primeiro funcionar; <code>||</code>, apenas se falhar; <code>;</code>, sempre. <code>$?</code> contém o código de saída do último comando: zero indica sucesso.' }
+    ],
     body: [
       { cmd: 'history' },
       { p: 'O Bash guarda tudo o que você digita. Por padrão, mil comandos na memória e dois mil no arquivo <code>~/.bash_history</code>.' },

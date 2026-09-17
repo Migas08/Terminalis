@@ -9,6 +9,12 @@
   LX.lesson('m01', {
     id: 'l1-1', n: '1.1', title: 'O que é Linux, de verdade',
     goal: 'Separar três coisas que quase sempre se misturam: o kernel, a distribuição e o shell. Sem isso, tudo o que vem depois vira decoreba.',
+    brief: [
+      { h2: 'O necessário' },
+      { p: '<strong>Linux</strong> é o kernel: ele controla CPU, memória, discos e processos. A <strong>distribuição</strong> junta esse kernel com programas e um gerenciador de pacotes. O <strong>shell</strong> interpreta os comandos que você digita.' },
+      { code: ['$ uname -r', '$ cat /etc/os-release'] },
+      { p: '<code>uname -r</code> mostra o kernel. <code>/etc/os-release</code> identifica a distribuição. Você só precisa distinguir essas duas respostas antes de seguir.' }
+    ],
     body: [
       { h2: 'O kernel é só o miolo' },
       { p: 'Estritamente falando, <strong>Linux é um kernel</strong> — um programa que fica entre o hardware e o resto do software. Ele foi publicado por Linus Torvalds em 1991 e continua sendo desenvolvido até hoje.' },
@@ -164,6 +170,12 @@
   LX.lesson('m01', {
     id: 'l1-2', n: '1.2', title: 'Terminal, shell e a anatomia de um comando',
     goal: 'Entender o que acontece entre você apertar Enter e o resultado aparecer — e aprender a ler qualquer comando, mesmo os que você nunca viu.',
+    brief: [
+      { h2: 'Leia qualquer comando' },
+      { p: 'O <strong>terminal</strong> é a interface onde você digita. O <strong>shell</strong> é o programa que interpreta a linha. Um comando costuma ter esta forma: <code>programa opções argumentos</code>.' },
+      { code: ['$ ls -lah /etc', '$ ls --help', '$ man ls'] },
+      { p: 'Em <code>ls -lah /etc</code>, <code>ls</code> é o programa, <code>-lah</code> reúne opções e <code>/etc</code> é o argumento. Quando não souber uma opção, consulte <code>--help</code> ou <code>man</code>.' }
+    ],
     body: [
       { h2: 'Terminal não é shell' },
       { p: 'Mais uma confusão comum, e vale desfazer agora:' },
@@ -330,6 +342,12 @@
   LX.lesson('m01', {
     id: 'l1-3', n: '1.3', title: 'A árvore de diretórios',
     goal: 'Entender por que o Linux não tem C: nem D:, o que é a raiz / e como o FHS torna qualquer servidor Linux previsível.',
+    brief: [
+      { h2: 'Uma árvore começa em /' },
+      { p: 'No Linux, arquivos e discos aparecem em uma única árvore. A raiz é <code>/</code>. Um disco adicional é montado em um diretório, como <code>/mnt/backup</code>, em vez de receber uma letra.' },
+      { code: ['$ ls /'] },
+      { p: 'Os diretórios seguem um padrão: configurações em <code>/etc</code>, usuários em <code>/home</code>, dados variáveis em <code>/var</code> e programas em <code>/usr</code>. Por enquanto, reconheça a raiz e esses quatro destinos.' }
+    ],
     body: [
       { h2: 'Uma única árvore' },
       { p: 'No Windows, cada disco ganha uma letra e vira uma árvore separada. No Linux existe <strong>uma árvore só</strong>, que começa em <code>/</code> — a raiz. Todo o resto pendura nela.' },
@@ -467,6 +485,12 @@
   LX.lesson('m01', {
     id: 'l1-4', n: '1.4', title: 'Caminhos: absolutos, relativos e atalhos',
     goal: 'Nunca mais se perder. Depois desta aula você sabe exatamente para onde um caminho aponta antes mesmo de apertar Enter.',
+    brief: [
+      { h2: 'Descubra de onde o caminho parte' },
+      { p: 'Caminho <strong>absoluto</strong> começa com <code>/</code> e sempre parte da raiz. Caminho <strong>relativo</strong> parte do diretório atual, mostrado por <code>pwd</code>.' },
+      { code: ['$ pwd', '$ cd /var/log', '$ cd ..', '$ cd ~', '$ cd -'] },
+      { p: '<code>.</code> significa o diretório atual, <code>..</code> sobe um nível, <code>~</code> representa seu diretório pessoal e <code>cd -</code> volta ao diretório anterior.' }
+    ],
     body: [
       { h2: 'Duas formas de dizer onde algo está' },
       { p: 'Todo caminho no Linux é <strong>absoluto</strong> ou <strong>relativo</strong>, e a diferença é uma só: <strong>começa com <code>/</code> ou não</strong>.' },
@@ -595,6 +619,17 @@
   LX.lesson('m01', {
     id: 'l1-5', n: '1.5', title: 'Os diretórios do sistema, um por um',
     goal: 'Saber o que existe dentro de /etc, /var, /usr e /opt — e por que você vai passar boa parte da sua vida de administrador nesses quatro lugares.',
+    brief: [
+      { h2: 'Quatro lugares para lembrar' },
+      { ul: [
+        '<code>/etc</code>: configurações do sistema e dos serviços.',
+        '<code>/var</code>: dados que mudam, como logs e caches.',
+        '<code>/usr</code>: programas, bibliotecas e arquivos compartilhados.',
+        '<code>/opt</code>: aplicações instaladas fora do gerenciador de pacotes.'
+      ] },
+      { code: ['$ cat /etc/hosts', '$ ls /var/log', '$ which ls', '$ du -sh /var/log'] },
+      { p: 'Você não precisa decorar cada subdiretório. Saiba escolher onde procurar configuração, log, programa ou aplicação externa.' }
+    ],
     body: [
       { h2: '/etc — a sala de controle' },
       { p: 'Tudo o que configura o comportamento do sistema mora aqui, em <strong>arquivos de texto puro</strong>. Não há registro binário, não há banco de configurações: você abre com um editor, muda uma linha, reinicia o serviço.' },
@@ -754,6 +789,12 @@
   LX.lesson('m01', {
     id: 'l1-6', n: '1.6', title: '/proc, /sys e /dev: o kernel como arquivo',
     goal: 'Conhecer os três diretórios que não existem no disco — e usar isso para inspecionar a máquina sem instalar nada.',
+    brief: [
+      { h2: 'Estado do sistema como arquivos' },
+      { p: '<code>/proc</code> e <code>/sys</code> são gerados pelo kernel em memória. <code>/proc</code> expõe processos e métricas; <code>/sys</code>, dispositivos e drivers. <code>/dev</code> contém interfaces para dispositivos.' },
+      { code: ['$ cat /proc/uptime', '$ cat /proc/meminfo', '$ cat /sys/class/net/eth0/address', '$ ls -l /dev/null /dev/vda'] },
+      { p: 'Esses caminhos permitem inspecionar a máquina com ferramentas comuns como <code>cat</code> e <code>ls</code>. Eles parecem arquivos normais, mas representam estado do kernel.' }
+    ],
     body: [
       { h2: 'Diretórios que são mentira (do bom tipo)' },
       { p: 'Se você desligar a máquina e olhar o disco, não vai encontrar <code>/proc</code> nem <code>/sys</code>. Eles são <strong>sistemas de arquivos virtuais</strong>: existem apenas na memória e são gerados pelo kernel <em>no momento em que você lê</em>.' },

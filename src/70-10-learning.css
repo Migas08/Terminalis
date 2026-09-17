@@ -167,6 +167,12 @@ h1.title { font-size: 32px; font-weight: 680; letter-spacing: -.03em; line-heigh
 .doc strong { font-weight: 620; color: #ffffff; }
 .doc hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
 
+.lesson-deep-dive { margin: 22px 0 28px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2); }
+.lesson-deep-dive summary { cursor: pointer; padding: 13px 16px; color: var(--tx-2); font-size: 13px; font-weight: 600; list-style-position: inside; }
+.lesson-deep-dive summary span { margin-left: 6px; color: var(--tx-3); font-family: var(--f-mono); font-size: 10px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+.lesson-deep-dive-body { padding: 0 18px 18px; border-top: 1px solid var(--line); }
+.lesson-deep-dive-body > :first-child { margin-top: 18px; }
+
 code {
   font-family: var(--f-mono); font-size: .87em;
   background: var(--surface-3); border: 1px solid var(--line);

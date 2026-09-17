@@ -30,9 +30,24 @@ LX.lesson('<idDoModulo>', {
   goal: '...',
   setup: (m, term) => { /* opcional, NÍVEL DE AULA (nunca dentro de uma tarefa) */ },
   body: [ /* blocos */ ],
+  brief: [ /* opcional: caminho direto, com até 220 palavras */ ],
   tasks: [ /* guiado, pergunta, prática */ ]
 });
 ```
+
+## Ritmo da aula
+
+O aluno deve chegar à primeira atividade em cerca de 1 a 3 minutos. Prefira um
+`brief` de 80 a 220 palavras com apenas:
+
+1. o conceito necessário para executar a atividade;
+2. um exemplo curto;
+3. um alerta somente quando evita um erro provável.
+
+Quando `brief` existe, ele aparece como leitura principal. O `body` continua
+disponível em “Ver explicação completa”, fechado por padrão. Não repita no
+`brief` história, analogias, listas de referência ou explicações que a própria
+saída do exercício demonstra.
 
 ### Blocos de corpo aceitos
 

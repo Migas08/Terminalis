@@ -13,6 +13,7 @@ const ESPERADO = [
   { slot: 'pergunta', aceita: ['quiz', 'fill'] },
   { slot: 'prática', aceita: ['desafio'] }
 ];
+const MODULOS_DIRETOS = new Set(['m01', 'm02', 'm03', 'm04', 'm05']);
 
 let problemas = 0, aulas = 0;
 for (const mod of LX.COURSE.modules) {
@@ -21,6 +22,15 @@ for (const mod of LX.COURSE.modules) {
     const ts = l.tasks || [];
     const kinds = ts.map(t => t.kind);
     let erro = null;
+    if (MODULOS_DIRETOS.has(mod.id) && !l.brief) erro = 'a aula ainda não possui leitura direta';
+    if (l.brief) {
+      const palavras = JSON.stringify(l.brief)
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/[^A-Za-zÀ-ÿ0-9]+/g, ' ')
+        .trim().split(/\s+/).filter(Boolean).length;
+      if (!Array.isArray(l.brief) || !l.brief.length) erro = 'o resumo direto está vazio';
+      else if (palavras > 220) erro = `o resumo direto tem ${palavras} palavras (máximo: 220)`;
+    }
     if (ts.length !== 3) erro = `tem ${ts.length} tarefa(s): ${kinds.join(', ') || '(nenhuma)'}`;
     else {
       for (let i = 0; i < 3; i++) {
