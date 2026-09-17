@@ -13,6 +13,7 @@ const ESPERADO = [
   { slot: 'pergunta', aceita: ['quiz', 'fill'] },
   { slot: 'prática', aceita: ['desafio'] }
 ];
+const MODULOS_DIRETOS = new Set(['m01']);
 
 let problemas = 0, aulas = 0;
 for (const mod of LX.COURSE.modules) {
@@ -21,6 +22,7 @@ for (const mod of LX.COURSE.modules) {
     const ts = l.tasks || [];
     const kinds = ts.map(t => t.kind);
     let erro = null;
+    if (MODULOS_DIRETOS.has(mod.id) && !l.brief) erro = 'a aula ainda não possui leitura direta';
     if (l.brief) {
       const palavras = JSON.stringify(l.brief)
         .replace(/<[^>]+>/g, ' ')
