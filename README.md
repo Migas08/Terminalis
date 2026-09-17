@@ -179,7 +179,7 @@ Para sincronizar a mesma conta entre computadores, configure um projeto Supabase
 
 Nunca coloque a chave `service_role` no HTML. As tabelas `profiles`, `user_progress` e `workspaces` usam RLS e só aceitam linhas pertencentes a `auth.uid()`. O login, confirmação de e-mail e recuperação de senha são feitos pelo Supabase Auth.
 
-O workspace inteiro do laboratório (arquivos, shell, processos, serviços, Git, Docker, remotos e histórico necessário) é exportado por um codec versionado e salvo com cache offline. Alterações aguardam um debounce curto e usam revisão otimista; se outro dispositivo gravar antes, o estado local é preservado em um backup e a gravação não sobrescreve o remoto silenciosamente. O indicador da barra mostra `salvando`, `salvo`, `offline` ou erro.
+O workspace inteiro do laboratório (arquivos, editor JavaScript, shell, processos, serviços, Git, Docker, remotos e histórico necessário) é exportado por um codec versionado e salvo com cache offline. Alterações aguardam um debounce curto e usam revisão otimista; se outro dispositivo gravar antes, o estado local é preservado em um backup e a gravação não sobrescreve o remoto silenciosamente. O indicador da barra mostra `salvando`, `salvo`, `offline` ou erro.
 
 O modo `claude.use('db')` continua como fallback de armazenamento para ambientes que já oferecem essa capacidade, sem alterar a API usada pela aplicação.
 
@@ -233,7 +233,7 @@ npm test
 npm run test:browser
 ```
 
-`npm test` verifica a sintaxe de todos os arquivos JavaScript antes das suítes do motor e conteúdo. Não há TypeScript nem linter configurado.
+`npm test` verifica a sintaxe de todos os arquivos JavaScript antes das suítes do motor e conteúdo. `npm run lint` executa o ESLint, e `npm run format:check` confere os arquivos de configuração com Prettier. O laboratório executa TypeScript por transpilação no navegador; o código-fonte da aplicação continua em JavaScript.
 
 ### Última verificação local
 
@@ -249,6 +249,12 @@ Em 17 de setembro de 2026, com Node.js 24.19.0 e Edge/Playwright:
 - Dependências: nenhuma dependência de execução; Playwright e seus dois pacotes transitivos são usados apenas nos testes. A consulta ao banco OSV não encontrou vulnerabilidades conhecidas nessas versões.
 
 Esses testes cobrem os comportamentos declarados, sem afirmar compatibilidade integral com Linux, Docker ou Git reais.
+
+## Contribuição e fluxo Git
+
+O desenvolvimento parte de `main` e usa branches curtas com os prefixos `feat/`, `fix/`, `docs/`, `test/`, `refactor/` ou `chore/`. Cada PR deve manter o build gerado atualizado, explicar como foi validado e ser incorporado por squash; a branch remota pode ser apagada depois do merge.
+
+Os padrões de nomes, commits, checklist e comandos estão em [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md). Novos PRs recebem automaticamente o modelo em [`.github/pull_request_template.md`](.github/pull_request_template.md).
 
 ## Limites do laboratório Git
 
