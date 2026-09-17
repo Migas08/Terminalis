@@ -9,6 +9,11 @@
   LX.lesson('m04', {
     id: 'l4-1', n: '3.1', title: 'Os três canais: stdin, stdout e stderr',
     goal: 'Entender o modelo que sustenta todo o resto do terminal. Depois desta aula, redirecionamento deixa de ser decoreba e vira consequência.',
+    brief: [
+      { p: 'Todo comando recebe dados por <code>stdin</code> (canal 0), devolve o resultado por <code>stdout</code> (canal 1) e envia mensagens de erro por <code>stderr</code> (canal 2). O terminal mostra as duas saídas, mas elas continuam separadas.' },
+      { code: ['$ ls /etc /naoexiste > saida.txt 2> erros.txt', '$ cat saida.txt', '$ cat erros.txt'] },
+      { p: 'Essa separação permite guardar ou encadear o resultado sem misturá-lo com falhas. Nos redirecionamentos, o número indica qual canal será alterado.' }
+    ],
     body: [
       { p: 'Todo processo no Linux nasce com três canais de comunicação já abertos. Eles são numerados, e é esse número que aparece nos comandos que você vai escrever.' },
       {
@@ -162,6 +167,11 @@
   LX.lesson('m04', {
     id: 'l4-2', n: '3.2', title: 'Redirecionar a saída: > e >>',
     goal: 'Gravar resultados em arquivos sem esquecer que um dos dois operadores apaga tudo antes de escrever.',
+    brief: [
+      { p: '<code>&gt;</code> envia a saída normal para um arquivo, criando-o ou apagando seu conteúdo anterior. <code>&gt;&gt;</code> acrescenta a nova saída no final. O shell prepara o arquivo antes de executar o comando.' },
+      { code: ['$ echo "primeira linha" > relatorio.txt', '$ echo "segunda linha" >> relatorio.txt', '$ cat relatorio.txt'] },
+      { p: 'Não use o mesmo arquivo como entrada e destino com <code>&gt;</code>, como em <code>sort dados.txt &gt; dados.txt</code>: ele será esvaziado antes da leitura. Use um arquivo temporário ou uma opção própria do comando.' }
+    ],
     body: [
       { cmd: '>' },
       { p: 'Manda o <strong>canal 1</strong> para um arquivo. Se o arquivo não existe, cria. Se existe, <strong>esvazia primeiro</strong>.' },
@@ -319,6 +329,11 @@
   LX.lesson('m04', {
     id: 'l4-3', n: '3.3', title: 'Erros: 2>, 2>&1 e /dev/null',
     goal: 'Dominar a notação que mais confunde iniciantes — e entender por que a ordem dos redirecionamentos muda o resultado.',
+    brief: [
+      { p: '<code>2&gt; erros.log</code> grava apenas o canal de erro. <code>2&gt;/dev/null</code> o descarta. Para guardar saída e erro juntos, primeiro redirecione o canal 1 e depois aponte o 2 para ele.' },
+      { code: ['$ comando > tudo.log 2>&1', '$ find /etc -name "*.conf" 2>/dev/null'] },
+      { p: 'A ordem é aplicada da esquerda para a direita. Em <code>comando 2&gt;&amp;1 &gt; tudo.log</code>, o erro continua na tela porque o canal 2 copiou o destino antigo do canal 1. No Bash, <code>&amp;&gt; tudo.log</code> é o atalho para juntar ambos.' }
+    ],
     body: [
       { h2: 'Descartar erros' },
       { p: 'Comandos que percorrem o sistema quase sempre esbarram em diretórios sem permissão, e enchem a tela de "Permission denied". Como o que interessa é o resultado, manda-se o canal 2 para o buraco:' },
@@ -478,6 +493,11 @@
   LX.lesson('m04', {
     id: 'l4-4', n: '3.4', title: 'Entrada: <, << e <<<',
     goal: 'Alimentar comandos com dados de arquivos, blocos de texto ou strings — sem depender do teclado.',
+    brief: [
+      { p: '<code>&lt;</code> faz um comando ler de um arquivo. <code>&lt;&lt;</code> inicia um heredoc, um bloco com várias linhas. <code>&lt;&lt;&lt;</code> envia uma única string pela entrada padrão.' },
+      { code: ['$ wc -l < dados.txt', '$ grep erro <<< "erro ao conectar"'] },
+      { p: 'Em um heredoc, o bloco termina quando o delimitador aparece sozinho em uma linha. Use um delimitador entre aspas, como <code>&lt;&lt; \'EOF\'</code>, quando quiser preservar variáveis e substituições como texto literal.' }
+    ],
     body: [
       { cmd: '<' },
       { p: 'Aponta o <strong>canal 0</strong> para um arquivo: o comando lê dali em vez de esperar você digitar.' },
@@ -670,6 +690,11 @@ cat ~/limpar.sh
   LX.lesson('m04', {
     id: 'l4-5', n: '3.5', title: 'Pipes: a ideia central do Unix',
     goal: 'Encaixar comandos como peças de encanamento — e entender o que acontece por baixo quando você digita uma barra vertical.',
+    brief: [
+      { p: 'O pipe <code>|</code> liga o <code>stdout</code> do comando à esquerda ao <code>stdin</code> do comando à direita. Assim você resolve um problema em etapas pequenas, sem criar arquivos intermediários.' },
+      { code: ['$ cut -d, -f3 servidores.csv | sort | uniq -c | sort -rn', '$ grep ERROR app.log | wc -l'] },
+      { p: 'Monte e confira o pipeline uma etapa por vez. Mensagens em <code>stderr</code> não entram no pipe por padrão. Comandos como <code>grep</code>, <code>sort</code> e <code>wc</code> leem stdin; comandos como <code>rm</code> esperam argumentos.' }
+    ],
     body: [
       { p: 'O pipe <code>|</code> conecta o <strong>stdout</strong> de um comando ao <strong>stdin</strong> do próximo. Só isso. E é a partir dessa regra simples que surge quase todo o poder do terminal.' },
       {
