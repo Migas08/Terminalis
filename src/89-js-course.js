@@ -1,10 +1,9 @@
 /* =========================================================================
    TERMINALIS — trilha de JavaScript
 
-   Registra a trilha, seus 12 módulos + projeto final e a primeira aula-piloto,
-   que já roda de verdade no playground isolado (aba JS). Os demais módulos ainda
-   não têm aulas: a interface os mostra como "em breve" automaticamente, então o
-   aluno enxerga o mapa completo e o que já dá para fazer.
+   Registra a trilha, seus 12 módulos + projeto final e as aulas-base. A expansão
+   curricular fica em 89-z-js-course-extended.js para manter os IDs publicados e o
+   progresso de quem já iniciou a trilha.
 
    Este arquivo é autocontido (usa LX.mod, LX.TRILHAS.push e LX.lesson) para não
    alterar os cursos existentes, conforme o briefing da fase JS/TS. Carrega depois
@@ -14,8 +13,7 @@
 (function () {
   const G = 'JavaScript';
 
-  /* Títulos dos módulos, na ordem do currículo. Só o primeiro tem aula por ora;
-     os outros aparecem como "em breve" enquanto o conteúdo é escrito. */
+  /* Títulos dos módulos, na ordem do currículo. */
   const MODULOS = [
     ['js01', '01', 'O que executa JavaScript', 'Linguagem, engine e host: o que roda seu código e em que contexto.'],
     ['js02', '02', 'Valores, coerção e contratos de dados', 'Tipos, identidade, igualdade e conversões — sem decorar trivia.'],
@@ -99,7 +97,11 @@
         for (const c of cs) { const s = regras.filter(([re]) => re.test(c)).length; if (s > score) { score = s; best = c; } }
         return best;
       };
-      const checks = [[() => nomes().length > 0, dicaVazio || 'Escreva um programa novo na aba <strong>JS</strong> e clique em rodar.']];
+      const checks = [
+        [() => nomes().length > 0, dicaVazio || 'Escreva um programa novo na aba <strong>JS</strong> e clique em rodar.'],
+        [() => { const c = melhor(); return c != null && c.trim().length >= 24; }, 'O arquivo ainda está curto demais para demonstrar o comportamento pedido.'],
+        [() => { const c = melhor(); return c != null && !/\bTODO\b|implemente/i.test(c); }, 'Remova o <code>TODO</code> e conclua a implementação.']
+      ];
       for (const [re, msg] of regras) checks.push([() => { const c = melhor(); return c != null && re.test(c); }, msg]);
       return H.checkAll(checks);
     };
@@ -192,7 +194,7 @@
       { p: 'Use sempre <code>===</code> (igualdade <strong>estrita</strong>): compara tipo e valor, sem surpresas. O <code>==</code> faz <strong>coerção</strong> antes de comparar, e isso gera resultados que confundem — <code>0 == \'\'</code> é <code>true</code>, <code>null == undefined</code> é <code>true</code>. Prefira <code>===</code> e converta você mesmo quando precisar.' },
       { code: ["1 === 1;      // true", "1 === '1';    // false — tipos diferentes", "1 == '1';     // true  — o == converte antes (evite)", "NaN === NaN;  // false — NaN nunca é igual a nada"], lang: 'js', run: false },
       { h4: 'Verdadeiro e falso' },
-      { p: 'Em um <code>if</code>, o valor é convertido para booleano. São <strong>falsy</strong> apenas seis valores: <code>false</code>, <code>0</code>, <code>\'\'</code> (string vazia), <code>null</code>, <code>undefined</code> e <code>NaN</code>. Todo o resto é <strong>truthy</strong> — inclusive <code>\'0\'</code>, <code>[]</code> e <code>{}</code>.' },
+      { p: 'Em um <code>if</code>, o valor é convertido para booleano. São <strong>falsy</strong>: <code>false</code>, zeros numéricos (<code>0</code> e <code>-0</code>), <code>0n</code>, <code>\'\'</code> (string vazia), <code>null</code>, <code>undefined</code> e <code>NaN</code>. Todo o resto é <strong>truthy</strong> — inclusive <code>\'0\'</code>, <code>[]</code> e <code>{}</code>.' },
       { box: 'key', label: 'Converter de propósito', body: [
         { p: '<code>Number(x)</code>, <code>String(x)</code> e <code>Boolean(x)</code> convertem explicitamente. Escrever a conversão à mão deixa a intenção clara e evita a coerção implícita do <code>==</code>.' }
       ] }
@@ -216,8 +218,8 @@
           { text: 'O array vazio <code>[]</code>.', why: 'Objetos e arrays são sempre truthy, mesmo vazios; só primitivos entram na lista de falsy.' },
           { text: 'O objeto <code>{}</code>.', why: 'Um objeto, mesmo sem propriedades, é truthy.' }
         ],
-        explain: 'São falsy apenas <code>false</code>, <code>0</code>, <code>\'\'</code>, <code>null</code>, <code>undefined</code> e <code>NaN</code>. Strings não vazias, arrays e objetos são todos truthy.',
-        hints: ['A lista de falsy tem seis valores e nenhum deles é objeto ou array.']
+        explain: 'São falsy <code>false</code>, zeros numéricos (<code>0</code> e <code>-0</code>), <code>0n</code>, <code>\'\'</code>, <code>null</code>, <code>undefined</code> e <code>NaN</code>. Strings não vazias, arrays e objetos são truthy.',
+        hints: ['Nenhum objeto ou array é falsy; atenção especial a zero numérico, zero BigInt e string vazia.']
       },
       {
         id: 'js2-1-b', kind: 'desafio', title: 'Uma função que classifica valores',
@@ -567,7 +569,7 @@
       { p: 'Quase toda troca de dados no browser (um <code>fetch</code>, um <code>localStorage</code>) passa por <strong>JSON</strong> — texto com a mesma cara de um objeto JavaScript. <code>JSON.parse</code> transforma texto em objeto; <code>JSON.stringify</code> faz o caminho de volta.' },
       { code: ["const texto = '{\"nome\":\"Ana\",\"idade\":30}';", 'const pessoa = JSON.parse(texto);', 'console.log(pessoa.nome);        // Ana', 'pessoa.idade = pessoa.idade + 1;', 'console.log(JSON.stringify(pessoa));'], lang: 'js', run: false },
       { box: 'warn', label: 'JSON não é JavaScript', body: [
-        { p: 'No JSON, as chaves vão entre aspas duplas e não há funções nem comentários. É só <em>dados</em>. Por isso <code>JSON.parse</code> é seguro para texto vindo de fora — ele não executa código.' }
+        { p: 'No JSON, as chaves vão entre aspas duplas e não há funções nem comentários. <code>JSON.parse</code> não executa o texto como código, mas dados externos ainda exigem limite de tamanho, validação de estrutura e cuidado antes de serem mesclados a outros objetos.' }
       ] }
     ],
     tasks: [
@@ -616,7 +618,7 @@
     body: [
       { h2: 'JavaScript fora do browser' },
       { p: 'No <strong>Node</strong>, o mesmo JavaScript ganha acesso ao sistema: arquivos, processos, rede. Você pede um módulo embutido com <code>require</code>. O <code>fs</code> (filesystem) lê e escreve arquivos; sua versão em <code>fs.promises</code> é assíncrona, então combina com <code>await</code>.' },
-      { code: ["const fs = require('fs');", 'async function principal() {', "  await fs.promises.writeFile('dados.txt', 'ola\\nmundo\\n');", "  const conteudo = await fs.promises.readFile('dados.txt');", "  console.log('lido:', conteudo);", '}', 'principal();'], lang: 'js', run: false },
+      { code: ["const fs = require('fs');", 'async function principal() {', "  await fs.promises.writeFile('dados.txt', 'ola\\nmundo\\n');", "  const conteudo = await fs.promises.readFile('dados.txt', 'utf8');", "  console.log('lido:', conteudo);", '}', 'principal();'], lang: 'js', run: false },
       { box: 'note', label: 'Área restrita', body: [
         { p: 'No laboratório, o <code>fs</code> enxerga apenas a sua pasta de projeto (<code>/home/aluno/js</code>). Tentar sair dela (<code>../</code>) é barrado — é a mesma ideia de permissões do Linux, aplicada ao seu código.' }
       ] }
@@ -649,7 +651,7 @@
           'Importe com <code>const fs = require(\'fs\');</code>.',
           'Use <code>await fs.promises.writeFile(...)</code> e depois <code>await fs.promises.readFile(...)</code>.'
         ],
-        solution: '<p>Gravar e ler de volta pela API assíncrona do <code>fs</code>:</p><pre>cat &lt;&lt;\'EOF\' &gt; /home/aluno/js/resposta.js\nconst fs = require(\'fs\');\nasync function principal() {\n  await fs.promises.writeFile(\'dados.txt\', \'linha 1\\nlinha 2\\n\');\n  const conteudo = await fs.promises.readFile(\'dados.txt\');\n  console.log(\'bytes:\', conteudo.length);\n}\nprincipal();\nEOF</pre>',
+        solution: '<p>Gravar e ler texto pela API assíncrona do <code>fs</code>:</p><pre>cat &lt;&lt;\'EOF\' &gt; /home/aluno/js/resposta.js\nconst fs = require(\'fs\');\nasync function principal() {\n  await fs.promises.writeFile(\'dados.txt\', \'linha 1\\nlinha 2\\n\');\n  const conteudo = await fs.promises.readFile(\'dados.txt\', \'utf8\');\n  console.log(\'texto:\', conteudo);\n}\nprincipal();\nEOF</pre>',
         check: desafioJS(['node.js'], [
           [/require\(\s*['"](fs|node:fs)['"]\s*\)/, 'Importe o <code>fs</code> com <code>require(\'fs\')</code>.'],
           [/writeFile/, 'Grave um arquivo com <code>fs.promises.writeFile</code>.'],
@@ -671,7 +673,7 @@
       { p: 'Um <strong>backend</strong> quase sempre precisa guardar dados e buscá-los depois por uma chave. O padrão <strong>repositório</strong> esconde <em>como</em> os dados são guardados atrás de métodos claros — <code>salvar</code>, <code>buscar</code> — para que o resto do sistema não dependa do armazenamento.' },
       { code: ['class Repositorio {', '  constructor() {', '    this.itens = new Map();', '  }', '  salvar(id, valor) {', '    this.itens.set(id, valor);', '  }', '  buscar(id) {', '    return this.itens.get(id);', '  }', '}'], lang: 'js', run: false },
       { box: 'key', label: 'Map: chave para valor', body: [
-        { p: 'Um <code>Map</code> associa chaves a valores e busca em tempo constante. Aqui ele simula o banco; trocá-lo por um banco real depois não muda quem usa <code>salvar</code>/<code>buscar</code>.' }
+        { p: 'Um <code>Map</code> associa chaves a valores e normalmente oferece acesso médio muito eficiente; a especificação exige desempenho médio sublinear, não tempo constante estrito. Aqui ele simula o banco; trocá-lo por um banco real depois não muda quem usa <code>salvar</code>/<code>buscar</code>.' }
       ] }
     ],
     tasks: [
@@ -771,7 +773,7 @@
     setup: semear('arquitetura.js', '// TODO: atualize estado sem mutar.\n'),
     body: [
       { h2: 'Não mudar por baixo dos panos' },
-      { p: 'Uma <strong>função pura</strong> só depende dos seus argumentos e não altera nada de fora — dado o mesmo input, devolve sempre o mesmo output. Trabalhar com <strong>estado imutável</strong> (devolver um objeto novo em vez de alterar o antigo) torna o sistema previsível e fácil de testar. <code>Object.freeze</code> trava um objeto contra mudanças.' },
+      { p: 'Uma <strong>função pura</strong> só depende dos seus argumentos e não altera nada de fora — dado o mesmo input, devolve sempre o mesmo output. Trabalhar com <strong>estado imutável</strong> (devolver um objeto novo em vez de alterar o antigo) torna o sistema previsível e fácil de testar. <code>Object.freeze</code> impede mudanças nas propriedades do objeto recebido, mas é <strong>raso</strong>: objetos aninhados precisam ser tratados separadamente.' },
       { code: ['function aplicar(estado, evento) {', '  return Object.freeze(', '    Object.assign({}, estado, { total: estado.total + evento.valor })', '  );', '}', 'let estado = Object.freeze({ total: 0 });', 'estado = aplicar(estado, { valor: 10 });', 'estado = aplicar(estado, { valor: 5 });', 'console.log(estado.total); // 15'], lang: 'js', run: false },
       { box: 'key', label: 'Por que importa em produção', body: [
         { p: 'Estado imutável elimina uma classe inteira de bugs: nada muda o objeto pelas suas costas. É a base de reducers, histórico/undo e de raciocinar sobre concorrência sem medo.' }

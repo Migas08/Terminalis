@@ -1,6 +1,6 @@
 # Terminalis
 
-Plataforma interativa em português para aprender **Linux, Bash, Docker, Git & GitHub e administração de servidores**, com aulas escritas e exercícios no próprio navegador.
+Plataforma interativa em português para aprender **Linux, Bash, Docker, Git & GitHub, JavaScript e administração de servidores**, com aulas escritas e exercícios no próprio navegador.
 
 A aplicação é distribuída em **um único arquivo HTML** (`dist/terminalis.html`). O motor e a interface usam JavaScript, HTML e CSS, sem bibliotecas externas necessárias para a simulação. Comandos alteram arquivos, permissões, processos e serviços do ambiente virtual em memória. O projeto não executa uma máquina Linux nem containers Docker reais.
 
@@ -12,13 +12,14 @@ A aplicação é distribuída em **um único arquivo HTML** (`dist/terminalis.ht
 - **Dockerfile e Compose:** construção de imagens e operação de stacks, com variáveis, dependências, volumes e redes.
 - **Serviços:** Traefik, roteamento HTTP e bancos de dados simulados para os exercícios.
 - **Git & GitHub:** snapshots, staging, branches, merges e conflitos, remotos locais, PRs com revisão visual, Issues, tags, releases, stash, recuperação e CI educacional.
+- **JavaScript:** runner isolado, editor multi-arquivo e currículo progressivo de fundamentos a browser, Node, backend, segurança e produção.
 - **Interface monocromática:** dashboard com progresso e acessos recentes, leitura ajustável, navegação móvel entre aula e terminal e foco de teclado.
 - **Interface:** terminal com histórico e autocompletar, editor, explorador de arquivos, anotações, dicas e soluções sob demanda.
 - **Progressão:** aulas, etapas, pré-requisitos entre trilhas e registro permanente de desbloqueios.
 
 ## Conteúdo atual
 
-Inventário conferido em **10 de setembro de 2026**: **78 módulos, 217 aulas, 651 tarefas e 233 comandos registrados** no motor.
+Inventário conferido em **17 de setembro de 2026**: **91 módulos, 282 aulas, 846 tarefas e 233 comandos registrados** no motor.
 
 | Trilha | Módulos no código | Situação |
 |---|---|---|
@@ -29,12 +30,12 @@ Inventário conferido em **10 de setembro de 2026**: **78 módulos, 217 aulas, 6
 | Git & GitHub | `g01` a `g34` — 34 capítulos | Implementado; requer Linux |
 | Projeto final de Git & GitHub | `gpf` | Implementado; requer Git & GitHub |
 | Operação integrada | `m25` e `m26` | Implementado; requer projeto final de Docker |
-| JavaScript | Pesquisa técnica e currículo proposto | Curso ainda não implementado |
+| JavaScript | `js01` a `js12`, mais `jspf` — 13 módulos e 65 aulas | Implementado; disponível desde o início |
 | TypeScript | Pesquisa técnica e currículo proposto | Curso ainda não implementado |
 
 A jornada segue **Linux → projeto final de Linux → Docker → projeto final de Docker → operação integrada**. Git & GitHub abre após Linux e tem seu próprio projeto final. Os identificadores dos módulos são internos; a numeração exibida é definida no mapa do curso.
 
-JavaScript e TypeScript estão na fase de pesquisa e planejamento: ainda não existem módulos, aulas, tarefas ou um runtime de curso para essas trilhas. Python para automação, Redes, SQL e Kubernetes continuam declarados como trilhas planejadas. As ferramentas já presentes no simulador não significam que essas trilhas futuras estejam disponíveis.
+A trilha JavaScript possui runner isolado, editor multi-arquivo, 65 aulas e projeto final integrado. TypeScript já possui suporte de execução no laboratório, mas sua trilha de conteúdo ainda está em planejamento. Python para automação, Redes, SQL e Kubernetes continuam declarados como trilhas planejadas.
 
 Cada aula possui três tarefas, nesta ordem:
 
@@ -44,15 +45,15 @@ Cada aula possui três tarefas, nesta ordem:
 
 Os guiados podem verificar o histórico de comandos; os desafios práticos verificam o estado do ambiente. O padrão editorial e os exemplos de criação de aulas estão em [tools/PADRAO-TAREFAS.md](tools/PADRAO-TAREFAS.md).
 
-## Próxima fase: JavaScript e TypeScript
+## JavaScript e próxima fase TypeScript
 
-A base técnica das duas futuras trilhas foi pesquisada antes da criação de conteúdo:
+A base técnica das duas trilhas foi pesquisada antes da criação de conteúdo:
 
 - [Pesquisa profissional de JavaScript](docs/pesquisa-javascript.txt): linguagem, runtime, browser, Node.js, assíncrono, módulos, segurança, testes, performance e arquitetura.
 - [Pesquisa profissional de TypeScript](docs/pesquisa-typescript.txt): type system, inference, narrowing, generics, tipos derivados, compilador, configuração, runtime boundaries e sistemas grandes.
 - [Proposta inicial das trilhas](docs/proposta-inicial-trilhas-js-ts.txt): currículo, projetos, dependências, APIs necessárias e análise de GAP do simulador.
 
-O próximo passo não é escrever todas as aulas. Primeiro será necessária uma vertical slice segura com editor, runner JavaScript isolado, módulos, console, testes e integração com o VFS. TypeScript deverá acrescentar checker, diagnósticos, emissão e source maps sobre o mesmo runtime JavaScript. O executor reduzido de `node` usado atualmente em imagens Docker não é uma sandbox e não deve ser reutilizado para executar código arbitrário do aluno.
+JavaScript já conta com a vertical slice segura, módulos, console, testes, integração com o VFS e o [currículo completo](docs/CURRICULO-JAVASCRIPT.md). A próxima etapa de conteúdo é TypeScript, aproveitando o mesmo laboratório e o adaptador de compilação existente. O executor reduzido de `node` usado em imagens Docker não é uma sandbox e não deve ser reutilizado para executar código arbitrário do aluno.
 
 Para transferir contexto a outro agente, consulte [Contexto do projeto para o Claude](docs/CONTEXTO-PROJETO-CLAUDE.md). Para trabalhar exclusivamente nessa nova fase, use o [briefing de implementação JavaScript e TypeScript](docs/BRIEFING-IMPLEMENTACAO-JS-TS-CLAUDE.md).
 
@@ -78,6 +79,7 @@ src/
   36-git-cli.js             comandos Git educacionais
   37-github-service.js      remotos, colaboração e CI simulada
   38-github-cli.js          interface educacional do comando gh
+  39-js-*.js                protocolo, runner, sandbox e adaptador TypeScript
   40-docker.js              motor Docker
   41-sql.js                 bancos de dados simulados
   42-imgbin.js              programas disponíveis nas imagens
@@ -115,7 +117,10 @@ src/
   84-*.js a 86-*.js         curso e projeto final de Git & GitHub
   87-git-visual.js          diagramas de branches, PRs e commits
   88-settings.js            preferências de leitura e terminal
+  89-js-course.js           módulos e aulas-base da trilha JavaScript
+  89-z-js-course-extended.js expansão para 65 aulas e projeto final
 docs/                       arquitetura e pesquisa técnica preservada
+  CURRICULO-JAVASCRIPT.md    matriz das 65 aulas e critérios de qualidade
   CONTEXTO-PROJETO-CLAUDE.md contexto geral e regras para handoff
   BRIEFING-IMPLEMENTACAO-JS-TS-CLAUDE.md escopo específico da nova fase
   pesquisa-javascript.txt    base técnica da futura trilha JavaScript
@@ -197,6 +202,7 @@ node test/solutions.js
 | `estrutura.js` | Três tarefas por aula e sua ordem |
 | `vocabulario.js` | Comandos das soluções apresentados no conteúdo acumulado |
 | `solutions.js` | Soluções executadas no simulador e discriminação dos verificadores |
+| `javascript-curriculum.js` | 65 aulas, 195 atividades, IDs estáveis, cobertura e correções técnicas |
 | `git.js` | Semântica de snapshots, branches, integração e recuperação |
 | `git-vocabulary.js` | Operações e flags ensinadas antes dos exercícios de Git |
 | `interface.js` | Dashboard, PR visual, persistência e responsividade |
@@ -231,14 +237,15 @@ npm run test:browser
 
 ### Última verificação local
 
-Em 10 de setembro de 2026, com Node.js 24.19.0 e Edge/Playwright:
+Em 17 de setembro de 2026, com Node.js 24.19.0 e Edge/Playwright:
 
 - Linux e shell: **163 verificações aprovadas**; Docker: **160**; sem falhas.
 - Git: **24 verificações semânticas**, incluindo conflitos, proteção de alterações, reset, stash, clone e autenticação simulada.
-- Estrutura: **217 aulas** no padrão de três tarefas.
+- Estrutura: **282 aulas** no padrão de três tarefas.
 - Vocabulário: soluções revisadas sem depender das dicas para apresentar comandos; auditoria adicional das operações e flags de Git.
-- Soluções: **449 verificações aprovadas, zero falhas, zero aprovações indevidas e zero exceções**; 202 tarefas sem verificador de estado, como quizzes, são contabilizadas separadamente.
-- Navegador: inicialização, autenticação e progresso, percurso do aluno, revisão visual de PR, preferências persistidas, menus por teclado e layouts de 320 a 1440 px.
+- Currículo JavaScript: **13 módulos, 65 aulas e 195 atividades**, com IDs anteriores preservados e cobertura temática validada.
+- Soluções: **514 verificações aprovadas, zero falhas, zero aprovações indevidas e zero exceções**; 332 tarefas sem verificador de estado, como quizzes, são contabilizadas separadamente.
+- Navegador JavaScript: 65 aulas carregadas, módulos visíveis e execução no playground isolado.
 - Dependências: nenhuma dependência de execução; Playwright e seus dois pacotes transitivos são usados apenas nos testes. A consulta ao banco OSV não encontrou vulnerabilidades conhecidas nessas versões.
 
 Esses testes cobrem os comportamentos declarados, sem afirmar compatibilidade integral com Linux, Docker ou Git reais.
