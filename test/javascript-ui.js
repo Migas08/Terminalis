@@ -54,13 +54,14 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
       }
     });
 
-    /* ---------- a aba JS só aparece no curso de JavaScript ---------- */
+    /* ---------- aba JS só no curso de JavaScript; terminal só fora dele ---------- */
     await page.evaluate(() => __app.goLesson('l1-1'));      // aula de Linux
     assert.equal(await page.locator('.sp-tab[data-tab="js"]').isVisible(), false, 'aba JS escondida fora do curso JS');
+    assert.equal(await page.locator('.sp-tab[data-tab="term"]').isVisible(), true, 'terminal visível fora do curso JS');
     await page.evaluate(() => __app.goLesson('js1-1'));      // aula de JavaScript
     assert.equal(await page.locator('.sp-tab[data-tab="js"]').isVisible(), true, 'aba JS visível no curso JS');
-    await page.click('.sp-tab[data-tab="js"]');
-    assert.equal(await page.locator('#js-editor').isVisible(), true, 'o editor aparece na aba JS');
+    assert.equal(await page.locator('.sp-tab[data-tab="term"]').isVisible(), false, 'terminal escondido no curso JS');
+    assert.equal(await page.locator('#js-editor').isVisible(), true, 'o editor é o painel padrão no curso JS');
 
     /* ---------- programar no editor e rodar ---------- */
     await runEditor(page, "console.log('Olá', 1 + 1, { a: [1, 2] });\nconsole.warn('cuidado');");
@@ -73,6 +74,44 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     /* o programa foi salvo como arquivo no laboratório */
     const salvo = await page.evaluate(() => __app.term.sh.m.fs.readFile('/home/aluno/js/rascunho.js', __app.term.sh.fsopts()));
     assert.match(salvo, /console\.log\('Olá'/, 'o editor salvou o código no VFS');
+
+    /* ---------- assíncrono real no navegador: promise + timer drenam antes do fim ---------- */
+    await runEditor(page, [
+      "console.log('a');",
+      "Promise.resolve().then(function () { console.log('b'); });",
+      "setTimeout(function () { console.log('c'); }, 10);",
+      "console.log('d');"
+    ].join('\n'));
+    await waitConsole(page, 'concluído');
+    const linhas = await page.evaluate(() => [...document.querySelectorAll('#js-console .js-line')].map(l => l.textContent));
+    const so = linhas.filter(t => /^[abcd]$/.test(t));
+    assert.deepEqual(so, ['a', 'd', 'b', 'c'], 'ordem sync, resto do script, microtask, timer');
+    assert.ok(linhas.indexOf('c') < linhas.findIndex(t => /concluído/.test(t)), 'concluído só depois do timer');
+
+    /* ---------- módulos ESM multi-arquivo ---------- */
+    await page.evaluate(() => {
+      __app.term.sh.m.fs.writeFile('/home/aluno/js/lib.js', 'export const dobro = function (n) { return n * 2; };\n', __app.term.sh.fsopts());
+    });
+    await runEditor(page, "import { dobro } from './lib.js';\nconsole.log('dobro de 21 é', dobro(21));");
+    await waitConsole(page, 'dobro de 21 é 42');
+    await waitConsole(page, 'concluído');
+
+    /* ---------- módulos Node embutidos no editor ---------- */
+    await runEditor(page, "const path = require('path');\nconsole.log('base', path.basename('/a/b/c.js'), 'plataforma', process.platform);");
+    await waitConsole(page, 'base c.js plataforma browser');
+
+    /* ---------- test runner no editor ---------- */
+    await runEditor(page, [
+      "describe('grupo', function () {",
+      "  it('passa', function () { expect(1 + 1).toBe(2); });",
+      "  it('quebra', function () { expect(1).toBe(2); });",
+      "});"
+    ].join('\n'));
+    await waitConsole(page, 'testes: 1 passaram, 1 falharam');
+    assert.ok(await page.locator('#js-console .js-ok').count() >= 1, 'um teste passou (estilo próprio)');
+    text = await consoleText(page);
+    assert.match(text, /✓ grupo/, 'teste que passou aparece com ✓');
+    assert.match(text, /✗ grupo/, 'teste que falhou aparece com ✗');
 
     /* ---------- erro com localização ---------- */
     await runEditor(page, "const x = 1;\nthrow new Error('explodiu');");
@@ -100,8 +139,8 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     /* ---------- laço infinito é encerrado e a interface continua viva ---------- */
     await runEditor(page, 'while (true) {}');
     await waitConsole(page, 'tempo esgotado', 12000);
-    await page.evaluate(() => __app.switchTab('term'));
-    assert.equal(await page.locator('.sp-view[data-view="term"]').isVisible(), true, 'a UI continua respondendo após o timeout');
+    await page.evaluate(() => __app.switchTab('files'));   // terminal não existe no curso JS
+    assert.equal(await page.locator('.sp-view[data-view="files"]').isVisible(), true, 'a UI continua respondendo após o timeout');
     await page.click('.sp-tab[data-tab="js"]');
 
     /* ---------- ação "rodar" a partir do preview de Arquivos ---------- */
@@ -111,7 +150,7 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     await waitConsole(page, 'Olá, JavaScript');
 
     assert.deepEqual(errors, [], 'nenhum erro de página');
-    console.log('JavaScript UI: aba condicional ao curso, editor programável que salva arquivo, erro localizado, isolamento de realm, timeout com UI viva e ação rodar do preview passaram.');
+    console.log('JavaScript UI: aba condicional ao curso, editor que salva arquivo, async, test runner, módulos ESM, erro localizado, isolamento de realm, timeout com UI viva e ação rodar do preview passaram.');
   } finally {
     if (browser) await browser.close();
     server.close();

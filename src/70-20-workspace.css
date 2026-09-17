@@ -74,6 +74,7 @@
 }
 .js-line { white-space: pre-wrap; }
 .js-line.js-info { color: var(--term-blue); }
+.js-line.js-ok { color: var(--term-green); }
 .js-line.js-warn { color: var(--term-yellow); }
 .js-line.js-error, .js-line.js-err { color: var(--term-red); }
 .js-line.js-debug, .js-line.js-sys { color: var(--term-dim); }

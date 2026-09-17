@@ -81,10 +81,10 @@
   }
 
   function locationOf(payload) {
-    if (!payload || !payload.file) return '';
-    let text = 'linha ' + (payload.line != null ? payload.line : '?');
+    if (!payload || payload.line == null) return '';
+    let text = 'linha ' + payload.line;
     if (payload.column != null) text += ', coluna ' + payload.column;
-    return text;
+    return '(' + text + ')';
   }
 
   function onEvent(event) {
@@ -96,6 +96,11 @@
       case E.OUTPUT_LIMIT: append('js-sys', '■ limite de saída atingido — restante omitido'); break;
       case E.UNCAUGHT_ERROR: append('js-err', p.name + ': ' + p.message, locationOf(p)); break;
       case E.UNHANDLED_REJECTION: append('js-err', 'Promessa rejeitada: ' + p.message, locationOf(p)); break;
+      case E.TEST_START: append('js-sys', '▷ ' + p.name); break;
+      case E.TEST_RESULT: append(p.ok ? 'js-ok' : 'js-err', (p.ok ? '✓ ' : '✗ ') + p.name + (p.ok ? '' : ' — ' + (p.message || 'falhou'))); break;
+      case E.DIAGNOSTIC:
+        if (p.kind === 'test-summary') append('js-sys', '■ testes: ' + p.passed + ' passaram, ' + p.failed + ' falharam');
+        break;
       case E.RUN_TIMEOUT: append('js-sys', '■ tempo esgotado — execução encerrada'); setRunning(false); break;
       case E.RUN_CANCELLED: append('js-sys', '■ execução cancelada'); setRunning(false); break;
       case E.RUN_COMPLETE: append('js-sys', '■ concluído'); setRunning(false); break;
@@ -154,6 +159,33 @@
     JSW.run();
   };
 
+  /* Reúne os arquivos de código sob o diretório do projeto, com caminho relativo
+     ao diretório do entrypoint — assim `import './lib.js'` resolve na sandbox. */
+  function coletarProjeto(dir, entryName, codigo) {
+    const sh = app.term.sh;
+    const map = {};
+    let count = 0;
+    const walk = (d) => {
+      let nomes;
+      try { nomes = sh.m.fs.readdir(d, sh.fsopts()); } catch (e) { return; }
+      for (const n of nomes) {
+        if (count > 180) return;
+        const full = d + '/' + n;
+        let st;
+        try { st = sh.m.fs.lstat(full, sh.fsopts()); } catch (e) { continue; }
+        if (st.type === 'dir') { walk(full); continue; }
+        if (!/\.(mjs|cjs|js)$/i.test(n)) continue;
+        let c;
+        try { c = sh.m.fs.readFile(full, sh.fsopts()); } catch (e) { continue; }
+        map[full.slice(dir.length + 1)] = c;
+        count++;
+      }
+    };
+    walk(dir);
+    map[entryName] = codigo;   // o buffer do editor é a verdade para o entrypoint
+    return map;
+  }
+
   JSW.run = function () {
     if (!runner || running) return;
     if (!entry) setEntry(PADRAO);
@@ -163,7 +195,7 @@
     salvar();                       // o programa vira arquivo no laboratório
     const name = baseName(entry);
     try {
-      runner.putFiles(sessionId, { [name]: codigo });
+      runner.putFiles(sessionId, coletarProjeto(dirName(entry), name, codigo));
       setRunning(true);
       runId = runner.run(sessionId, name);
     } catch (error) {
