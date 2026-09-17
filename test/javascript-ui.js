@@ -88,6 +88,19 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     assert.deepEqual(so, ['a', 'd', 'b', 'c'], 'ordem sync, resto do script, microtask, timer');
     assert.ok(linhas.indexOf('c') < linhas.findIndex(t => /concluído/.test(t)), 'concluído só depois do timer');
 
+    /* ---------- test runner no editor ---------- */
+    await runEditor(page, [
+      "describe('grupo', function () {",
+      "  it('passa', function () { expect(1 + 1).toBe(2); });",
+      "  it('quebra', function () { expect(1).toBe(2); });",
+      "});"
+    ].join('\n'));
+    await waitConsole(page, 'testes: 1 passaram, 1 falharam');
+    assert.ok(await page.locator('#js-console .js-ok').count() >= 1, 'um teste passou (estilo próprio)');
+    text = await consoleText(page);
+    assert.match(text, /✓ grupo/, 'teste que passou aparece com ✓');
+    assert.match(text, /✗ grupo/, 'teste que falhou aparece com ✗');
+
     /* ---------- erro com localização ---------- */
     await runEditor(page, "const x = 1;\nthrow new Error('explodiu');");
     await waitConsole(page, 'Error: explodiu');

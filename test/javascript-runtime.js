@@ -155,6 +155,46 @@ async function runFile(runner, files, entry) {
     runner.disposeAll();
   }
 
+  /* ---------- TEST RUNNER: describe/it/expect, hooks e async ---------- */
+  {
+    const runner = makeRunner();
+    await runFile(runner, {
+      'spec.js': [
+        "var setups = 0;",
+        "describe('soma', function () {",
+        "  beforeEach(function () { setups++; });",
+        "  it('2 + 2 é 4', function () { expect(2 + 2).toBe(4); });",
+        "  it('async resolve', async function () { var v = await Promise.resolve(3); expect(v).toBe(3); });",
+        "  it('falha proposital', function () { expect(1).toBe(2); });",
+        "  it('viu os setups', function () { expect(setups).toBe(4); });",
+        "});"
+      ].join('\n')
+    }, 'spec.js');
+    assert.equal(runner.of('test-start').length, 4, 'quatro testes iniciados');
+    const res = runner.of('test-result');
+    assert.equal(res.length, 4);
+    assert.equal(res.filter(e => e.payload.ok).length, 3, 'três passam');
+    const falhou = res.find(e => !e.payload.ok);
+    assert.ok(falhou && /esperava/.test(falhou.payload.message), 'a falha traz mensagem');
+    const resumo = runner.of('diagnostic').find(e => e.payload.kind === 'test-summary');
+    assert.ok(resumo && resumo.payload.passed === 3 && resumo.payload.failed === 1, 'resumo correto');
+    assert.equal(runner.of('run-complete')[0].payload.ok, false, 'suíte com falha marca run-complete ok:false');
+    runner.disposeAll();
+  }
+
+  /* ---------- runTests: atalho que roda a suíte ---------- */
+  {
+    const runner = makeRunner();
+    const sid = runner.createSession();
+    runner.putFiles(sid, { 'spec.js': "it('ok', function () { expect(true).toBeTruthy(); });" });
+    const done = runner.done();
+    runner.runTests(sid, 'spec.js');
+    await done;
+    assert.equal(runner.of('test-result')[0].payload.ok, true, 'teste passa via runTests');
+    assert.equal(runner.of('run-complete')[0].payload.ok, true);
+    runner.disposeAll();
+  }
+
   /* ---------- timeout: laço infinito é encerrado e a sessão volta a executar ----------
      Transport mudo + scheduler manual: dispara o estouro do tempo de forma
      determinística, como o setTimeout do coordenador faria. */
@@ -207,11 +247,11 @@ async function runFile(runner, files, entry) {
     assert.throws(() => runner.putFiles('sess_fantasma', { 'a.js': 'x' }), /Sessão inválida/);
     const sid = runner.createSession();
     assert.throws(() => runner.run(sid, 'nao-existe.js'), /inexistente/);
-    assert.throws(() => runner.runTests(), /não é suportado/);
+    assert.throws(() => runner.runTests(), /Sessão inválida/);
     assert.equal(runner.dispose('sess_fantasma'), false);
     assert.equal(runner.dispose(sid), true);
     runner.disposeAll();
   }
 
-  console.log('JavaScript runtime: olá, throw localizado, syntax error, limite de saída, async (micro/timer/await), erro assíncrono, timeout, cancel e validações passaram.');
+  console.log('JavaScript runtime: olá, throw localizado, syntax error, limite de saída, async (micro/timer/await), erro assíncrono, test runner (describe/it/expect/hooks), timeout, cancel e validações passaram.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
