@@ -96,6 +96,28 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     await waitConsole(page, 'dobro de 21 é 42');
     await waitConsole(page, 'concluído');
 
+    /* ---------- editor multi-arquivo: criar, alternar e importar entre arquivos ---------- */
+    await page.evaluate(() => LX.JSWorkspace.onShow(__app));           // garante a faixa desenhada
+    await page.click('#js-file-new');                                 // botão "+"
+    await page.fill('.js-file-input', 'util.js');
+    await page.press('.js-file-input', 'Enter');
+    await page.waitForFunction(() => [...document.querySelectorAll('#js-files .js-file-name')].some(b => b.textContent === 'util.js'));
+    assert.equal(await page.locator('#js-files .js-file.active .js-file-name').textContent(), 'util.js', 'o arquivo recém-criado fica ativo');
+    await page.fill('#js-editor', 'export const soma = function (a, b) { return a + b; };\n');
+    // alternar de aba salva o arquivo inativo no VFS
+    await page.locator('#js-files .js-file-name', { hasText: 'rascunho.js' }).click();
+    assert.equal(await page.locator('#js-files .js-file.active .js-file-name').textContent(), 'rascunho.js', 'clicar em outra aba troca o arquivo ativo');
+    const utilSalvo = await page.evaluate(() => __app.term.sh.m.fs.readFile('/home/aluno/js/util.js', __app.term.sh.fsopts()));
+    assert.match(utilSalvo, /export const soma/, 'o arquivo aberto antes foi salvo no VFS ao alternar');
+    // importar do arquivo criado pela interface
+    await runEditor(page, "import { soma } from './util.js';\nconsole.log('soma', soma(2, 3));");
+    await waitConsole(page, 'soma 5');
+    // excluir um arquivo pela faixa e conferir que sumiu do VFS
+    await page.click('.js-file-x[title="Excluir util.js"]');
+    await page.waitForFunction(() => ![...document.querySelectorAll('#js-files .js-file-name')].some(b => b.textContent === 'util.js'));
+    const utilApagado = await page.evaluate(() => { try { __app.term.sh.m.fs.readFile('/home/aluno/js/util.js', __app.term.sh.fsopts()); return true; } catch (e) { return false; } });
+    assert.equal(utilApagado, false, 'o arquivo excluído sumiu do VFS');
+
     /* ---------- módulos Node embutidos no editor ---------- */
     await runEditor(page, "const path = require('path');\nconsole.log('base', path.basename('/a/b/c.js'), 'plataforma', process.platform);");
     await waitConsole(page, 'base c.js plataforma browser');
@@ -178,7 +200,7 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     await waitConsole(page, 'Olá, JavaScript');
 
     assert.deepEqual(errors, [], 'nenhum erro de página');
-    console.log('JavaScript UI: aba condicional ao curso, editor que salva arquivo, async, test runner, módulos ESM, erro localizado, isolamento de realm, timeout com UI viva e ação rodar do preview passaram.');
+    console.log('JavaScript UI: aba condicional ao curso, editor multi-arquivo (criar/alternar/excluir), async, test runner, módulos ESM, erro localizado, isolamento de realm, timeout com UI viva e ação rodar do preview passaram.');
   } finally {
     if (browser) await browser.close();
     server.close();

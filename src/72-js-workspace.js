@@ -12,8 +12,11 @@
 (function () {
   const { query: $ } = LX.Util;
   const JSW = {};
-  const PADRAO = '/home/aluno/js/rascunho.js';
+  const PROJ = '/home/aluno/js';
+  const PADRAO = PROJ + '/rascunho.js';
   const MODELO = "// Escreva JavaScript e clique em rodar.\nconsole.log('Olá, JavaScript');\n";
+  const MODELO_NOVO = "// Novo arquivo.\n";
+  const RE_JS = /\.(mjs|cjs|js)$/i;
 
   let app = null;
   let runner = null;
@@ -176,16 +179,176 @@
     ed.value = conteudo != null ? conteudo : MODELO;
   }
 
+  /* ---------- barra de arquivos do projeto (estilo editor multi-arquivo) ----------
+     A "aba JS" é um mini-editor: a faixa lista os arquivos de código do diretório
+     do projeto, o aluno cria/renomeia/exclui e alterna entre eles. Tudo mora no
+     VFS (nunca em memória volátil), então persiste com o laboratório. */
+  function projDir() { return entry ? dirName(entry) : PROJ; }
+
+  function listarArquivos() {
+    if (!app) return [];
+    const sh = app.term.sh;
+    let nomes;
+    try { nomes = sh.m.fs.readdir(projDir(), sh.fsopts()) || []; }
+    catch (error) { return []; }
+    return nomes.filter(n => typeof n === 'string' && RE_JS.test(n)).sort();
+  }
+
+  /* Salva o buffer atual e abre outro arquivo do projeto no editor. */
+  function abrirArquivo(full) {
+    if (full === entry) return;
+    salvar();
+    carregar(full);
+    renderArquivos();
+    const ed = editorEl(); if (ed) ed.focus();
+  }
+
+  /* Campo embutido na faixa para nomear um arquivo (criar ou renomear). */
+  function campoNome(valorInicial, aoConfirmar, antesDe) {
+    const wrap = $('#js-files');
+    if (!wrap) return;
+    const existente = wrap.querySelector('.js-file-input');
+    if (existente) { existente.focus(); return; }
+    const inp = document.createElement('input');
+    inp.className = 'js-file-input';
+    inp.setAttribute('aria-label', 'Nome do arquivo');
+    inp.placeholder = 'nome.js';
+    inp.value = valorInicial || '';
+    let feito = false;
+    const confirmar = () => {
+      if (feito) return; feito = true;
+      const bruto = inp.value.trim();
+      if (!bruto || bruto.indexOf('/') >= 0) { renderArquivos(); return; }
+      let nome = bruto;
+      if (!RE_JS.test(nome)) nome += '.js';
+      aoConfirmar(nome);
+    };
+    const cancelar = () => { if (feito) return; feito = true; renderArquivos(); };
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); confirmar(); }
+      else if (e.key === 'Escape') { e.preventDefault(); cancelar(); }
+    });
+    inp.addEventListener('blur', confirmar);
+    wrap.insertBefore(inp, antesDe || wrap.querySelector('.js-file-new'));
+    inp.focus();
+    if (valorInicial) inp.select();
+  }
+
+  /* Cria um arquivo vazio no diretório do projeto e o abre. */
+  function criarArquivo() {
+    if (!app) return;
+    campoNome('', (nome) => {
+      const sh = app.term.sh;
+      const full = projDir() + '/' + nome;
+      try {
+        sh.m.fs.mkdirp(projDir(), sh.fsopts());
+        let existe = false;
+        try { sh.m.fs.lstat(full, sh.fsopts()); existe = true; } catch (error) { existe = false; }
+        if (!existe) sh.m.fs.writeFile(full, MODELO_NOVO, sh.fsopts());
+      } catch (error) { renderArquivos(); return; }
+      salvar();
+      carregar(full);
+      renderArquivos();
+      const ed = editorEl(); if (ed) ed.focus();
+    });
+  }
+
+  /* Renomeia um arquivo do projeto (mantém o conteúdo). */
+  function renomearArquivo(full, tab) {
+    if (!app) return;
+    const atual = baseName(full);
+    campoNome(atual, (nome) => {
+      const sh = app.term.sh;
+      const alvo = projDir() + '/' + nome;
+      if (alvo === full) { renderArquivos(); return; }
+      try {
+        let ocupado = false;
+        try { sh.m.fs.lstat(alvo, sh.fsopts()); ocupado = true; } catch (error) { ocupado = false; }
+        if (ocupado) { renderArquivos(); return; }
+        if (full === entry) salvar();
+        sh.m.fs.rename(full, alvo, sh.fsopts());
+      } catch (error) { renderArquivos(); return; }
+      if (full === entry) carregar(alvo);
+      renderArquivos();
+    }, tab);
+  }
+
+  /* Exclui um arquivo do projeto (sempre resta ao menos um). */
+  function excluirArquivo(full) {
+    if (!app) return;
+    const sh = app.term.sh;
+    const nomes = listarArquivos();
+    if (nomes.length <= 1) return;
+    try { sh.m.fs.rmrf(full, sh.fsopts()); } catch (error) { return; }
+    if (full === entry) {
+      const resta = listarArquivos();
+      carregar(resta.length ? projDir() + '/' + resta[0] : PADRAO);
+    }
+    renderArquivos();
+  }
+
+  /* Desenha a faixa: uma aba por arquivo (ativa destacada) e o botão "novo". */
+  function renderArquivos() {
+    const wrap = $('#js-files');
+    if (!wrap) return;
+    wrap.textContent = '';
+    const dir = projDir();
+    const nomes = listarArquivos();
+    // O arquivo aberto sempre aparece, mesmo antes do primeiro salvamento.
+    if (entry && dirName(entry) === dir && RE_JS.test(entry) && nomes.indexOf(baseName(entry)) < 0) {
+      nomes.push(baseName(entry));
+      nomes.sort();
+    }
+    for (const n of nomes) {
+      const full = dir + '/' + n;
+      const ativo = full === entry;
+      const tab = document.createElement('div');
+      tab.className = 'js-file' + (ativo ? ' active' : '');
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-selected', ativo ? 'true' : 'false');
+      const nome = document.createElement('button');
+      nome.type = 'button';
+      nome.className = 'js-file-name';
+      nome.textContent = n;
+      nome.title = n;
+      nome.onclick = () => abrirArquivo(full);
+      nome.ondblclick = () => renomearArquivo(full, tab);
+      tab.appendChild(nome);
+      if (nomes.length > 1) {
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'js-file-x';
+        x.textContent = '×';
+        x.title = 'Excluir ' + n;
+        x.setAttribute('aria-label', 'Excluir ' + n);
+        x.onclick = (e) => { e.stopPropagation(); excluirArquivo(full); };
+        tab.appendChild(x);
+      }
+      wrap.appendChild(tab);
+    }
+    const novo = document.createElement('button');
+    novo.type = 'button';
+    novo.id = 'js-file-new';
+    novo.className = 'js-file-new';
+    novo.textContent = '+';
+    novo.title = 'Novo arquivo';
+    novo.setAttribute('aria-label', 'Novo arquivo');
+    novo.onclick = () => criarArquivo();
+    wrap.appendChild(novo);
+  }
+
   JSW.onShow = function (a) {
     ensure(a);
     const ed = editorEl();
-    if (ed && !ed.value) carregar(entry || PADRAO);
+    if (ed && !ed.value && !entry) carregar(PADRAO);
+    renderArquivos();
   };
 
   /* Abre um arquivo .js no editor e roda (usado pelo preview de Arquivos). */
   JSW.openAndRun = function (a, path) {
     ensure(a);
     carregar(path);
+    renderArquivos();
     if (app && typeof app.switchTab === 'function') app.switchTab('js');
     JSW.run();
   };
