@@ -160,6 +160,10 @@ button { font-family: inherit; }
 .crumbs .c1 { color: var(--tx-3); white-space: nowrap; }
 .crumbs .sep { color: var(--tx-3); }
 .crumbs .c2 { color: var(--tx); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lab-kind {
+  flex: 0 0 auto; padding: 3px 8px; border: 1px solid var(--line-strong); border-radius: 5px;
+  color: var(--tx-3); font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase;
+}
 .topbar-spacer { flex: 1; }
 
 .modprog { display: flex; flex-direction: column; gap: 5px; min-width: 210px; }
@@ -460,6 +464,7 @@ code {
 }
 .code-btn:hover { color: var(--green); border-color: var(--green-line); }
 .code-btn svg { width: 12px; height: 12px; }
+.code-open-editor { padding-inline: 9px; }
 
 /* --- caixas --- */
 .box { border: 1px solid var(--line); border-left: 3px solid var(--line-strong); border-radius: 0 var(--r) var(--r) 0; padding: 13px 15px; margin: 0 0 16px; background: var(--surface-2); font-size: 14.5px; }
@@ -588,6 +593,24 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
   display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden;
 }
+#workspace-resizer { display: none; }
+body.lab-code #body {
+  --lesson-pct: 40%;
+  grid-template-columns: minmax(300px, var(--lesson-pct)) 6px minmax(480px, 1fr);
+  gap: 8px;
+}
+body.lab-code #workspace-resizer {
+  display: block; position: relative; min-height: 0; cursor: col-resize; border-radius: 99px;
+}
+body.lab-code #workspace-resizer::after {
+  content: ''; position: absolute; inset: 12px 2px; border-radius: 99px; background: var(--line-soft);
+  transition: background .15s, inset .15s;
+}
+body.lab-code #workspace-resizer:hover::after,
+body.lab-code #workspace-resizer.dragging::after,
+body.lab-code #workspace-resizer:focus-visible::after { inset-inline: 1px; background: var(--line-strong); }
+body.lab-code #side-panel { border-color: var(--line-strong); box-shadow: 0 16px 50px rgba(0,0,0,.24); }
+body.lab-code #lesson-panel { border-color: var(--line-soft); }
 .sp-tabs { display: flex; align-items: center; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--line); }
 .sp-tab {
   background: none; border: 0; cursor: pointer; padding: 13px 12px 11px; color: var(--tx-3);
@@ -606,6 +629,9 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
   border-radius: 7px; padding: 5px 10px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
 }
 .mini-btn:hover { color: var(--tx); border-color: var(--line-strong); }
+.mini-btn.primary { background: var(--tx); border-color: var(--tx); color: var(--bg); font-weight: 650; }
+.mini-btn.primary:hover { background: #fff; border-color: #fff; color: #050505; }
+.mini-btn kbd { font: inherit; font-family: var(--f-mono); font-size: 9px; opacity: .55; margin-left: 3px; }
 .mini-btn.danger { color: var(--red); border-color: rgba(137,137,137,.35); background: var(--red-soft); }
 .mini-btn.danger:hover { border-color: var(--red); }
 .mini-btn svg { width: 12px; height: 12px; }
@@ -639,8 +665,13 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
 @keyframes blink { 0%,55% { opacity: 1; } 56%,100% { opacity: 0; } }
 #term-hidden { position: absolute; opacity: 0; width: 1px; height: 1px; left: -9999px; }
 
-/* ---------- playground JavaScript (arquivos + editor + console) ---------- */
-.js-shell { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--term-bg); }
+/* ---------- Code Lab (arquivos + editor + console) ---------- */
+.code-lab-mark {
+  display: inline-flex; align-items: center; gap: 6px; color: var(--tx-3);
+  font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase;
+}
+.code-lab-mark i { width: 6px; height: 6px; border-radius: 50%; background: var(--tx-2); }
+.js-shell { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--term-bg); --editor-size: 58%; }
 .js-files {
   flex: 0 0 auto; display: flex; align-items: stretch; gap: 2px; padding: 5px 8px 0;
   background: var(--surface); border-bottom: 1px solid var(--line); overflow-x: auto;
@@ -674,22 +705,49 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
   background: var(--term-bg); color: var(--tx); outline: none;
   font-family: var(--f-mono); font-size: 11.5px; padding: 6px 6px; width: 118px;
 }
+.js-editor-pane {
+  flex: 1 1 var(--editor-size); min-height: 110px; display: grid; grid-template-columns: 46px minmax(0,1fr);
+  background: var(--term-bg); overflow: hidden;
+}
+.js-gutter {
+  grid-column: 1; margin: 0; padding: 13px 10px 16px 0; overflow: hidden; user-select: none;
+  border-right: 1px solid var(--line-soft); color: #555; background: #080808;
+  text-align: right; font-family: var(--f-mono); font-size: 12.5px; line-height: 1.6;
+}
 .js-editor {
-  flex: 1 1 55%; min-height: 90px; resize: none; border: 0; outline: 0; width: 100%;
+  grid-column: 2; min-height: 0; resize: none; border: 0; outline: 0; width: 100%; height: 100%;
   background: var(--term-bg); color: var(--term-tx);
   font-family: var(--f-mono); font-size: 12.5px; line-height: 1.6;
-  padding: 12px 16px; white-space: pre; overflow: auto; tab-size: 2;
+  padding: 12px 18px 16px; white-space: pre; overflow: auto; tab-size: 2;
 }
+.js-editor:focus { box-shadow: inset 0 0 0 1px rgba(234,234,234,.06); }
+.js-pane-resizer {
+  flex: 0 0 7px; position: relative; cursor: row-resize; background: var(--surface); border-block: 1px solid var(--line-soft);
+}
+.js-pane-resizer i { position: absolute; left: 50%; top: 50%; width: 30px; height: 2px; transform: translate(-50%,-50%); border-radius: 4px; background: var(--line-strong); }
+.js-pane-resizer:hover i, .js-pane-resizer.dragging i, .js-pane-resizer:focus-visible i { background: var(--tx-2); }
+.js-console-pane { flex: 1 1 42%; min-height: 90px; display: flex; flex-direction: column; background: #080808; }
 .js-console-head {
-  flex: 0 0 auto; padding: 6px 16px; font-size: 11px; letter-spacing: .04em;
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 7px 16px; font-size: 10px; letter-spacing: .08em;
   text-transform: uppercase; color: var(--tx-3);
-  border-top: 1px solid var(--line); background: var(--surface);
+  background: var(--surface);
 }
+.js-run-state { font-family: var(--f-mono); letter-spacing: 0; text-transform: none; }
 #js-console {
-  flex: 1 1 45%; overflow-y: auto; padding: 10px 16px 16px;
+  flex: 1; overflow-y: auto; padding: 10px 16px 16px;
   font-family: var(--f-mono); font-size: 12.5px; line-height: 1.6;
   color: var(--term-tx); white-space: pre-wrap; word-break: break-word; min-height: 0;
 }
+.js-empty { min-height: 100%; display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--tx-3); text-align: center; }
+.js-empty span { font-family: var(--f-mono); font-size: 18px; color: #555; }
+.js-empty p { margin: 0; max-width: 30ch; font: 11px/1.5 var(--f-ui); }
+.js-statusbar {
+  flex: 0 0 27px; display: flex; align-items: center; gap: 14px; padding: 0 12px;
+  border-top: 1px solid var(--line); background: var(--surface-2); color: var(--tx-3);
+  font-family: var(--f-mono); font-size: 9.5px; white-space: nowrap;
+}
+.js-statusbar .spacer { flex: 1; }
+.js-statusbar .pending { color: var(--tx-2); }
 .js-line { white-space: pre-wrap; }
 .js-line.js-info { color: var(--term-blue); }
 .js-line.js-ok { color: var(--term-green); }
@@ -824,6 +882,8 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
   #app { grid-template-columns: 1fr; grid-template-rows: var(--topbar) 1fr; }
   #topbar { grid-column: 1; grid-row: 1; }
   #body { grid-column: 1; grid-row: 2; grid-template-columns: 1fr; padding: 12px; margin-bottom: 56px; }
+  body.lab-code #body { grid-template-columns: 1fr; }
+  body.lab-code #workspace-resizer { display: none; }
   #side-panel { grid-column: 1; }
   #sidebar {
     grid-column: 1; grid-row: 1 / 3; position: fixed; inset: 0 auto 0 0; width: 278px; z-index: 60;
@@ -857,6 +917,7 @@ td.mono { font-family: var(--f-mono); font-size: .88em; font-variant-numeric: ta
   .nav-btn { flex: 1 1 auto; justify-content: center; padding: 9px 10px; font-size: 12.5px; }
   .nav-btn span { white-space: nowrap; }
   .sp-reset span { display: none; }
+  .mini-btn kbd, .code-lab-mark { display: none; }
   .cs-stats { grid-template-columns: repeat(2, 1fr); }
   .cs-corpo { grid-template-columns: 1fr; }
   .crs-row { grid-template-columns: 44px 1fr; }
@@ -1581,7 +1642,7 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
     </nav>
 
     <div class="sb-section">
-      <div class="sb-label">Cursos atuais</div>
+      <div class="sb-label">Cursos</div>
       <div class="sb-cursos" id="sb-cursos"></div>
     </div>
 
@@ -1599,6 +1660,7 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
       <span class="sep" id="crumb-sep">/</span>
       <span class="c2" id="crumb-2">Início</span>
     </nav>
+    <span class="lab-kind hidden" id="lab-kind">Terminal Lab</span>
     <span class="c2 hidden" id="mobile-now"></span>
     <div class="topbar-spacer"></div>
     <div class="modprog" id="modprog" style="visibility:hidden">
@@ -1620,12 +1682,14 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
       <footer id="lesson-foot" class="hidden"></footer>
     </section>
 
+    <div id="workspace-resizer" role="separator" aria-orientation="vertical" aria-label="Redimensionar aula e laboratório" tabindex="0"></div>
+
     <section id="side-panel">
       <div class="sp-tabs" role="tablist">
         <button class="sp-tab" data-tab="term" role="tab" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-5-6-5"/><path d="M12 19h8"/></svg><span>Terminal</span></button>
         <button class="sp-tab" data-tab="files" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg><span>Arquivos</span></button>
         <button class="sp-tab" data-tab="notes" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span>Anotações</span></button>
-        <button class="sp-tab hidden" data-tab="js" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z"/></svg><span>JS</span></button>
+        <button class="sp-tab hidden" data-tab="js" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z"/></svg><span>Editor</span></button>
         <div class="sp-tabs-spacer"></div>
         <button class="mini-btn danger sp-reset" id="btn-reset-term" aria-label="Recriar o ambiente" title="Recriar o ambiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span>Reset</span></button>
       </div>
@@ -1641,10 +1705,12 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
         <button class="mini-btn" id="fb-here">ir para o diretório atual</button>
       </div>
       <div class="sp-actions hidden" id="sp-js-actions">
+        <span class="code-lab-mark"><i></i> Code Lab</span>
         <span class="js-entry" id="js-entry">rascunho.js</span>
         <div class="spacer"></div>
-        <button class="mini-btn" id="js-run"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z"/></svg>rodar</button>
-        <button class="mini-btn" id="js-cancel" disabled>parar</button>
+        <button class="mini-btn" id="js-save" title="Salvar no laboratório (Ctrl+S)">Salvar</button>
+        <button class="mini-btn primary" id="js-run" title="Executar (Ctrl+Enter)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z"/></svg><span id="js-run-label">Executar</span><kbd>Ctrl ↵</kbd></button>
+        <button class="mini-btn" id="js-cancel" disabled>Parar</button>
         <button class="mini-btn square" id="js-clear" aria-label="Limpar console" title="Limpar console"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
       </div>
 
@@ -1685,9 +1751,22 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
       <div class="sp-view" data-view="js">
         <div class="js-shell">
           <div class="js-files" id="js-files" role="tablist" aria-label="Arquivos do projeto"></div>
-          <textarea id="js-editor" class="js-editor" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Editor de JavaScript" placeholder="Escreva JavaScript aqui e clique em rodar…"></textarea>
-          <div class="js-console-head">Console</div>
-          <div id="js-console" aria-live="polite"></div>
+          <div class="js-editor-pane" id="js-editor-pane">
+            <pre class="js-gutter" id="js-gutter" aria-hidden="true">1</pre>
+            <textarea id="js-editor" class="js-editor" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Editor de JavaScript" placeholder="Escreva JavaScript aqui e execute com Ctrl+Enter…"></textarea>
+          </div>
+          <div class="js-pane-resizer" id="js-pane-resizer" role="separator" aria-orientation="horizontal" aria-label="Redimensionar editor e console" tabindex="0"><i></i></div>
+          <div class="js-console-pane" id="js-console-pane">
+            <div class="js-console-head"><span>Console</span><span class="js-run-state" id="js-run-state">pronto</span></div>
+            <div id="js-console" aria-live="polite"><div class="js-empty"><span>&gt;_</span><p>A saída, os erros e os testes aparecem aqui.</p></div></div>
+          </div>
+          <div class="js-statusbar" aria-label="Status do editor">
+            <span id="js-save-state">salvo localmente</span>
+            <span class="spacer"></span>
+            <span id="js-cursor-state">Ln 1, Col 1</span>
+            <span id="js-lang-state">JavaScript</span>
+            <span>UTF-8</span>
+          </div>
         </div>
       </div>
 
@@ -44809,6 +44888,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         if (!e.target.closest('.conta-wrap')) $('#conta-menu').classList.add('hidden');
       });
       $$('.sp-tab').forEach(t => t.onclick = () => this.switchTab(t.dataset.tab));
+      this.bindWorkspaceResizer();
       $('#btn-reset-term').onclick = () => this.resetEnvironment();
       $('#btn-new-term').onclick = () => { this.term.clear(); this.term.prompt(); this.term.focus(); };
       const notes = $('#notes-area');
@@ -44823,6 +44903,28 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && document.body.classList.contains('rail-open')) document.body.classList.remove('rail-open');
         if ((e.ctrlKey || e.metaKey) && e.key === '`') { e.preventDefault(); this.switchTab('term'); this.term.focus(); }
+      });
+    }
+
+    bindWorkspaceResizer() {
+      const handle = $('#workspace-resizer'), body = $('#body');
+      if (!handle || !body) return;
+      const aplicar = (x) => {
+        if (!document.body.classList.contains('lab-code')) return;
+        const r = body.getBoundingClientRect();
+        const pct = Math.max(28, Math.min(62, ((x - r.left) / r.width) * 100));
+        body.style.setProperty('--lesson-pct', pct.toFixed(1) + '%');
+      };
+      handle.addEventListener('pointerdown', e => {
+        e.preventDefault(); handle.setPointerCapture(e.pointerId); handle.classList.add('dragging');
+      });
+      handle.addEventListener('pointermove', e => { if (handle.hasPointerCapture(e.pointerId)) aplicar(e.clientX); });
+      handle.addEventListener('pointerup', e => { if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId); handle.classList.remove('dragging'); });
+      handle.addEventListener('keydown', e => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        const atual = parseFloat(getComputedStyle(body).getPropertyValue('--lesson-pct')) || 40;
+        body.style.setProperty('--lesson-pct', Math.max(28, Math.min(62, atual + (e.key === 'ArrowRight' ? 2 : -2))) + '%');
       });
     }
 
@@ -44878,7 +44980,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     /* ----------------------------- barra lateral ----------------------------- */
     /* Os "cursos" de topo da barra lateral: as trilhas principais de estudo. */
     cursosPrincipais() {
-      return ['linux', 'docker', 'git', 'ops']
+      return ['linux', 'docker', 'git', 'js', 'ops']
         .map(id => LX.trilhaPorId(id))
         .filter(t => t && (t.mods || []).some(mid => {
           const m = this.course.modules.find(x => x.id === mid);
@@ -44910,7 +45012,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         const st = LX.Progressao ? LX.Progressao.status(t.id, Progress.data) : { liberada: true };
         const bloqueada = !st.liberada;
         const ativa = t.id === trilhaAtiva && (this.route.view === 'lesson' || this.route.view === 'curso');
-        return `<button class="sb-curso ${ativa ? 'active' : ''}" data-curso="${t.id}">
+        return `<button class="sb-curso ${ativa ? 'active' : ''}" data-curso="${t.id}" title="${esc(t.nome)}">
           <span class="sb-curso-ic c-${t.cor}">${bloqueada ? ICON.lock : t.icone}</span>
           <span class="sb-curso-body">
             <span class="sb-curso-nm">${esc(t.nome)}</span>
@@ -44933,6 +45035,15 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       // No curso de JavaScript o painel é o editor JS; o terminal Linux não
       // serve à aula, então some. Fora do curso, o inverso.
       const emCursoJs = emAula && this.trilhaId === 'js';
+      document.body.classList.toggle('lab-code', emCursoJs);
+      document.body.classList.toggle('lab-terminal', emAula && !emCursoJs);
+      const tipoLab = $('#lab-kind');
+      if (tipoLab) {
+        tipoLab.classList.toggle('hidden', !emAula);
+        tipoLab.textContent = emCursoJs ? 'Code Lab' : 'Terminal Lab';
+      }
+      const mobileLab = $('.mobile-tabs [data-m="term"] span');
+      if (mobileLab) mobileLab.textContent = emCursoJs ? 'Código' : 'Terminal';
       const abaJs = $('.sp-tab[data-tab="js"]');
       const abaTerm = $('.sp-tab[data-tab="term"]');
       if (abaJs) abaJs.classList.toggle('hidden', !emCursoJs);
@@ -45206,6 +45317,12 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
         const text = Array.from(pre.querySelectorAll('.cmdline')).map(x => x.dataset.cmd).join('\n') || pre.textContent;
         this.copyText(text);
       });
+      $$('.code-btn[data-open-editor]').forEach(b => b.onclick = () => {
+        const pre = b.closest('.code').querySelector('pre');
+        if (!pre || !LX.JSWorkspace || typeof LX.JSWorkspace.openSnippet !== 'function') return;
+        LX.JSWorkspace.openSnippet(this, pre.textContent);
+        this.toast('Exemplo aberto no Code Lab');
+      });
       $$('[data-task]').forEach(el => this.wireTask(el));
     }
 
@@ -45427,7 +45544,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
   const JSW = {};
   const PROJ = '/home/aluno/js';
   const PADRAO = PROJ + '/rascunho.js';
-  const MODELO = "// Escreva JavaScript e clique em rodar.\nconsole.log('Olá, JavaScript');\n";
+  const MODELO = "// Escreva JavaScript e clique em Executar.\nconsole.log('Olá, JavaScript');\n";
   const MODELO_NOVO = "// Novo arquivo.\n";
   // Arquivos de código que a aba JS reconhece: JavaScript e TypeScript.
   const RE_JS = /\.(mjs|cjs|js|ts|mts|cts)$/i;
@@ -45509,21 +45626,31 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     const run = $('#js-run'); if (run) run.onclick = () => JSW.run();
     const cancel = $('#js-cancel'); if (cancel) cancel.onclick = () => JSW.cancel();
     const clear = $('#js-clear'); if (clear) clear.onclick = () => JSW.clear();
+    const save = $('#js-save'); if (save) save.onclick = () => salvar(true);
     const ed = $('#js-editor');
     if (ed) {
       // Salva o buffer no VFS com debounce, para o programa persistir mesmo sem rodar.
       ed.addEventListener('input', agendarSalvar);
+      ed.addEventListener('scroll', () => { const g = $('#js-gutter'); if (g) g.scrollTop = ed.scrollTop; });
+      for (const ev of ['click', 'keyup', 'select']) ed.addEventListener(ev, atualizarCursor);
       // Tab insere dois espaços em vez de mudar o foco — é um editor de código.
       ed.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+          e.preventDefault(); salvar(true); return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault(); JSW.run(); return;
+        }
         if (e.key === 'Tab') {
           e.preventDefault();
           const s = ed.selectionStart, t = ed.selectionEnd;
           ed.value = ed.value.slice(0, s) + '  ' + ed.value.slice(t);
           ed.selectionStart = ed.selectionEnd = s + 2;
-          agendarSalvar();
+          ed.dispatchEvent(new Event('input'));
         }
       });
     }
+    bindPaneResizer();
   }
 
   function editorEl() { return $('#js-editor'); }
@@ -45532,6 +45659,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
   function append(cls, text, locText) {
     const el = consoleEl();
     if (!el) return;
+    const empty = el.querySelector('.js-empty'); if (empty) empty.remove();
     const line = document.createElement('div');
     line.className = 'js-line ' + cls;
     line.textContent = text;
@@ -45549,6 +45677,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     running = value;
     const run = $('#js-run'); if (run) run.disabled = value;
     const cancel = $('#js-cancel'); if (cancel) cancel.disabled = !value;
+    const state = $('#js-run-state'); if (state) state.textContent = value ? 'executando…' : 'pronto';
+    const label = $('#js-run-label'); if (label) label.textContent = value ? 'Executando' : 'Executar';
   }
 
   function locationOf(payload) {
@@ -45592,6 +45722,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
   }
 
   function agendarSalvar() {
+    statusSalvar('salvando…', true);
+    atualizarEditorUI();
     clearTimeout(salvarTimer);
     salvarTimer = setTimeout(salvar, 700);
   }
@@ -45600,10 +45732,58 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     entry = path || PADRAO;
     const el = $('#js-entry');
     if (el) el.textContent = baseName(entry);
+    const lang = $('#js-lang-state');
+    if (lang) lang.textContent = /\.(ts|mts|cts)$/i.test(entry) ? 'TypeScript' : 'JavaScript';
+  }
+
+  function statusSalvar(text, pendente) {
+    const el = $('#js-save-state');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('pending', !!pendente);
+  }
+
+  function atualizarCursor() {
+    const ed = editorEl(), out = $('#js-cursor-state');
+    if (!ed || !out) return;
+    const antes = ed.value.slice(0, ed.selectionStart).split('\n');
+    out.textContent = 'Ln ' + antes.length + ', Col ' + (antes[antes.length - 1].length + 1);
+  }
+
+  function atualizarEditorUI() {
+    const ed = editorEl(), gutter = $('#js-gutter');
+    if (!ed) return;
+    if (gutter) {
+      const total = Math.max(1, ed.value.split('\n').length);
+      gutter.textContent = Array.from({ length: total }, (_, i) => i + 1).join('\n');
+      gutter.scrollTop = ed.scrollTop;
+    }
+    atualizarCursor();
+  }
+
+  function bindPaneResizer() {
+    const handle = $('#js-pane-resizer'), pane = $('#js-editor-pane'), shell = $('.js-shell');
+    if (!handle || !pane || !shell) return;
+    const aplicar = (y) => {
+      const r = shell.getBoundingClientRect();
+      const top = pane.getBoundingClientRect().top;
+      const max = Math.max(150, r.bottom - top - 150);
+      pane.style.flexBasis = Math.max(110, Math.min(max, y - top)) + 'px';
+    };
+    handle.addEventListener('pointerdown', e => {
+      e.preventDefault(); handle.setPointerCapture(e.pointerId); handle.classList.add('dragging');
+    });
+    handle.addEventListener('pointermove', e => { if (handle.hasPointerCapture(e.pointerId)) aplicar(e.clientY); });
+    handle.addEventListener('pointerup', e => { if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId); handle.classList.remove('dragging'); });
+    handle.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      aplicar(pane.getBoundingClientRect().bottom + (e.key === 'ArrowDown' ? 24 : -24));
+    });
   }
 
   /* Grava o conteúdo do editor no VFS (cria o diretório se preciso). */
-  function salvar() {
+  function salvar(manual) {
     if (salvarTimer) { clearTimeout(salvarTimer); salvarTimer = null; }
     if (!app || !entry) return;
     const ed = editorEl();
@@ -45612,10 +45792,14 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     try {
       let atual = null;
       try { atual = sh.m.fs.readFile(entry, sh.fsopts()); } catch (error) { atual = null; }
-      if (atual === ed.value) return;
+      if (atual === ed.value) {
+        statusSalvar(manual ? 'salvo agora' : 'salvo localmente', false);
+        return;
+      }
       sh.m.fs.mkdirp(dirName(entry), sh.fsopts());
       sh.m.fs.writeFile(entry, ed.value, sh.fsopts());
       marcarWorkspaceSujo();
+      statusSalvar(manual ? 'salvo agora' : 'salvo localmente', false);
     } catch (error) { /* sem permissão de escrita: silencioso, o run reporta */ }
   }
 
@@ -45628,6 +45812,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     try { conteudo = app.term.sh.m.fs.readFile(entry, app.term.sh.fsopts()); }
     catch (error) { conteudo = null; }
     ed.value = conteudo != null ? conteudo : MODELO;
+    atualizarEditorUI();
+    statusSalvar('salvo localmente', false);
   }
 
   /* ---------- barra de arquivos do projeto (estilo editor multi-arquivo) ----------
@@ -45796,6 +45982,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     ensure(a);
     const ed = editorEl();
     if (ed && !ed.value && !entry) carregar(PADRAO);
+    atualizarEditorUI();
     renderArquivos();
   };
 
@@ -45806,6 +45993,23 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     renderArquivos();
     if (app && typeof app.switchTab === 'function') app.switchTab('js');
     JSW.run();
+  };
+
+  /* Leva um exemplo da aula ao editor sem executá-lo automaticamente. */
+  JSW.openSnippet = function (a, code) {
+    ensure(a);
+    if (!entry) setEntry(PADRAO);
+    const ed = editorEl();
+    if (!ed) return;
+    ed.value = String(code || '').replace(/\n$/, '');
+    ed.selectionStart = ed.selectionEnd = 0;
+    atualizarEditorUI();
+    statusSalvar('salvando…', true);
+    clearTimeout(salvarTimer);
+    salvarTimer = setTimeout(salvar, 700);
+    renderArquivos();
+    if (app && typeof app.switchTab === 'function') app.switchTab('js');
+    ed.focus();
   };
 
   /* Reúne os arquivos de código sob o diretório do projeto, com caminho relativo
@@ -45894,7 +46098,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 
   JSW.clear = function () {
     const el = consoleEl();
-    if (el) el.innerHTML = '';
+    if (el) el.innerHTML = '<div class="js-empty"><span>&gt;_</span><p>A saída, os erros e os testes aparecem aqui.</p></div>';
   };
 
   LX.JSWorkspace = JSW;
@@ -46081,7 +46285,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
   const highlightDockerfile = highlightShell;
   const highlightYaml = highlightShell;
 
-  function renderCode(b) {
+  function renderCode(b, app) {
     const lines = Array.isArray(b.code) ? b.code : String(b.code).split('\n');
     const lang = b.lang || 'bash';
     const hl = lang === 'dockerfile' ? highlightDockerfile : (lang === 'yaml' ? highlightYaml : highlightShell);
@@ -46105,10 +46309,12 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     }
     body = body.replace(/\n$/, '');
     const canRun = b.run !== false && runnable.length > 0 && lang === 'bash';
+    const canOpenInEditor = app && app.trilhaId === 'js' && ['js', 'javascript', 'ts', 'typescript', 'text'].includes(String(lang).toLowerCase());
     return `<div class="code">
       ${b.title ? `<div class="code-head">${esc(b.title)}</div>` : ''}
       <div class="code-actions">
         ${canRun ? `<button class="code-btn" data-run="${esc(runnable.join('\n'))}" title="Executar no terminal">${LX.ICON.play}rodar</button>` : ''}
+        ${canOpenInEditor ? `<button class="code-btn code-open-editor" data-open-editor title="Substituir o conteúdo atual por este exemplo">${LX.ICON.play}abrir no editor</button>` : ''}
         <button class="code-btn" data-copy title="Copiar">${LX.ICON.copy}</button>
       </div>
       <pre>${body}</pre>
@@ -46124,7 +46330,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     if (b.h4) return `<h4>${b.h4}</h4>`;
     if (b.lede) return `<p class="lede">${b.lede}</p>`;
     if (b.cmd) return `<div class="cmd-chip">${esc(b.cmd)}</div>`;
-    if (b.code) return renderCode(b);
+    if (b.code) return renderCode(b, app);
     if (b.ul) return `<ul>${b.ul.map(i => `<li>${i}</li>`).join('')}</ul>`;
     if (b.ol) return `<ol>${b.ol.map(i => `<li>${i}</li>`).join('')}</ol>`;
     if (b.hr) return `<hr>`;
@@ -48602,12 +48808,12 @@ drwxrws--- 4 root dados 4096 /srv/projeto
     const recent=(prog.recentLessons||[]).map(id=>app.findLesson(id)).filter(Boolean).slice(0,4);
     const resume=app.findLesson(prog.lastLesson);
     $('#page').innerHTML=`<div class="doc wide home study-home">
-      <header class="study-hero"><div class="eyebrow">SEU ESPAÇO DE PRÁTICA / TERMINALIS</div><h1>Entenda o código.<br>Assuma o terminal.</h1><p>Linux, containers e controle de versão. Aprenda o conceito, experimente no laboratório e comprove o que sabe.</p></header>
+      <header class="study-hero"><div class="eyebrow">SEU ESPAÇO DE PRÁTICA / TERMINALIS</div><h1>Aprenda tecnologia<br>construindo.</h1><p>Do terminal ao código: estude o conceito, pratique em um laboratório próprio para cada curso e comprove o que sabe.</p></header>
       <section class="study-resume"><div><div class="eyebrow">${resume?'CONTINUAR DE ONDE PAROU':'SEU PRIMEIRO PASSO'}</div><h2>${esc(resume?.lesson.title||current.trilha.nome)}</h2><p>${esc(resume?.mod.title||current.trilha.resumo)}</p></div><button class="btn primary" id="hm-continuar">${resume?'Retomar aula':'Começar a estudar'} ${IC().next}</button></section>
       <section class="study-overview" aria-label="Progresso geral"><strong>${total?Math.round(done/total*100):0}<small>%</small></strong><div><span>Progresso geral</span>${barra(total?done/total*100:0)}<p>${done} de ${total} aulas concluídas · ${Object.values(prog.tasks||{}).filter(Boolean).length} atividades concluídas</p></div><button class="lk" id="hm-ver-jornada">Ver progresso ${IC().next}</button></section>
-      <div class="study-section-title"><h2>Suas ferramentas.</h2><span>Do fundamento à prática profissional</span></div><div class="study-courses">${states.filter(s=>['linux','docker','git'].includes(s.id)).map((s,i)=>`<button class="study-course" data-curso="${s.id}"><span class="study-course-num">0${i+1}</span><div><h3>${esc(s.trilha.nome)}</h3><p>${esc(s.trilha.resumo)}</p><span>${s.proprio.licoes.feitas}/${s.proprio.licoes.total} aulas · ${esc(LX.Progressao.rotulo(s.situacao))}</span>${barra(s.proprio.pct)}</div><strong>${s.proprio.pct}%</strong><span aria-hidden="true">↗</span></button>`).join('')}</div>
+      <div class="study-section-title"><h2>Seus cursos.</h2><span>Terminal Lab e Code Lab, a mesma formação profissional</span></div><div class="study-courses">${states.filter(s=>['linux','docker','git','js'].includes(s.id)).map((s,i)=>`<button class="study-course" data-curso="${s.id}"><span class="study-course-num">${String(i+1).padStart(2,'0')}</span><div><h3>${esc(s.trilha.nome)}</h3><p>${esc(s.trilha.resumo)}</p><span>${s.id==='js'?'Code Lab':'Terminal Lab'} · ${s.proprio.licoes.feitas}/${s.proprio.licoes.total} aulas · ${esc(LX.Progressao.rotulo(s.situacao))}</span>${barra(s.proprio.pct)}</div><strong>${s.proprio.pct}%</strong><span aria-hidden="true">↗</span></button>`).join('')}</div>
       ${recent.length?`<section class="study-recent"><h2>Acessados recentemente</h2>${recent.map(f=>`<button class="study-recent-item" data-recent="${f.lesson.id}"><span>${esc(f.mod.title)}</span><strong>${esc(f.lesson.title)}</strong><span aria-hidden="true">→</span></button>`).join('')}</section>`:''}
-      <footer class="study-note">Um laboratório local para experimentar. Seu progresso é salvo automaticamente na sua conta de estudo.</footer></div>`;
+      <footer class="study-note">Ambientes locais e isolados para experimentar no terminal ou no editor. Seu progresso é salvo automaticamente na sua conta de estudo.</footer></div>`;
     $('#hm-continuar').onclick=()=>resume?app.goLesson(resume.lesson.id):app.abrirTrilha(current.id);
     $('#hm-ver-jornada').onclick=()=>app.goJornada();
     $$('[data-curso]').forEach(b=>b.onclick=()=>app.goCurso(b.dataset.curso));
@@ -48643,7 +48849,7 @@ drwxrws--- 4 root dados 4096 /srv/projeto
         <div class="jp"><span class="n">${des}<small>/${desT}</small></span><span class="l">desafios verificados</span></div>
         <div class="jp"><span class="n">${etapasFeitas}</span><span class="l">etapas fechadas</span></div>
         <div class="jp"><span class="n">${cursos}<small>/${reais.length}</small></span><span class="l">cursos concluídos</span></div>
-        <div class="jp"><span class="n">${horas}<small>h</small> ${String(minutos).padStart(2, '0')}<small>min</small></span><span class="l">no terminal</span></div>
+        <div class="jp"><span class="n">${horas}<small>h</small> ${String(minutos).padStart(2, '0')}<small>min</small></span><span class="l">de prática</span></div>
       </div>`;
 
     for (const st of reais) {
@@ -61554,7 +61760,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
   });
 
   /* ---------------------------- utilitários das aulas JS ----------------------------
-     O aluno pratica no editor da aba JS: escreve arquivos .js em /home/aluno/js e
+     O aluno pratica no Code Lab: escreve arquivos .js em /home/aluno/js e
      roda. Os desafios são verificados pelo ESTADO desses arquivos (conteúdo real
      no VFS), nunca por execução — o mesmo verificador vale no navegador e nos
      testes de conteúdo. A solução oficial escreve o arquivo por um heredoc de
@@ -61593,7 +61799,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
         return best;
       };
       const checks = [
-        [() => nomes().length > 0, dicaVazio || 'Escreva um programa novo na aba <strong>JS</strong> e clique em rodar.'],
+        [() => nomes().length > 0, dicaVazio || 'Escreva um programa novo no <strong>Code Lab</strong> e clique em Executar.'],
         [() => { const c = melhor(); return c != null && c.trim().length >= 24; }, 'O arquivo ainda está curto demais para demonstrar o comportamento pedido.'],
         [() => { const c = melhor(); return c != null && !/\bTODO\b|implemente/i.test(c); }, 'Remova o <code>TODO</code> e conclua a implementação.']
       ];
@@ -61616,23 +61822,23 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
     body: [
       { h2: 'Linguagem, engine e host' },
       { p: 'JavaScript é a <strong>linguagem</strong>. Quem lê e executa suas instruções é uma <strong>engine</strong> (como a V8). E a engine sempre roda dentro de um <strong>host</strong> — um navegador ou o Node.js — que decide quais recursos existem ao redor do código.' },
-      { p: 'No Terminalis, seu código roda em uma <strong>sandbox isolada</strong>, fora da aplicação. Ele não enxerga a página, o seu progresso nem a rede: só o que a aula libera. Use a aba <strong>JS</strong>: ali você <strong>escreve o código no editor</strong> e clica em <strong>rodar</strong> — o programa é salvo como arquivo e o resultado aparece no console abaixo.' },
+      { p: 'No Terminalis, seu código roda em uma <strong>sandbox isolada</strong>, fora da aplicação. Ele não enxerga a página, o seu progresso nem a rede: só o que a aula libera. Use o <strong>Code Lab</strong>: ali você <strong>escreve o código no editor</strong> e clica em <strong>Executar</strong> — o programa é salvo como arquivo e o resultado aparece no console abaixo.' },
       { box: 'key', label: 'O que é real aqui', body: [
         { p: 'A execução é JavaScript de verdade: <code>console.log</code>, erros com linha e coluna e o encerramento de um laço infinito. Rede, arquivos e APIs do Node chegam nos módulos seguintes — quando não existirem, a aula avisa.' }
       ] },
       { h4: 'Um primeiro programa' },
-      { p: 'O editor da aba <strong>JS</strong> já começa com um exemplo de duas linhas:' },
+      { p: 'O editor do <strong>Code Lab</strong> já começa com um exemplo de duas linhas:' },
       { code: ["console.log('Olá, JavaScript');", 'console.log(2 + 2);'], lang: 'text', run: false },
-      { p: 'Clique em <strong>rodar</strong>: a primeira linha escreve um texto; a segunda mostra o resultado de <code>2 + 2</code>. Se errar o nome de algo (por exemplo <code>consele</code> no lugar de <code>console</code>), o console mostra o erro com a linha e a coluna — é assim que você acha o problema.' }
+      { p: 'Clique em <strong>Executar</strong>: a primeira linha escreve um texto; a segunda mostra o resultado de <code>2 + 2</code>. Se errar o nome de algo (por exemplo <code>consele</code> no lugar de <code>console</code>), o console mostra o erro com a linha e a coluna — é assim que você acha o problema.' }
     ],
     tasks: [
       {
         id: 'js1-1-a', kind: 'guiado', title: 'Rode o exemplo',
         body: [
-          { p: 'Abra a aba <strong>JS</strong>. O editor já traz o exemplo pronto. Clique em <strong>rodar</strong> e leia o console: uma linha com o texto e outra com o número <code>4</code>.' },
+          { p: 'Abra o <strong>Code Lab</strong>. O editor já traz o exemplo pronto. Clique em <strong>Executar</strong> e leia o console: uma linha com o texto e outra com o número <code>4</code>.' },
           { p: 'Depois, troque um caractere de propósito (por exemplo, escreva <code>consele</code>) e rode de novo para ver como o erro aparece. Volte a corrigir antes de seguir.' }
         ],
-        hints: ['O botão <em>rodar</em> fica no topo da aba JS. O resultado aparece no console, abaixo do editor.']
+        hints: ['O botão <em>Executar</em> fica na barra do Code Lab. O resultado aparece no console, abaixo do editor.']
       },
       {
         id: 'js1-1-q', kind: 'quiz', title: 'O que o console mostra?',
@@ -61649,13 +61855,13 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
       {
         id: 'js1-1-b', kind: 'desafio', title: 'Escreva uma mensagem sua',
         body: [
-          { p: 'No editor da aba <strong>JS</strong>, troque o exemplo por um programa <strong>seu</strong>: use <code>console.log(...)</code> para escrever uma mensagem diferente de <code>Olá, JavaScript</code>. Clique em <strong>rodar</strong> — o editor salva o programa sozinho.' }
+          { p: 'No editor do <strong>Code Lab</strong>, troque o exemplo por um programa <strong>seu</strong>: use <code>console.log(...)</code> para escrever uma mensagem diferente de <code>Olá, JavaScript</code>. Clique em <strong>Executar</strong> — o editor salva o programa sozinho.' }
         ],
         hints: [
           'Apague a mensagem do exemplo e escreva a sua: <code>console.log(\'a sua mensagem aqui\')</code>.',
           'Ao rodar, o programa é salvo em <code>/home/aluno/js/rascunho.js</code>.'
         ],
-        solution: '<p>No editor da aba <strong>JS</strong>, escreva por exemplo <code>console.log(\'estou aprendendo JavaScript\')</code> e clique em <strong>rodar</strong>.</p><pre>$ echo "console.log(\'estou aprendendo JavaScript\');" &gt; /home/aluno/js/meu.js</pre>',
+        solution: '<p>No editor do <strong>Code Lab</strong>, escreva por exemplo <code>console.log(\'estou aprendendo JavaScript\')</code> e clique em <strong>Executar</strong>.</p><pre>$ echo "console.log(\'estou aprendendo JavaScript\');" &gt; /home/aluno/js/meu.js</pre>',
         check: async (ctx) => {
           const H = LX.H;
           const dir = '/home/aluno/js';
@@ -61665,7 +61871,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
             return /console\.log\s*\(/.test(c) && !/Olá,\s*JavaScript/.test(c);
           });
           return H.checkAll([
-            [() => nomes().length > 0, 'Escreva um programa no editor da aba <strong>JS</strong> e clique em rodar.'],
+            [() => nomes().length > 0, 'Escreva um programa no editor do <strong>Code Lab</strong> e clique em Executar.'],
             [() => proprio(), 'Use <code>console.log(...)</code> com uma mensagem <strong>sua</strong>, diferente do exemplo <code>Olá, JavaScript</code>.']
           ]);
         }
@@ -61698,11 +61904,11 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
       {
         id: 'js2-1-a', kind: 'guiado', title: 'Veja os tipos e a igualdade',
         body: [
-          { p: 'Na aba <strong>JS</strong>, rode este programa e leia cada linha do console:' },
+          { p: 'No <strong>Code Lab</strong>, execute este programa e leia cada linha do console:' },
           { code: ["console.log(typeof 42, typeof 'oi', typeof null);", "console.log(1 === 1, 1 === '1', 1 == '1');", "console.log(Boolean(''), Boolean('0'), Boolean([]));"], lang: 'js', run: false },
           { p: 'Repare: <code>typeof null</code> mostra <code>object</code>; <code>1 === \'1\'</code> é <code>false</code> mas <code>1 == \'1\'</code> é <code>true</code>; e <code>\'0\'</code> e <code>[]</code> são ambos verdadeiros.' }
         ],
-        hints: ['Escreva as três linhas no editor e clique em <em>rodar</em>. Compare o que você previu com o que apareceu.']
+        hints: ['Escreva as três linhas no editor e clique em <em>Executar</em>. Compare o que você previu com o que apareceu.']
       },
       {
         id: 'js2-1-q', kind: 'quiz', title: 'O que é falsy?',
@@ -61719,7 +61925,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
       {
         id: 'js2-1-b', kind: 'desafio', title: 'Uma função que classifica valores',
         body: [
-          { p: 'No editor da aba <strong>JS</strong>, escreva uma função <code>tipoDe(valor)</code> que devolva o tipo do valor como texto, tratando <code>null</code> à parte (deve devolver <code>\'nulo\'</code>, não <code>\'object\'</code>). Use <code>typeof</code> e a igualdade estrita <code>===</code>. No fim, chame <code>console.log</code> mostrando o resultado para alguns valores diferentes.' }
+          { p: 'No editor do <strong>Code Lab</strong>, escreva uma função <code>tipoDe(valor)</code> que devolva o tipo do valor como texto, tratando <code>null</code> à parte (deve devolver <code>\'nulo\'</code>, não <code>\'object\'</code>). Use <code>typeof</code> e a igualdade estrita <code>===</code>. No fim, chame <code>console.log</code> mostrando o resultado para alguns valores diferentes.' }
         ],
         hints: [
           'Comece tratando o caso especial: <code>if (valor === null) return \'nulo\';</code>.',
@@ -61732,7 +61938,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
           [/typeof\s/, 'Use <code>typeof</code> para descobrir o tipo do valor.'],
           [/===/, 'Trate o <code>null</code> com igualdade estrita: <code>valor === null</code>.'],
           [/console\.log/, 'Mostre o resultado com <code>console.log(...)</code>.']
-        ], 'Crie um arquivo na aba <strong>JS</strong> com a função <code>tipoDe</code> e clique em rodar.')
+        ], 'Crie um arquivo no <strong>Code Lab</strong> com a função <code>tipoDe</code> e clique em Executar.')
       }
     ]
   });
@@ -61785,7 +61991,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
           [/const\s+\w+/, 'Declare pelo menos uma variável com <code>const</code>.'],
           [/let\s+\w+/, 'Declare pelo menos uma variável com <code>let</code>.'],
           [/console\.log/, 'Mostre os valores com <code>console.log(...)</code>.']
-        ], 'Crie um arquivo na aba <strong>JS</strong> com um <code>const</code> e um <code>let</code>.')
+        ], 'Crie um arquivo no <strong>Code Lab</strong> com um <code>const</code> e um <code>let</code>.')
       }
     ]
   });
@@ -61810,7 +62016,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
           { p: 'Cole a fábrica <code>criarContador</code> acima no editor, crie um contador e chame-o algumas vezes. Veja que cada chamada devolve o próximo número — o estado sobrevive entre chamadas.' },
           { code: ['const c = criarContador();', 'console.log(c(), c(), c()); // 1 2 3'], lang: 'js', run: false }
         ],
-        hints: ['Cole a definição de <code>criarContador</code> e as duas linhas acima; clique em rodar.']
+        hints: ['Cole a definição de <code>criarContador</code> e as duas linhas acima; clique em Executar.']
       },
       {
         id: 'js3-1-q', kind: 'quiz', title: 'De onde vem o estado?',
@@ -61912,7 +62118,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
         body: [
           { p: 'Rode o exemplo acima e confira: <code>pares</code> tem só os pares, <code>dobros</code> os dobra e <code>soma</code> junta tudo em um número. O array <code>nums</code> continua intacto.' }
         ],
-        hints: ['Cole as cinco linhas e clique em rodar. Some os pares na cabeça e compare.']
+        hints: ['Cole as cinco linhas e clique em Executar. Some os pares na cabeça e compare.']
       },
       {
         id: 'js5-1-q', kind: 'quiz', title: 'O que reduce devolve?',
@@ -61952,7 +62158,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
     setup: semear(null),
     body: [
       { h2: 'Um arquivo, uma responsabilidade' },
-      { p: 'Um <strong>módulo</strong> é um arquivo que expõe parte do seu código com <code>export</code>; outro arquivo usa esse código com <code>import</code>. O que não é exportado fica privado ao arquivo. No laboratório, cada arquivo <code>.js</code> da aba JS é um módulo.' },
+      { p: 'Um <strong>módulo</strong> é um arquivo que expõe parte do seu código com <code>export</code>; outro arquivo usa esse código com <code>import</code>. O que não é exportado fica privado ao arquivo. No Code Lab, cada arquivo <code>.js</code> é um módulo.' },
       { code: ['// matematica.js', 'export function somar(a, b) {', '  return a + b;', '}'], lang: 'js', run: false },
       { code: ["// principal.js", "import { somar } from './matematica.js';", "console.log(somar(2, 3)); // 5"], lang: 'js', run: false },
       { box: 'note', label: 'Caminho relativo', body: [
@@ -61963,7 +62169,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
       {
         id: 'js6-1-a', kind: 'guiado', title: 'Crie dois arquivos e ligue-os',
         body: [
-          { p: 'Use a faixa de arquivos da aba <strong>JS</strong> (o botão <code>+</code>) para criar <code>matematica.js</code> com um <code>export</code>. Depois, no arquivo principal, <code>import</code>e a função e rode. O resultado do módulo aparece no console.' }
+          { p: 'Use a faixa de arquivos do <strong>Code Lab</strong> (o botão <code>+</code>) para criar <code>matematica.js</code> com um <code>export</code>. Depois, no arquivo principal, <code>import</code>e a função e execute. O resultado do módulo aparece no console.' }
         ],
         hints: ['Crie <code>matematica.js</code> com <code>export function somar...</code>; no principal, <code>import { somar } from \'./matematica.js\';</code> e rode.']
       },
@@ -61981,7 +62187,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
       {
         id: 'js6-1-b', kind: 'desafio', title: 'Um módulo e quem o usa',
         body: [
-          { p: 'Crie <strong>dois arquivos</strong> na aba JS: um módulo que <code>export</code>a ao menos uma função, e outro que a <code>import</code>a por caminho relativo (<code>./</code>) e a usa com <code>console.log</code>. Rode o arquivo que importa.' }
+          { p: 'Crie <strong>dois arquivos</strong> no Code Lab: um módulo que <code>export</code>a ao menos uma função, e outro que a <code>import</code>a por caminho relativo (<code>./</code>) e a usa com <code>console.log</code>. Execute o arquivo que importa.' }
         ],
         hints: [
           'No módulo: <code>export function somar(a, b) { return a + b; }</code>.',
@@ -62022,7 +62228,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
         body: [
           { p: 'Rode o exemplo acima. O console mostra <code>antes</code>, espera ~10ms e então <code>depois</code>. A execução só é considerada concluída quando a Promise resolve.' }
         ],
-        hints: ['Cole as linhas do exemplo e clique em rodar. Observe a pausa entre as duas mensagens.']
+        hints: ['Cole as linhas do exemplo e clique em Executar. Observe a pausa entre as duas mensagens.']
       },
       {
         id: 'js7-1-q', kind: 'quiz', title: 'O que await faz?',
@@ -62178,7 +62384,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
           { p: 'Cole a classe <code>Repositorio</code>, crie uma instância, salve um registro com um id e busque-o de volta. O valor recuperado deve ser o mesmo que você guardou.' },
           { code: ['const repo = new Repositorio();', "repo.salvar(1, { nome: 'Ana' });", 'console.log(repo.buscar(1));'], lang: 'js', run: false }
         ],
-        hints: ['Cole a classe e as três linhas acima; clique em rodar.']
+        hints: ['Cole a classe e as três linhas acima; clique em Executar.']
       },
       {
         id: 'js10-1-q', kind: 'quiz', title: 'Por que esconder o Map?',
@@ -62229,7 +62435,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
         body: [
           { p: 'Cole o exemplo e rode. O console mostra o teste passando. Agora troque <code>toBe(5)</code> por <code>toBe(6)</code> e rode de novo: veja como um teste que falha é reportado. Volte para <code>5</code>.' }
         ],
-        hints: ['O runner de testes já vem embutido: basta usar <code>describe</code>, <code>it</code> e <code>expect</code> e clicar em rodar.']
+        hints: ['O runner de testes já vem embutido: basta usar <code>describe</code>, <code>it</code> e <code>expect</code> e clicar em Executar.']
       },
       {
         id: 'js11-1-q', kind: 'quiz', title: 'O que expect verifica?',
@@ -62442,7 +62648,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
       candidatos.sort((a, b) => pontuar(b.codigo, def.rules) - pontuar(a.codigo, def.rules));
       const melhor = candidatos[0] || { codigo: '' };
       const checks = [
-        [() => candidatos.length > 0, 'Crie um arquivo JavaScript próprio na aba <strong>JS</strong>.'],
+        [() => candidatos.length > 0, 'Crie um arquivo JavaScript próprio no <strong>Code Lab</strong>.'],
         [() => melhor.codigo.trim().length >= 24, 'O arquivo ainda está curto demais para resolver o comportamento pedido.'],
         [() => !/\bTODO\b|implemente o desafio/i.test(melhor.codigo), 'Remova o <code>TODO</code> e conclua a implementação.'],
         [() => estruturaBalanceada(melhor.codigo), 'Revise parênteses, colchetes, chaves e aspas: a estrutura está incompleta.']
@@ -62474,7 +62680,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
       tasks: [
         {
           id: def.id + '-a', kind: 'guiado', title: 'Experimente o conceito',
-          body: [{ p: 'Digite o exemplo na aba <strong>JS</strong>, execute e explique a saída com suas palavras. Depois altere uma entrada e observe o que muda.' }],
+          body: [{ p: 'Abra o exemplo no <strong>Code Lab</strong>, execute e explique a saída com suas palavras. Depois altere uma entrada e observe o que muda.' }],
           hints: ['Leia a saída linha por linha e compare com o valor que você previa antes de rodar.']
         },
         {

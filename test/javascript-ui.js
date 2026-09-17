@@ -62,6 +62,20 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     assert.equal(await page.locator('.sp-tab[data-tab="js"]').isVisible(), true, 'aba JS visível no curso JS');
     assert.equal(await page.locator('.sp-tab[data-tab="term"]').isVisible(), false, 'terminal escondido no curso JS');
     assert.equal(await page.locator('#js-editor').isVisible(), true, 'o editor é o painel padrão no curso JS');
+    assert.ok(await page.locator('body').evaluate(el => el.classList.contains('lab-code')), 'curso JS ativa a experiência Code Lab');
+    assert.equal(await page.locator('#lab-kind').textContent(), 'Code Lab', 'topbar identifica o tipo de laboratório');
+    assert.equal(await page.locator('#js-save').isVisible(), true, 'Code Lab oferece ação explícita de salvar');
+    assert.equal(await page.locator('#workspace-resizer').isVisible(), true, 'aula e Code Lab podem ser redimensionados no desktop');
+    assert.match(await page.locator('#sb-cursos').innerText(), /JavaScript/, 'JavaScript aparece na navegação principal de cursos');
+
+    const openExample = page.locator('[data-open-editor]').first();
+    assert.equal(await openExample.isVisible(), true, 'exemplos da aula podem ser abertos no editor');
+    await openExample.click();
+    assert.match(await page.locator('#js-editor').inputValue(), /Olá, JavaScript/, 'exemplo da aula chega ao Code Lab');
+
+    await page.fill('#js-editor', 'const um = 1;\nconst dois = 2;\nconsole.log(um + dois);');
+    await page.waitForFunction(() => document.querySelector('#js-gutter').textContent.trim().endsWith('3'));
+    assert.equal((await page.locator('#js-gutter').innerText()).trim(), '1\n2\n3', 'editor mostra numeração de linhas sincronizada');
 
     /* Provider em memória no mesmo caminho usado pelo Supabase: prova que uma
        alteração feita só no editor agenda o snapshot remoto, sem comando no terminal. */
@@ -262,6 +276,16 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     await waitConsole(page, 'concluído');
     const salvoTs = await page.evaluate(() => __app.term.sh.m.fs.readFile('/home/aluno/js/soma.ts', __app.term.sh.fsopts()));
     assert.match(salvoTs, /: number/, 'o arquivo .ts guarda o código com tipos no VFS');
+
+    /* ---------- navegação responsiva entre aula e Code Lab ---------- */
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.locator('.mobile-tabs [data-m="term"] span').textContent(), 'Código', 'atalho móvel identifica o Code Lab');
+    assert.equal(await page.locator('#workspace-resizer').isVisible(), false, 'divisor de desktop não aparece no celular');
+    await page.click('.mobile-tabs [data-m="term"]');
+    assert.equal(await page.locator('#side-panel').isVisible(), true, 'atalho Código abre o Code Lab no celular');
+    assert.equal(await page.locator('#lesson-panel').isVisible(), false, 'a aula sai de cena enquanto o Code Lab está aberto');
+    await page.click('.mobile-tabs [data-m="lesson"]');
+    assert.equal(await page.locator('#lesson-panel').isVisible(), true, 'atalho Aula retorna ao conteúdo');
 
     assert.deepEqual(errors, [], 'nenhum erro de página');
     console.log('JavaScript UI: aba condicional ao curso, editor multi-arquivo (criar/alternar/excluir), async, test runner, módulos ESM, TypeScript compilado e rodando, erro localizado, isolamento de realm, timeout com UI viva e ação rodar do preview passaram.');
