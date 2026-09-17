@@ -159,6 +159,33 @@
     JSW.run();
   };
 
+  /* Reúne os arquivos de código sob o diretório do projeto, com caminho relativo
+     ao diretório do entrypoint — assim `import './lib.js'` resolve na sandbox. */
+  function coletarProjeto(dir, entryName, codigo) {
+    const sh = app.term.sh;
+    const map = {};
+    let count = 0;
+    const walk = (d) => {
+      let nomes;
+      try { nomes = sh.m.fs.readdir(d, sh.fsopts()); } catch (e) { return; }
+      for (const n of nomes) {
+        if (count > 180) return;
+        const full = d + '/' + n;
+        let st;
+        try { st = sh.m.fs.lstat(full, sh.fsopts()); } catch (e) { continue; }
+        if (st.type === 'dir') { walk(full); continue; }
+        if (!/\.(mjs|cjs|js)$/i.test(n)) continue;
+        let c;
+        try { c = sh.m.fs.readFile(full, sh.fsopts()); } catch (e) { continue; }
+        map[full.slice(dir.length + 1)] = c;
+        count++;
+      }
+    };
+    walk(dir);
+    map[entryName] = codigo;   // o buffer do editor é a verdade para o entrypoint
+    return map;
+  }
+
   JSW.run = function () {
     if (!runner || running) return;
     if (!entry) setEntry(PADRAO);
@@ -168,7 +195,7 @@
     salvar();                       // o programa vira arquivo no laboratório
     const name = baseName(entry);
     try {
-      runner.putFiles(sessionId, { [name]: codigo });
+      runner.putFiles(sessionId, coletarProjeto(dirName(entry), name, codigo));
       setRunning(true);
       runId = runner.run(sessionId, name);
     } catch (error) {

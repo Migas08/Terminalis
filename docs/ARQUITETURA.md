@@ -54,7 +54,12 @@ A fase JS/TS executa código do aluno **fora do realm da aplicação**. A camada
 
 **Modelo de ameaça (Fase 1).** O código do aluno roda apenas dentro do Worker/iframe. Ele não alcança `window`, `parent`, `top`, `LX`, o DOM principal, `localStorage`, cookies, token nem o cliente Supabase — nem capturando o global do Worker; rede e filesystem são capabilities negadas por padrão (não existem nesta fase). Um laço infinito é encerrado pelo coordenador via `terminate()` no estouro do tempo, sem travar a interface. Toda saída passa por um teto de bytes e toda mensagem por validação de esquema e tamanho.
 
-**Estado e limites desta fase.** A fatia vertical da Fase 1 está fechada: um arquivo JS no VFS abre no laboratório, a ação "rodar" executa isolado, o console e os erros têm localização, o laço infinito é terminável e o workspace continua restaurável (só os arquivos são persistidos, nunca objetos vivos da sandbox). Execução assíncrona (timers/microtasks/promises), módulos ESM, o test runner, as capabilities de browser/Node e o TypeScript chegam nas fases seguintes. O escape de realm no navegador é coberto por `test/javascript-ui.js` (Playwright); os testes de Node (`test/javascript-runtime.js`, `test/javascript-security.js`) usam o contexto `vm` como fronteira e provam protocolo, limites, negação de capabilities e encerramento.
+**Estado e limites.** A Fase 1 (fatia vertical) e a Fase 2 (assíncrono, test runner e módulos) estão fechadas:
+
+- Fase 1: um arquivo JS no VFS abre no laboratório, a ação "rodar" executa isolado, console e erros têm localização, o laço infinito é terminável e o workspace continua restaurável (só os arquivos são persistidos, nunca objetos vivos da sandbox).
+- Fase 2: o Worker roda o event loop — `promises`, `async/await`, microtasks e `setTimeout/setInterval` — e a execução só termina quando a fila esvazia; erros assíncronos e `unhandledrejection` viram eventos. Um test runner didático (`describe/it/expect/beforeEach/afterEach`, com async) emite `test-start`/`test-result` e um resumo. Módulos ESM multi-arquivo funcionam por um grafo de Blobs com imports relativos reescritos (grafos acíclicos; imports de pacotes externos e ciclos falham com erro claro). O painel JS envia o diretório do projeto para a sandbox.
+
+Capabilities de browser/Node (fetch, fs, Buffer, streams…) e o TypeScript chegam nas fases 3 e 4. O escape de realm no navegador é coberto por `test/javascript-ui.js` (Playwright); os testes de Node (`test/javascript-runtime.js`, `test/javascript-security.js`) usam o contexto `vm` como fronteira e provam protocolo, limites, negação de capabilities (sync e async), o ciclo assíncrono e o test runner.
 
 ## Verificação
 

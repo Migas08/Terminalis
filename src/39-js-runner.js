@@ -104,6 +104,9 @@
         case P.EVENTS.DIAGNOSTIC:
           emit(P.EVENTS.DIAGNOSTIC, session, run.runId, plain(raw.payload));
           return;
+        case P.EVENTS.MODULE_LOADED:
+          emit(P.EVENTS.MODULE_LOADED, session, run.runId, { path: String(raw.path == null ? '' : raw.path) });
+          return;
         case P.EVENTS.TEST_START:
           emit(P.EVENTS.TEST_START, session, run.runId, { name: String(raw.name == null ? '' : raw.name) });
           return;
