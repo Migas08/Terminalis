@@ -9,6 +9,11 @@
   LX.lesson('m03', {
     id: 'l3-1', n: '4.1', title: 'grep: encontrar a agulha',
     goal: 'O comando que transforma um log de meio milhão de linhas em três linhas relevantes. Depois desta aula você vai usá-lo todo dia.',
+    brief: [
+      { p: '<code>grep PADRÃO ARQUIVO</code> imprime as linhas que contêm o padrão. Ele diferencia maiúsculas de minúsculas; use <code>-i</code> para ignorar isso, <code>-n</code> para ver os números das linhas e <code>-r</code> para buscar em uma pasta.' },
+      { code: ['$ grep -in "erro" app.log', '$ grep -rn "porta=8080" ./config'] },
+      { p: '<code>-v</code> mostra as linhas que não casam e <code>-C 3</code> inclui três linhas de contexto antes e depois. Coloque padrões com espaços ou símbolos entre aspas.' }
+    ],
     body: [
       { p: 'O nome vem de um comando do editor <code>ed</code>: <code>g/re/p</code> — <em>globally search a regular expression and print</em>. Ele faz exatamente isso: procura um padrão e imprime as linhas que casam.' },
       { code: ['$ grep erro /var/log/app/erro.log', '$ grep ERROR /var/log/app/erro.log'] },
@@ -162,6 +167,11 @@
   LX.lesson('m03', {
     id: 'l3-2', n: '4.2', title: 'Expressões regulares na prática',
     goal: 'Aprender o suficiente de regex para ser perigoso — sem virar um curso de regex. Só o que você realmente usa no terminal.',
+    brief: [
+      { p: 'Regex descreve padrões dentro do texto. <code>^</code> marca o início da linha, <code>$</code> o fim, <code>.</code> aceita um caractere e classes como <code>[0-9]</code> aceitam um conjunto.' },
+      { code: ['$ grep -E "^ERROR|^WARN" app.log', '$ grep -E "[0-9]{3}" codigos.txt'] },
+      { p: 'Com <code>grep -E</code>, use <code>+</code> para uma ou mais repetições, <code>?</code> para zero ou uma e <code>{n}</code> para uma quantidade exata. Regex e o curinga <code>*</code> do shell têm regras diferentes.' }
+    ],
     body: [
       { p: 'Uma expressão regular é um padrão que descreve um conjunto de textos. Você já usou um parente delas: o <em>glob</em> do shell. Regex é mais expressiva e funciona <strong>dentro</strong> das linhas, não em nomes de arquivo.' },
       {
@@ -352,6 +362,11 @@
   LX.lesson('m03', {
     id: 'l3-3', n: '4.3', title: 'find: encontrar arquivos por critério',
     goal: 'Localizar arquivos por nome, tamanho, data, dono ou permissão — e executar ações em massa sobre o que encontrar.',
+    brief: [
+      { p: '<code>find ONDE CRITÉRIOS</code> procura arquivos e diretórios. Combine <code>-type f</code> para arquivos, <code>-type d</code> para pastas, <code>-name</code> para nome, <code>-size</code> para tamanho e <code>-mtime</code> para data.' },
+      { code: ['$ find . -type f -name "*.log"', '$ find /var/log -type f -size +10M', '$ find . -type f -mtime -7'] },
+      { p: 'Coloque padrões como <code>*.log</code> entre aspas para o shell não expandi-los antes do <code>find</code>. Vários critérios na mesma linha precisam ser verdadeiros ao mesmo tempo.' }
+    ],
     body: [
       { p: 'Se o <code>grep</code> procura <em>dentro</em> dos arquivos, o <code>find</code> procura <em>os</em> arquivos. A forma geral é:' },
       { code: ['find ONDE CRITÉRIOS AÇÃO'], run: false, mixed: false, lang: 'text' },
@@ -532,6 +547,11 @@
   LX.lesson('m03', {
     id: 'l3-4', n: '4.4', title: 'Recortar e resumir: cut, sort, uniq, tr e wc',
     goal: 'Cinco ferramentas pequenas que, combinadas, respondem quase qualquer pergunta sobre um arquivo de dados.',
+    brief: [
+      { p: '<code>cut</code> seleciona campos, <code>sort</code> ordena, <code>uniq</code> agrupa linhas repetidas, <code>tr</code> troca caracteres e <code>wc</code> conta. O valor aparece quando você conecta essas ferramentas com pipes.' },
+      { code: ['$ cut -d, -f3 servidores.csv | sort | uniq -c | sort -rn', '$ wc -l app.log'] },
+      { p: 'Use <code>sort -n</code> para números. Como <code>uniq</code> reconhece apenas repetições adjacentes, normalmente ele vem depois de <code>sort</code>. Em CSV complexo, com vírgulas entre aspas, essas ferramentas simples não bastam.' }
+    ],
     body: [
       { p: 'A filosofia Unix em uma frase: <em>programas pequenos que fazem uma coisa bem e se encaixam</em>. Este é o kit de encaixe.' },
 
@@ -718,6 +738,11 @@
   LX.lesson('m03', {
     id: 'l3-5', n: '4.5', title: 'sed: editar sem abrir o arquivo',
     goal: 'Substituir texto em massa, apagar linhas e transformar arquivos por script — a ferramenta que automatiza o "abre e troca".',
+    brief: [
+      { p: '<code>sed</code> transforma texto linha por linha. A forma mais usada é <code>s/procurar/trocar/</code>; a flag <code>g</code> troca todas as ocorrências da linha. Sem <code>-i</code>, o arquivo original não muda.' },
+      { code: ['$ sed "s/8080/9090/g" app.conf', '$ sed "/^#/d" app.conf'] },
+      { p: 'Primeiro confira a saída na tela. Só depois use <code>sed -i.bak</code> para editar o arquivo e criar uma cópia de segurança. Quando o texto contém barras, outro separador deixa o comando mais legível: <code>s|/antigo|/novo|</code>.' }
+    ],
     body: [
       { p: '<code>sed</code> é o <em>stream editor</em>: ele lê linha por linha, aplica um comando e imprime o resultado. Por padrão <strong>não altera o arquivo</strong> — só mostra na tela o que sairia.' },
 
@@ -926,6 +951,11 @@
   LX.lesson('m03', {
     id: 'l3-6', n: '4.6', title: 'awk: a linguagem das colunas',
     goal: 'Processar dados tabulares com condições, cálculos e relatórios — em uma linha de comando.',
+    brief: [
+      { p: '<code>awk</code> lê cada linha, separa campos e executa uma ação. <code>$1</code> é o primeiro campo, <code>$NF</code> o último, <code>NR</code> o número da linha e <code>-F</code> define o separador.' },
+      { code: ['$ awk -F, \'NR > 1 {print $1, $5}\' servidores.csv', '$ awk -F, \'$5 > 8 {print $1}\' servidores.csv'] },
+      { p: 'A forma geral é <code>awk \'condição { ação }\' arquivo</code>. Sem uma ação, as linhas que passam pela condição são impressas. Use <code>BEGIN</code> para preparar valores e <code>END</code> para imprimir totais.' }
+    ],
     body: [
       { p: 'O <code>awk</code> é uma linguagem de programação completa disfarçada de comando. Mas você não precisa aprender a linguagem inteira: <strong>cinco construções resolvem quase tudo</strong>.' },
       { p: 'A ideia central: o awk lê linha por linha, quebra cada linha em <strong>campos</strong> e executa um bloco de código para cada linha.' },
@@ -1130,6 +1160,11 @@
   LX.lesson('m03', {
     id: 'l3-7', n: '4.7', title: 'Comparar e distribuir: diff, cmp, tee e xargs',
     goal: 'Fechar o kit de texto: comparar versões, gravar e mostrar ao mesmo tempo, e transformar listas em comandos.',
+    brief: [
+      { p: '<code>diff -u</code> mostra diferenças de texto; <code>cmp</code> compara byte a byte; <code>tee</code> exibe uma saída e também a grava; <code>xargs</code> transforma a entrada em argumentos de outro comando.' },
+      { code: ['$ diff -u app.conf app.conf.novo', '$ comando | tee resultado.txt', '$ find scripts -type f -print0 | xargs -0 chmod +x'] },
+      { p: 'Use o par <code>-print0</code> e <code>xargs -0</code> quando nomes podem conter espaços. Antes de executar uma ação em massa, troque temporariamente o comando final por <code>printf</code> ou <code>echo</code> e confira a lista.' }
+    ],
     body: [
       { cmd: 'diff' },
       { p: 'Mostra as diferenças entre dois arquivos. É como você descobre "o que mudou desde ontem?" em uma configuração.' },
