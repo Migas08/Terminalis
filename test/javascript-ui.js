@@ -199,8 +199,36 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     await page.locator('#fb-prev-run').click();
     await waitConsole(page, 'Olá, JavaScript');
 
+    /* ---------- TypeScript: compila (compilador injetado) e roda na sandbox ----------
+       O compilador real é carregado de uma CDN em produção; aqui injetamos um
+       compilador de mentira que remove as anotações de tipo, para provar toda a
+       ligação editor → transpilação → execução isolada sem depender de rede. */
+    await page.evaluate(() => {
+      LX.JS.TypeScript.configureLoader(() => ({
+        ModuleKind: { ESNext: 99 }, ScriptTarget: { ES2020: 7 },
+        flattenDiagnosticMessageText: (m) => String(m),
+        transpileModule(source) {
+          return { outputText: String(source).replace(/:\s*(number|string|boolean)\b/g, ''), diagnostics: [] };
+        }
+      }));
+      LX.JSWorkspace.clear();
+      __app.switchTab('js');
+      LX.JSWorkspace.onShow(__app);
+    });
+    await page.click('#js-file-new');
+    await page.fill('.js-file-input', 'soma.ts');
+    await page.press('.js-file-input', 'Enter');
+    await page.waitForFunction(() => [...document.querySelectorAll('#js-files .js-file-name')].some(b => b.textContent === 'soma.ts'));
+    await page.fill('#js-editor', "const soma = (a: number, b: number): number => a + b;\nconsole.log('soma', soma(2, 3));");
+    await page.click('#js-run');
+    await waitConsole(page, 'compilando TypeScript');
+    await waitConsole(page, 'soma 5');
+    await waitConsole(page, 'concluído');
+    const salvoTs = await page.evaluate(() => __app.term.sh.m.fs.readFile('/home/aluno/js/soma.ts', __app.term.sh.fsopts()));
+    assert.match(salvoTs, /: number/, 'o arquivo .ts guarda o código com tipos no VFS');
+
     assert.deepEqual(errors, [], 'nenhum erro de página');
-    console.log('JavaScript UI: aba condicional ao curso, editor multi-arquivo (criar/alternar/excluir), async, test runner, módulos ESM, erro localizado, isolamento de realm, timeout com UI viva e ação rodar do preview passaram.');
+    console.log('JavaScript UI: aba condicional ao curso, editor multi-arquivo (criar/alternar/excluir), async, test runner, módulos ESM, TypeScript compilado e rodando, erro localizado, isolamento de realm, timeout com UI viva e ação rodar do preview passaram.');
   } finally {
     if (browser) await browser.close();
     server.close();

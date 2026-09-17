@@ -16,7 +16,8 @@
   const PADRAO = PROJ + '/rascunho.js';
   const MODELO = "// Escreva JavaScript e clique em rodar.\nconsole.log('Olá, JavaScript');\n";
   const MODELO_NOVO = "// Novo arquivo.\n";
-  const RE_JS = /\.(mjs|cjs|js)$/i;
+  // Arquivos de código que a aba JS reconhece: JavaScript e TypeScript.
+  const RE_JS = /\.(mjs|cjs|js|ts|mts|cts)$/i;
 
   let app = null;
   let runner = null;
@@ -368,7 +369,7 @@
         let st;
         try { st = sh.m.fs.lstat(full, sh.fsopts()); } catch (e) { continue; }
         if (st.type === 'dir') { walk(full); continue; }
-        if (!/\.(mjs|cjs|js)$/i.test(n)) continue;
+        if (!RE_JS.test(n)) continue;
         let c;
         try { c = sh.m.fs.readFile(full, sh.fsopts()); } catch (e) { continue; }
         map[full.slice(dir.length + 1)] = c;
@@ -380,6 +381,18 @@
     return map;
   }
 
+  /* Entrega os arquivos ao runner e dispara a execução na sandbox. */
+  function iniciar(files, entryName) {
+    try {
+      runner.putFiles(sessionId, files);
+      setRunning(true);
+      runId = runner.run(sessionId, entryName);
+    } catch (error) {
+      append('js-err', 'Falha ao iniciar: ' + error.message);
+      setRunning(false);
+    }
+  }
+
   JSW.run = function () {
     if (!runner || running) return;
     if (!entry) setEntry(PADRAO);
@@ -388,14 +401,27 @@
     if (!codigo.trim()) { append('js-err', 'Escreva algo no editor antes de rodar.'); return; }
     salvar();                       // o programa vira arquivo no laboratório
     const name = baseName(entry);
-    try {
-      runner.putFiles(sessionId, coletarProjeto(dirName(entry), name, codigo));
+    const projeto = coletarProjeto(dirName(entry), name, codigo);
+    const TS = LX.JS.TypeScript;
+    // TypeScript: compila (fora do realm do app) antes de rodar na mesma sandbox.
+    if (TS && TS.projectHasTypeScript(projeto)) {
       setRunning(true);
-      runId = runner.run(sessionId, name);
-    } catch (error) {
-      append('js-err', 'Falha ao iniciar: ' + error.message);
-      setRunning(false);
+      append('js-sys', '↻ compilando TypeScript…');
+      TS.load().then((ts) => {
+        let saida;
+        try { saida = TS.transpileProject(ts, projeto); }
+        catch (error) { append('js-err', 'Erro de compilação: ' + error.message); setRunning(false); return; }
+        for (const d of saida.diagnostics) {
+          append('js-err', 'TS' + (d.code != null ? ' TS' + d.code : '') + ': ' + d.message, d.line != null ? locationOf(d) : '');
+        }
+        iniciar(saida.files, TS.jsName(name));
+      }, (error) => {
+        append('js-err', (error && error.message) || 'Falha ao carregar o TypeScript.');
+        setRunning(false);
+      });
+      return;
     }
+    iniciar(projeto, name);
   };
 
   JSW.cancel = function () {
