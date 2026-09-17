@@ -14,7 +14,7 @@
   const JSW = {};
   const PROJ = '/home/aluno/js';
   const PADRAO = PROJ + '/rascunho.js';
-  const MODELO = "// Escreva JavaScript e clique em rodar.\nconsole.log('Olá, JavaScript');\n";
+  const MODELO = "// Escreva JavaScript e clique em Executar.\nconsole.log('Olá, JavaScript');\n";
   const MODELO_NOVO = "// Novo arquivo.\n";
   // Arquivos de código que a aba JS reconhece: JavaScript e TypeScript.
   const RE_JS = /\.(mjs|cjs|js|ts|mts|cts)$/i;
@@ -96,21 +96,31 @@
     const run = $('#js-run'); if (run) run.onclick = () => JSW.run();
     const cancel = $('#js-cancel'); if (cancel) cancel.onclick = () => JSW.cancel();
     const clear = $('#js-clear'); if (clear) clear.onclick = () => JSW.clear();
+    const save = $('#js-save'); if (save) save.onclick = () => salvar(true);
     const ed = $('#js-editor');
     if (ed) {
       // Salva o buffer no VFS com debounce, para o programa persistir mesmo sem rodar.
       ed.addEventListener('input', agendarSalvar);
+      ed.addEventListener('scroll', () => { const g = $('#js-gutter'); if (g) g.scrollTop = ed.scrollTop; });
+      for (const ev of ['click', 'keyup', 'select']) ed.addEventListener(ev, atualizarCursor);
       // Tab insere dois espaços em vez de mudar o foco — é um editor de código.
       ed.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+          e.preventDefault(); salvar(true); return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault(); JSW.run(); return;
+        }
         if (e.key === 'Tab') {
           e.preventDefault();
           const s = ed.selectionStart, t = ed.selectionEnd;
           ed.value = ed.value.slice(0, s) + '  ' + ed.value.slice(t);
           ed.selectionStart = ed.selectionEnd = s + 2;
-          agendarSalvar();
+          ed.dispatchEvent(new Event('input'));
         }
       });
     }
+    bindPaneResizer();
   }
 
   function editorEl() { return $('#js-editor'); }
@@ -119,6 +129,7 @@
   function append(cls, text, locText) {
     const el = consoleEl();
     if (!el) return;
+    const empty = el.querySelector('.js-empty'); if (empty) empty.remove();
     const line = document.createElement('div');
     line.className = 'js-line ' + cls;
     line.textContent = text;
@@ -136,6 +147,8 @@
     running = value;
     const run = $('#js-run'); if (run) run.disabled = value;
     const cancel = $('#js-cancel'); if (cancel) cancel.disabled = !value;
+    const state = $('#js-run-state'); if (state) state.textContent = value ? 'executando…' : 'pronto';
+    const label = $('#js-run-label'); if (label) label.textContent = value ? 'Executando' : 'Executar';
   }
 
   function locationOf(payload) {
@@ -179,6 +192,8 @@
   }
 
   function agendarSalvar() {
+    statusSalvar('salvando…', true);
+    atualizarEditorUI();
     clearTimeout(salvarTimer);
     salvarTimer = setTimeout(salvar, 700);
   }
@@ -187,10 +202,58 @@
     entry = path || PADRAO;
     const el = $('#js-entry');
     if (el) el.textContent = baseName(entry);
+    const lang = $('#js-lang-state');
+    if (lang) lang.textContent = /\.(ts|mts|cts)$/i.test(entry) ? 'TypeScript' : 'JavaScript';
+  }
+
+  function statusSalvar(text, pendente) {
+    const el = $('#js-save-state');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('pending', !!pendente);
+  }
+
+  function atualizarCursor() {
+    const ed = editorEl(), out = $('#js-cursor-state');
+    if (!ed || !out) return;
+    const antes = ed.value.slice(0, ed.selectionStart).split('\n');
+    out.textContent = 'Ln ' + antes.length + ', Col ' + (antes[antes.length - 1].length + 1);
+  }
+
+  function atualizarEditorUI() {
+    const ed = editorEl(), gutter = $('#js-gutter');
+    if (!ed) return;
+    if (gutter) {
+      const total = Math.max(1, ed.value.split('\n').length);
+      gutter.textContent = Array.from({ length: total }, (_, i) => i + 1).join('\n');
+      gutter.scrollTop = ed.scrollTop;
+    }
+    atualizarCursor();
+  }
+
+  function bindPaneResizer() {
+    const handle = $('#js-pane-resizer'), pane = $('#js-editor-pane'), shell = $('.js-shell');
+    if (!handle || !pane || !shell) return;
+    const aplicar = (y) => {
+      const r = shell.getBoundingClientRect();
+      const top = pane.getBoundingClientRect().top;
+      const max = Math.max(150, r.bottom - top - 150);
+      pane.style.flexBasis = Math.max(110, Math.min(max, y - top)) + 'px';
+    };
+    handle.addEventListener('pointerdown', e => {
+      e.preventDefault(); handle.setPointerCapture(e.pointerId); handle.classList.add('dragging');
+    });
+    handle.addEventListener('pointermove', e => { if (handle.hasPointerCapture(e.pointerId)) aplicar(e.clientY); });
+    handle.addEventListener('pointerup', e => { if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId); handle.classList.remove('dragging'); });
+    handle.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      aplicar(pane.getBoundingClientRect().bottom + (e.key === 'ArrowDown' ? 24 : -24));
+    });
   }
 
   /* Grava o conteúdo do editor no VFS (cria o diretório se preciso). */
-  function salvar() {
+  function salvar(manual) {
     if (salvarTimer) { clearTimeout(salvarTimer); salvarTimer = null; }
     if (!app || !entry) return;
     const ed = editorEl();
@@ -199,10 +262,14 @@
     try {
       let atual = null;
       try { atual = sh.m.fs.readFile(entry, sh.fsopts()); } catch (error) { atual = null; }
-      if (atual === ed.value) return;
+      if (atual === ed.value) {
+        statusSalvar(manual ? 'salvo agora' : 'salvo localmente', false);
+        return;
+      }
       sh.m.fs.mkdirp(dirName(entry), sh.fsopts());
       sh.m.fs.writeFile(entry, ed.value, sh.fsopts());
       marcarWorkspaceSujo();
+      statusSalvar(manual ? 'salvo agora' : 'salvo localmente', false);
     } catch (error) { /* sem permissão de escrita: silencioso, o run reporta */ }
   }
 
@@ -215,6 +282,8 @@
     try { conteudo = app.term.sh.m.fs.readFile(entry, app.term.sh.fsopts()); }
     catch (error) { conteudo = null; }
     ed.value = conteudo != null ? conteudo : MODELO;
+    atualizarEditorUI();
+    statusSalvar('salvo localmente', false);
   }
 
   /* ---------- barra de arquivos do projeto (estilo editor multi-arquivo) ----------
@@ -383,6 +452,7 @@
     ensure(a);
     const ed = editorEl();
     if (ed && !ed.value && !entry) carregar(PADRAO);
+    atualizarEditorUI();
     renderArquivos();
   };
 
@@ -393,6 +463,23 @@
     renderArquivos();
     if (app && typeof app.switchTab === 'function') app.switchTab('js');
     JSW.run();
+  };
+
+  /* Leva um exemplo da aula ao editor sem executá-lo automaticamente. */
+  JSW.openSnippet = function (a, code) {
+    ensure(a);
+    if (!entry) setEntry(PADRAO);
+    const ed = editorEl();
+    if (!ed) return;
+    ed.value = String(code || '').replace(/\n$/, '');
+    ed.selectionStart = ed.selectionEnd = 0;
+    atualizarEditorUI();
+    statusSalvar('salvando…', true);
+    clearTimeout(salvarTimer);
+    salvarTimer = setTimeout(salvar, 700);
+    renderArquivos();
+    if (app && typeof app.switchTab === 'function') app.switchTab('js');
+    ed.focus();
   };
 
   /* Reúne os arquivos de código sob o diretório do projeto, com caminho relativo
@@ -481,7 +568,7 @@
 
   JSW.clear = function () {
     const el = consoleEl();
-    if (el) el.innerHTML = '';
+    if (el) el.innerHTML = '<div class="js-empty"><span>&gt;_</span><p>A saída, os erros e os testes aparecem aqui.</p></div>';
   };
 
   LX.JSWorkspace = JSW;

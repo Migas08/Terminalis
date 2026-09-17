@@ -154,6 +154,10 @@ button { font-family: inherit; }
 .crumbs .c1 { color: var(--tx-3); white-space: nowrap; }
 .crumbs .sep { color: var(--tx-3); }
 .crumbs .c2 { color: var(--tx); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lab-kind {
+  flex: 0 0 auto; padding: 3px 8px; border: 1px solid var(--line-strong); border-radius: 5px;
+  color: var(--tx-3); font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase;
+}
 .topbar-spacer { flex: 1; }
 
 .modprog { display: flex; flex-direction: column; gap: 5px; min-width: 210px; }

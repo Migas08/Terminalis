@@ -26,7 +26,7 @@
     </nav>
 
     <div class="sb-section">
-      <div class="sb-label">Cursos atuais</div>
+      <div class="sb-label">Cursos</div>
       <div class="sb-cursos" id="sb-cursos"></div>
     </div>
 
@@ -44,6 +44,7 @@
       <span class="sep" id="crumb-sep">/</span>
       <span class="c2" id="crumb-2">Início</span>
     </nav>
+    <span class="lab-kind hidden" id="lab-kind">Terminal Lab</span>
     <span class="c2 hidden" id="mobile-now"></span>
     <div class="topbar-spacer"></div>
     <div class="modprog" id="modprog" style="visibility:hidden">
@@ -65,12 +66,14 @@
       <footer id="lesson-foot" class="hidden"></footer>
     </section>
 
+    <div id="workspace-resizer" role="separator" aria-orientation="vertical" aria-label="Redimensionar aula e laboratório" tabindex="0"></div>
+
     <section id="side-panel">
       <div class="sp-tabs" role="tablist">
         <button class="sp-tab" data-tab="term" role="tab" aria-selected="true">__ICON_TERM__<span>Terminal</span></button>
         <button class="sp-tab" data-tab="files" role="tab" aria-selected="false">__ICON_FILES__<span>Arquivos</span></button>
         <button class="sp-tab" data-tab="notes" role="tab" aria-selected="false">__ICON_NOTES__<span>Anotações</span></button>
-        <button class="sp-tab hidden" data-tab="js" role="tab" aria-selected="false">__ICON_PLAY__<span>JS</span></button>
+        <button class="sp-tab hidden" data-tab="js" role="tab" aria-selected="false">__ICON_PLAY__<span>Editor</span></button>
         <div class="sp-tabs-spacer"></div>
         <button class="mini-btn danger sp-reset" id="btn-reset-term" aria-label="Recriar o ambiente" title="Recriar o ambiente">__ICON_RESET__<span>Reset</span></button>
       </div>
@@ -86,10 +89,12 @@
         <button class="mini-btn" id="fb-here">ir para o diretório atual</button>
       </div>
       <div class="sp-actions hidden" id="sp-js-actions">
+        <span class="code-lab-mark"><i></i> Code Lab</span>
         <span class="js-entry" id="js-entry">rascunho.js</span>
         <div class="spacer"></div>
-        <button class="mini-btn" id="js-run">__ICON_PLAY__rodar</button>
-        <button class="mini-btn" id="js-cancel" disabled>parar</button>
+        <button class="mini-btn" id="js-save" title="Salvar no laboratório (Ctrl+S)">Salvar</button>
+        <button class="mini-btn primary" id="js-run" title="Executar (Ctrl+Enter)">__ICON_PLAY__<span id="js-run-label">Executar</span><kbd>Ctrl ↵</kbd></button>
+        <button class="mini-btn" id="js-cancel" disabled>Parar</button>
         <button class="mini-btn square" id="js-clear" aria-label="Limpar console" title="Limpar console">__ICON_RESET__</button>
       </div>
 
@@ -130,9 +135,22 @@
       <div class="sp-view" data-view="js">
         <div class="js-shell">
           <div class="js-files" id="js-files" role="tablist" aria-label="Arquivos do projeto"></div>
-          <textarea id="js-editor" class="js-editor" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Editor de JavaScript" placeholder="Escreva JavaScript aqui e clique em rodar…"></textarea>
-          <div class="js-console-head">Console</div>
-          <div id="js-console" aria-live="polite"></div>
+          <div class="js-editor-pane" id="js-editor-pane">
+            <pre class="js-gutter" id="js-gutter" aria-hidden="true">1</pre>
+            <textarea id="js-editor" class="js-editor" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Editor de JavaScript" placeholder="Escreva JavaScript aqui e execute com Ctrl+Enter…"></textarea>
+          </div>
+          <div class="js-pane-resizer" id="js-pane-resizer" role="separator" aria-orientation="horizontal" aria-label="Redimensionar editor e console" tabindex="0"><i></i></div>
+          <div class="js-console-pane" id="js-console-pane">
+            <div class="js-console-head"><span>Console</span><span class="js-run-state" id="js-run-state">pronto</span></div>
+            <div id="js-console" aria-live="polite"><div class="js-empty"><span>&gt;_</span><p>A saída, os erros e os testes aparecem aqui.</p></div></div>
+          </div>
+          <div class="js-statusbar" aria-label="Status do editor">
+            <span id="js-save-state">salvo localmente</span>
+            <span class="spacer"></span>
+            <span id="js-cursor-state">Ln 1, Col 1</span>
+            <span id="js-lang-state">JavaScript</span>
+            <span>UTF-8</span>
+          </div>
         </div>
       </div>
 

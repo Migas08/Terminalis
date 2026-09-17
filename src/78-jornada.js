@@ -104,12 +104,12 @@
     const recent=(prog.recentLessons||[]).map(id=>app.findLesson(id)).filter(Boolean).slice(0,4);
     const resume=app.findLesson(prog.lastLesson);
     $('#page').innerHTML=`<div class="doc wide home study-home">
-      <header class="study-hero"><div class="eyebrow">SEU ESPAÇO DE PRÁTICA / TERMINALIS</div><h1>Entenda o código.<br>Assuma o terminal.</h1><p>Linux, containers e controle de versão. Aprenda o conceito, experimente no laboratório e comprove o que sabe.</p></header>
+      <header class="study-hero"><div class="eyebrow">SEU ESPAÇO DE PRÁTICA / TERMINALIS</div><h1>Aprenda tecnologia<br>construindo.</h1><p>Do terminal ao código: estude o conceito, pratique em um laboratório próprio para cada curso e comprove o que sabe.</p></header>
       <section class="study-resume"><div><div class="eyebrow">${resume?'CONTINUAR DE ONDE PAROU':'SEU PRIMEIRO PASSO'}</div><h2>${esc(resume?.lesson.title||current.trilha.nome)}</h2><p>${esc(resume?.mod.title||current.trilha.resumo)}</p></div><button class="btn primary" id="hm-continuar">${resume?'Retomar aula':'Começar a estudar'} ${IC().next}</button></section>
       <section class="study-overview" aria-label="Progresso geral"><strong>${total?Math.round(done/total*100):0}<small>%</small></strong><div><span>Progresso geral</span>${barra(total?done/total*100:0)}<p>${done} de ${total} aulas concluídas · ${Object.values(prog.tasks||{}).filter(Boolean).length} atividades concluídas</p></div><button class="lk" id="hm-ver-jornada">Ver progresso ${IC().next}</button></section>
-      <div class="study-section-title"><h2>Suas ferramentas.</h2><span>Do fundamento à prática profissional</span></div><div class="study-courses">${states.filter(s=>['linux','docker','git'].includes(s.id)).map((s,i)=>`<button class="study-course" data-curso="${s.id}"><span class="study-course-num">0${i+1}</span><div><h3>${esc(s.trilha.nome)}</h3><p>${esc(s.trilha.resumo)}</p><span>${s.proprio.licoes.feitas}/${s.proprio.licoes.total} aulas · ${esc(LX.Progressao.rotulo(s.situacao))}</span>${barra(s.proprio.pct)}</div><strong>${s.proprio.pct}%</strong><span aria-hidden="true">↗</span></button>`).join('')}</div>
+      <div class="study-section-title"><h2>Seus cursos.</h2><span>Terminal Lab e Code Lab, a mesma formação profissional</span></div><div class="study-courses">${states.filter(s=>['linux','docker','git','js'].includes(s.id)).map((s,i)=>`<button class="study-course" data-curso="${s.id}"><span class="study-course-num">${String(i+1).padStart(2,'0')}</span><div><h3>${esc(s.trilha.nome)}</h3><p>${esc(s.trilha.resumo)}</p><span>${s.id==='js'?'Code Lab':'Terminal Lab'} · ${s.proprio.licoes.feitas}/${s.proprio.licoes.total} aulas · ${esc(LX.Progressao.rotulo(s.situacao))}</span>${barra(s.proprio.pct)}</div><strong>${s.proprio.pct}%</strong><span aria-hidden="true">↗</span></button>`).join('')}</div>
       ${recent.length?`<section class="study-recent"><h2>Acessados recentemente</h2>${recent.map(f=>`<button class="study-recent-item" data-recent="${f.lesson.id}"><span>${esc(f.mod.title)}</span><strong>${esc(f.lesson.title)}</strong><span aria-hidden="true">→</span></button>`).join('')}</section>`:''}
-      <footer class="study-note">Um laboratório local para experimentar. Seu progresso é salvo automaticamente na sua conta de estudo.</footer></div>`;
+      <footer class="study-note">Ambientes locais e isolados para experimentar no terminal ou no editor. Seu progresso é salvo automaticamente na sua conta de estudo.</footer></div>`;
     $('#hm-continuar').onclick=()=>resume?app.goLesson(resume.lesson.id):app.abrirTrilha(current.id);
     $('#hm-ver-jornada').onclick=()=>app.goJornada();
     $$('[data-curso]').forEach(b=>b.onclick=()=>app.goCurso(b.dataset.curso));
@@ -145,7 +145,7 @@
         <div class="jp"><span class="n">${des}<small>/${desT}</small></span><span class="l">desafios verificados</span></div>
         <div class="jp"><span class="n">${etapasFeitas}</span><span class="l">etapas fechadas</span></div>
         <div class="jp"><span class="n">${cursos}<small>/${reais.length}</small></span><span class="l">cursos concluídos</span></div>
-        <div class="jp"><span class="n">${horas}<small>h</small> ${String(minutos).padStart(2, '0')}<small>min</small></span><span class="l">no terminal</span></div>
+        <div class="jp"><span class="n">${horas}<small>h</small> ${String(minutos).padStart(2, '0')}<small>min</small></span><span class="l">de prática</span></div>
       </div>`;
 
     for (const st of reais) {

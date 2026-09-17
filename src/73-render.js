@@ -14,7 +14,7 @@
   const highlightDockerfile = highlightShell;
   const highlightYaml = highlightShell;
 
-  function renderCode(b) {
+  function renderCode(b, app) {
     const lines = Array.isArray(b.code) ? b.code : String(b.code).split('\n');
     const lang = b.lang || 'bash';
     const hl = lang === 'dockerfile' ? highlightDockerfile : (lang === 'yaml' ? highlightYaml : highlightShell);
@@ -38,10 +38,12 @@
     }
     body = body.replace(/\n$/, '');
     const canRun = b.run !== false && runnable.length > 0 && lang === 'bash';
+    const canOpenInEditor = app && app.trilhaId === 'js' && ['js', 'javascript', 'ts', 'typescript', 'text'].includes(String(lang).toLowerCase());
     return `<div class="code">
       ${b.title ? `<div class="code-head">${esc(b.title)}</div>` : ''}
       <div class="code-actions">
         ${canRun ? `<button class="code-btn" data-run="${esc(runnable.join('\n'))}" title="Executar no terminal">${LX.ICON.play}rodar</button>` : ''}
+        ${canOpenInEditor ? `<button class="code-btn code-open-editor" data-open-editor title="Substituir o conteúdo atual por este exemplo">${LX.ICON.play}abrir no editor</button>` : ''}
         <button class="code-btn" data-copy title="Copiar">${LX.ICON.copy}</button>
       </div>
       <pre>${body}</pre>
@@ -57,7 +59,7 @@
     if (b.h4) return `<h4>${b.h4}</h4>`;
     if (b.lede) return `<p class="lede">${b.lede}</p>`;
     if (b.cmd) return `<div class="cmd-chip">${esc(b.cmd)}</div>`;
-    if (b.code) return renderCode(b);
+    if (b.code) return renderCode(b, app);
     if (b.ul) return `<ul>${b.ul.map(i => `<li>${i}</li>`).join('')}</ul>`;
     if (b.ol) return `<ol>${b.ol.map(i => `<li>${i}</li>`).join('')}</ol>`;
     if (b.hr) return `<hr>`;
