@@ -75,6 +75,19 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     const salvo = await page.evaluate(() => __app.term.sh.m.fs.readFile('/home/aluno/js/rascunho.js', __app.term.sh.fsopts()));
     assert.match(salvo, /console\.log\('Olá'/, 'o editor salvou o código no VFS');
 
+    /* ---------- assíncrono real no navegador: promise + timer drenam antes do fim ---------- */
+    await runEditor(page, [
+      "console.log('a');",
+      "Promise.resolve().then(function () { console.log('b'); });",
+      "setTimeout(function () { console.log('c'); }, 10);",
+      "console.log('d');"
+    ].join('\n'));
+    await waitConsole(page, 'concluído');
+    const linhas = await page.evaluate(() => [...document.querySelectorAll('#js-console .js-line')].map(l => l.textContent));
+    const so = linhas.filter(t => /^[abcd]$/.test(t));
+    assert.deepEqual(so, ['a', 'd', 'b', 'c'], 'ordem sync, resto do script, microtask, timer');
+    assert.ok(linhas.indexOf('c') < linhas.findIndex(t => /concluído/.test(t)), 'concluído só depois do timer');
+
     /* ---------- erro com localização ---------- */
     await runEditor(page, "const x = 1;\nthrow new Error('explodiu');");
     await waitConsole(page, 'Error: explodiu');

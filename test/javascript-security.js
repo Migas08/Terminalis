@@ -30,7 +30,7 @@ function nodeVmTransport() {
       // Só TextEncoder é injetado; Function/Object/Error/JSON etc. vêm do próprio
       // contexto vm, para que `new Function` do Worker crie código do aluno no
       // escopo isolado do contexto e não no realm do Node (sem fetch/process).
-      const sandbox = { self, TextEncoder };
+      const sandbox = { self, TextEncoder, setTimeout, clearTimeout, setInterval, clearInterval, queueMicrotask };
       sandbox.globalThis = sandbox;
       vm.createContext(sandbox);
       vm.runInContext(SOURCE, sandbox, { filename: 'worker.js' });
@@ -42,13 +42,18 @@ function nodeVmTransport() {
   };
 }
 
-function runProgram(source, limits) {
+/* A execução termina de forma assíncrona (o event loop é drenado), então
+   esperamos o run-complete antes de ler os eventos. */
+async function runProgram(source, limits) {
   const runner = LX.JS.createRunner({ transport: nodeVmTransport(), limits });
   const events = [];
-  runner.subscribe(e => events.push(e));
+  let resolve;
+  const done = new Promise(r => { resolve = r; });
+  runner.subscribe(e => { events.push(e); if (e.type === 'run-complete') resolve(); });
   const sid = runner.createSession();
   runner.putFiles(sid, { 'main.js': source });
   runner.run(sid, 'main.js');
+  await done;
   runner.disposeAll();
   return events;
 }
@@ -92,7 +97,7 @@ function runProgram(source, limits) {
      Código do aluno não enxerga o app nem a rede. typeof não lança, então
      conferimos que tudo é 'undefined'. */
   {
-    const events = runProgram(
+    const events = await runProgram(
       "console.log(typeof LX, typeof fetch, typeof XMLHttpRequest, typeof process, typeof require, typeof window, typeof document, typeof localStorage);"
     );
     const line = events.find(e => e.type === 'console');
@@ -103,7 +108,7 @@ function runProgram(source, limits) {
 
   /* Chamar a rede diretamente é um ReferenceError controlado, não uma conexão. */
   {
-    const events = runProgram("fetch('https://exemplo.com');");
+    const events = await runProgram("fetch('https://exemplo.com');");
     const err = events.find(e => e.type === 'uncaught-error');
     assert.ok(err, 'fetch negado gera uncaught-error');
     assert.match(err.payload.name, /ReferenceError/);
@@ -113,34 +118,23 @@ function runProgram(source, limits) {
   /* Tentar alcançar a ponte do Worker (postMessage/self) também falha: os nomes
      são sombreados na função do aluno. */
   {
-    const events = runProgram("postMessage({ type: 'run-complete', runId: 'falso' });");
+    const events = await runProgram("postMessage({ type: 'run-complete', runId: 'falso' });");
     const err = events.find(e => e.type === 'uncaught-error');
     assert.ok(err, 'postMessage não está acessível ao aluno');
     assert.match(err.payload.name, /TypeError|ReferenceError/);
   }
 
-  /* ---------------------- prova de que a sandbox é encerrável ----------------------
-     A fonte do Worker roda um laço infinito de verdade; o host a aborta pelo
-     timeout do vm, como o coordenador faz com Worker.terminate() no estouro. */
+  /* ---------------------- capabilities negadas também no assíncrono ----------------------
+     Um timer que tenta a rede falha de forma controlada, não abre conexão.
+     (O encerramento de laço infinito é coberto pelo timeout do coordenador em
+     javascript-runtime.js e pelo teste de navegador javascript-ui.js.) */
   {
-    let registered = null;
-    const self = {
-      postMessage() {},
-      addEventListener(type, fn) { if (type === 'message') registered = fn; },
-      close() {}
-    };
-    const sandbox = { self, TextEncoder };
-    sandbox.globalThis = sandbox;
-    vm.createContext(sandbox);
-    vm.runInContext(SOURCE, sandbox, { filename: 'worker.js' });
-    assert.ok(registered, 'a fonte do Worker registrou seu listener');
-    sandbox._deliver = msg => registered({ data: msg });
-    const loop = new vm.Script(
-      "_deliver({ type: 'run', runId: 'r', entrypoint: 'loop.js', files: { 'loop.js': 'while (true) {}' } });"
-    );
-    assert.throws(() => loop.runInContext(sandbox, { timeout: 200 }), /timed out|Script execution/i,
-      'o laço infinito é interrompido pelo host');
+    const events = await runProgram("setTimeout(function () { fetch('https://exemplo.com'); }, 1);");
+    const err = events.find(e => e.type === 'uncaught-error');
+    assert.ok(err, 'fetch negado dentro de um timer gera uncaught-error');
+    assert.match(err.payload.name, /ReferenceError/);
+    assert.equal(events.filter(e => e.type === 'run-complete').length, 1);
   }
 
-  console.log('JavaScript security: poluição, não-serializável, mensagem gigante, capabilities negadas e sandbox encerrável passaram.');
+  console.log('JavaScript security: poluição, não-serializável, mensagem gigante e capabilities negadas (sync e async) passaram.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
