@@ -13,7 +13,7 @@ const ESPERADO = [
   { slot: 'pergunta', aceita: ['quiz', 'fill'] },
   { slot: 'prática', aceita: ['desafio'] }
 ];
-const MODULOS_DIRETOS = new Set(['m01']);
+const MODULOS_DIRETOS = new Set(['m01', 'm02']);
 
 let problemas = 0, aulas = 0;
 for (const mod of LX.COURSE.modules) {
