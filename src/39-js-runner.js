@@ -104,6 +104,17 @@
         case P.EVENTS.DIAGNOSTIC:
           emit(P.EVENTS.DIAGNOSTIC, session, run.runId, plain(raw.payload));
           return;
+        case P.EVENTS.TEST_START:
+          emit(P.EVENTS.TEST_START, session, run.runId, { name: String(raw.name == null ? '' : raw.name) });
+          return;
+        case P.EVENTS.TEST_RESULT:
+          emit(P.EVENTS.TEST_RESULT, session, run.runId, {
+            name: String(raw.name == null ? '' : raw.name),
+            ok: raw.ok === true,
+            message: raw.message != null ? String(raw.message).slice(0, limits.STRING_LEN) : null,
+            durationMs: Number.isFinite(raw.durationMs) ? raw.durationMs : null
+          });
+          return;
         case P.EVENTS.RUN_COMPLETE:
           finishRun(session, P.EVENTS.RUN_COMPLETE, { ok: raw.ok !== false }, run.runId);
           return;
@@ -194,9 +205,10 @@
       return runId;
     }
 
-    function runTests() {
-      // O test runner chega na Fase 2. Falha explícita, nunca fingir suporte.
-      throw new Error('runTests ainda não é suportado nesta fase do runner.');
+    function runTests(sessionId, entrypoint, runOptions) {
+      // O test runner (describe/it/expect) roda como parte de uma execução normal:
+      // basta o arquivo registrar testes. Este atalho deixa a intenção explícita.
+      return run(sessionId, entrypoint, Object.assign({ mode: 'test' }, runOptions || {}));
     }
 
     function onTimeout(session, runId) {

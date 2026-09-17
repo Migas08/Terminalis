@@ -96,6 +96,11 @@
       case E.OUTPUT_LIMIT: append('js-sys', '■ limite de saída atingido — restante omitido'); break;
       case E.UNCAUGHT_ERROR: append('js-err', p.name + ': ' + p.message, locationOf(p)); break;
       case E.UNHANDLED_REJECTION: append('js-err', 'Promessa rejeitada: ' + p.message, locationOf(p)); break;
+      case E.TEST_START: append('js-sys', '▷ ' + p.name); break;
+      case E.TEST_RESULT: append(p.ok ? 'js-ok' : 'js-err', (p.ok ? '✓ ' : '✗ ') + p.name + (p.ok ? '' : ' — ' + (p.message || 'falhou'))); break;
+      case E.DIAGNOSTIC:
+        if (p.kind === 'test-summary') append('js-sys', '■ testes: ' + p.passed + ' passaram, ' + p.failed + ' falharam');
+        break;
       case E.RUN_TIMEOUT: append('js-sys', '■ tempo esgotado — execução encerrada'); setRunning(false); break;
       case E.RUN_CANCELLED: append('js-sys', '■ execução cancelada'); setRunning(false); break;
       case E.RUN_COMPLETE: append('js-sys', '■ concluído'); setRunning(false); break;
