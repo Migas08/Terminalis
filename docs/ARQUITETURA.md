@@ -59,7 +59,16 @@ A fase JS/TS executa código do aluno **fora do realm da aplicação**. A camada
 - Fase 1: um arquivo JS no VFS abre no laboratório, a ação "rodar" executa isolado, console e erros têm localização, o laço infinito é terminável e o workspace continua restaurável (só os arquivos são persistidos, nunca objetos vivos da sandbox).
 - Fase 2: o Worker roda o event loop — `promises`, `async/await`, microtasks e `setTimeout/setInterval` — e a execução só termina quando a fila esvazia; erros assíncronos e `unhandledrejection` viram eventos. Um test runner didático (`describe/it/expect/beforeEach/afterEach`, com async) emite `test-start`/`test-result` e um resumo. Módulos ESM multi-arquivo funcionam por um grafo de Blobs com imports relativos reescritos (grafos acíclicos; imports de pacotes externos e ciclos falham com erro claro). O painel JS envia o diretório do projeto para a sandbox.
 
-A Fase 3 (capabilities) começou pelos módulos embutidos didáticos de Node — `process` (argv/env), `path`, `EventEmitter` (`require('events')`) e `Buffer` — disponíveis como globais e via `require`; pacotes externos falham com erro claro (sem npm). `fs` sobre o VFS (por RPC), `fetch` e o DOM isolado chegam nos próximos incrementos, cada API com sua matriz real/simulada/não suportada. O TypeScript é a Fase 4. O escape de realm no navegador é coberto por `test/javascript-ui.js` (Playwright); os testes de Node (`test/javascript-runtime.js`, `test/javascript-security.js`) usam o contexto `vm` como fronteira e provam protocolo, limites, negação de capabilities (sync e async), o ciclo assíncrono e o test runner.
+A Fase 3 (capabilities) está avançada:
+
+- **Módulos Node embutidos** — `process` (argv/env vazio/platform), `path`, `EventEmitter` (`require('events')`) e `Buffer` — como globais e via `require`; pacotes externos falham com erro claro (sem npm).
+- **Canal RPC de capabilities** — a sandbox pede `{cap, method, args}` e o coordenador chama o handler injetado (negado por padrão), devolvendo uma resposta serializável; a execução espera as RPCs pendentes antes de terminar.
+- **`fs` sobre o VFS** (assíncrono, `require('fs')`/`fs/promises`) — o painel liga a capability ao VFS como o aluno e restrita a `/home/aluno`; caminhos que tentam escapar são barrados. `fs` síncrono exigiria SharedArrayBuffer e está documentado como ausente.
+- **`fetch`/`Headers`/`Request`/`Response`/`AbortController`** — didáticos, roteados por uma capability `fetch` negada por padrão (rede desligada); um handler de fixtures habilita a rede simulada por aula.
+
+Falta desta fase o **DOM isolado** (decisão de projeto: shim de DOM virtual no Worker vs. executar no documento do iframe). O TypeScript é a **Fase 4** (compilador carregado sob demanda de CDN).
+
+Matriz atual — **real:** execução JS, console, erros localizados, async/event loop, ESM, test runner. **Simulado/didático:** `process`/`path`/`Buffer`/`EventEmitter`, `fs` sobre o VFS, `fetch` por fixtures. **Ausente (falha explícita):** pacotes npm, rede real, `fs` síncrono, DOM (por enquanto), TypeScript (Fase 4). O escape de realm no navegador é coberto por `test/javascript-ui.js` (Playwright); os testes de Node (`test/javascript-runtime.js`, `test/javascript-security.js`) usam o contexto `vm` como fronteira e provam protocolo, limites, negação de capabilities (sync e async), o ciclo assíncrono e o test runner.
 
 ## Verificação
 
