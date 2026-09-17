@@ -15282,6 +15282,9 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
       throw new Error('createRunner exige um transport com open().');
     }
     const limits = Object.assign({}, P.LIMITS, options.limits || {});
+    // Capabilities (fs, fetch, …) negadas por padrão: só o que o app injetar aqui
+    // é exposto à sandbox, e cada chamada passa por este handler.
+    const capabilities = options.capabilities || {};
     const now = options.now || (() => (typeof Date !== 'undefined' ? Date.now() : 0));
     const schedule = options.schedule || ((fn, ms) => setTimeout(fn, ms));
     const cancelSchedule = options.cancelSchedule || (token => clearTimeout(token));
@@ -15336,6 +15339,7 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
 
       if (type === 'ready') { emit(P.EVENTS.LIFECYCLE, session, null, { state: 'ready' }); return; }
       if (!run || (raw.runId != null && String(raw.runId) !== run.runId)) return;
+      if (type === 'cap') { handleCap(session, raw); return; }
 
       switch (type) {
         case P.EVENTS.CONSOLE: {
@@ -15383,6 +15387,35 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
           // fases seguintes; por ora são ignorados em silêncio controlado.
           return;
       }
+    }
+
+    /* Atende um pedido de capability da sandbox (ex.: fs.readFile) chamando o
+       handler injetado e devolvendo uma resposta serializável pelo canal. */
+    function handleCap(session, raw) {
+      const id = raw.id;
+      function respond(ok, value, error) {
+        if (!session.handle) return;
+        try { session.handle.post({ type: 'cap-response', id, ok, value: ok ? value : undefined, error: ok ? undefined : error }); }
+        catch (_) { /* sandbox pode ter sido encerrada */ }
+      }
+      const cap = capabilities[raw.cap];
+      const method = cap && cap[raw.method];
+      if (typeof method !== 'function') {
+        respond(false, null, { name: 'CapabilityError', message: 'Capability negada: ' + raw.cap + '.' + raw.method });
+        return;
+      }
+      let args;
+      try { args = Array.isArray(raw.args) ? raw.args : []; P.assertNoPollution(args); }
+      catch (error) { respond(false, null, { name: 'CapabilityError', message: error.message }); return; }
+      Promise.resolve().then(() => method.apply(cap, args)).then(
+        value => {
+          let clean;
+          try { clean = P.assertSerializable(value === undefined ? null : value); }
+          catch (_) { respond(false, null, { name: 'CapabilityError', message: 'Resultado da capability não é serializável.' }); return; }
+          respond(true, clean);
+        },
+        error => respond(false, null, safeError({ name: (error && error.name) || 'Error', message: String(error && error.message != null ? error.message : error) }))
+      );
     }
 
     function safeError(error) {
@@ -15565,6 +15598,17 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
     "  var nQueueMicro = (typeof queueMicrotask !== 'undefined') ? queueMicrotask : function (fn) { Promise.resolve().then(fn); };",
     "  // Estado do event loop da execução atual (uma execução por vez).",
     "  var curRun = null, curEntry = null, hadError = false, timersLeft = 0, timerIds = {}, intervalIds = {}, tests = [], describeStack = [];",
+    "  var capSeq = 0, capPending = {};",
+    "  function countPending() { var n = 0; for (var k in capPending) if (Object.prototype.hasOwnProperty.call(capPending, k)) n++; return n; }",
+    "  function capRequest(cap, method, args) {",
+    "    return new Promise(function (resolve, reject) {",
+    "      if (!curRun) { reject(new Error('Sem execução ativa.')); return; }",
+    "      var id = 'c' + (++capSeq);",
+    "      capPending[id] = { resolve: resolve, reject: reject };",
+    "      post({ type: 'cap', runId: curRun, id: id, cap: cap, method: method, args: args || [] });",
+    "    });",
+    "  }",
+    "  function capError(e) { var err = new Error(String(e && e.message != null ? e.message : 'Erro na capability')); err.name = (e && e.name) || 'CapabilityError'; return err; }",
     "  var PARAMS = 'console, self, postMessage, onmessage, globalThis, importScripts, close, setTimeout, setInterval, clearTimeout, clearInterval, queueMicrotask, describe, it, test, expect, beforeEach, afterEach, process, Buffer, require';",
     "  var PROLOGUE = '\"use strict\";\\n';",
     "  var OFFSET = null;",
@@ -15671,7 +15715,7 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
     "      if (!nSetTimeout) { resolve(); return; }",
     "      var quiet = 0;",
     "      (function tick() {",
-    "        if (timersLeft > 0) { quiet = 0; nSetTimeout(tick, 0); return; }",
+    "        if (timersLeft > 0 || countPending() > 0) { quiet = 0; nSetTimeout(tick, 0); return; }",
     "        quiet++;",
     "        if (quiet >= 2) resolve(); else nSetTimeout(tick, 0);",
     "      })();",
@@ -15747,7 +15791,24 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
     "    function wrap(u) { var o = { _u: u, _isBuffer: true, length: u.length }; for (var i = 0; i < u.length; i++) o[i] = u[i]; o.toString = function (e) { if (e === 'hex') { var s = ''; for (var j = 0; j < u.length; j++) s += ('0' + u[j].toString(16)).slice(-2); return s; } if (e === 'base64') return toBase64(u); return dec ? dec.decode(u) : String.fromCharCode.apply(null, Array.prototype.slice.call(u)); }; o.slice = function (a, b) { return wrap(u.slice(a, b)); }; return o; }",
     "    return { from: function (input) { if (typeof input === 'string') return wrap(enc ? enc.encode(input) : new Uint8Array(0)); return wrap(Uint8Array.from(input || [])); }, alloc: function (n, f) { var u = new Uint8Array(n); if (f != null) u.fill(f); return wrap(u); }, isBuffer: function (x) { return !!(x && x._isBuffer); }, concat: function (list) { var t = 0, i; for (i = 0; i < list.length; i++) t += list[i].length; var out = new Uint8Array(t), off = 0; for (i = 0; i < list.length; i++) { out.set(list[i]._u || list[i], off); off += list[i].length; } return wrap(out); } };",
     "  })();",
-    "  function nodeRequire(name) { var n = String(name).replace(/^node:/, ''); if (n === 'events') return { EventEmitter: NodeEventEmitter, default: NodeEventEmitter }; if (n === 'path') return nodePath; if (n === 'process') return nodeProcess; if (n === 'buffer') return { Buffer: nodeBuffer }; var e = new Error(\"Módulo '\" + name + \"' não disponível (a sandbox não busca pacotes externos).\"); e.name = 'ModuleError'; throw e; }",
+    "  // fs sobre o VFS por RPC (assíncrono; sync exigiria SharedArrayBuffer).",
+    "  function fsCall(method, args) { return capRequest('fs', method, args).then(null, function (e) { throw capError(e); }); }",
+    "  var fsPromises = {",
+    "    readFile: function (p) { return fsCall('readFile', [String(p)]); },",
+    "    writeFile: function (p, d) { return fsCall('writeFile', [String(p), String(d)]); },",
+    "    readdir: function (p) { return fsCall('readdir', [String(p)]); },",
+    "    mkdir: function (p) { return fsCall('mkdir', [String(p)]); },",
+    "    stat: function (p) { return fsCall('stat', [String(p)]); },",
+    "    unlink: function (p) { return fsCall('unlink', [String(p)]); }",
+    "  };",
+    "  function cbFrom(promise, cb) { promise.then(function (v) { if (typeof cb === 'function') cb(null, v); }, function (e) { if (typeof cb === 'function') cb(e); }); }",
+    "  var nodeFs = {",
+    "    promises: fsPromises,",
+    "    readFile: function (p, a, b) { cbFrom(fsPromises.readFile(p), typeof a === 'function' ? a : b); },",
+    "    writeFile: function (p, d, a, b) { cbFrom(fsPromises.writeFile(p, d), typeof a === 'function' ? a : b); },",
+    "    readdir: function (p, a, b) { cbFrom(fsPromises.readdir(p), typeof a === 'function' ? a : b); }",
+    "  };",
+    "  function nodeRequire(name) { var n = String(name).replace(/^node:/, ''); if (n === 'events') return { EventEmitter: NodeEventEmitter, default: NodeEventEmitter }; if (n === 'path') return nodePath; if (n === 'process') return nodeProcess; if (n === 'buffer') return { Buffer: nodeBuffer }; if (n === 'fs') return nodeFs; if (n === 'fs/promises') return fsPromises; var e = new Error(\"Módulo '\" + name + \"' não disponível (a sandbox não busca pacotes externos).\"); e.name = 'ModuleError'; throw e; }",
     "  // ---- módulos ESM: grafo de Blobs com imports relativos reescritos ----",
     "  var dynImport = null, dynImportTried = false;",
     "  function getDynImport() {",
@@ -15823,7 +15884,7 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
     "    }",
     "    var state = { bytes: 0, stopped: false };",
     "    var sandboxConsole = makeConsole(runId, state);",
-    "    curRun = runId; curEntry = entry; hadError = false; timersLeft = 0; timerIds = {}; intervalIds = {};",
+    "    curRun = runId; curEntry = entry; hadError = false; timersLeft = 0; timerIds = {}; intervalIds = {}; capPending = {};",
     "    tests = []; describeStack = [{ name: '', before: [], after: [] }];",
     "    nodeProcess.argv = ['node', entry];",
     "    if (isModuleSource(String(files[entry]))) { runModule(runId, entry, sandboxConsole); return; }",
@@ -15847,6 +15908,7 @@ Observação: 'ip' substitui os antigos ifconfig, route e arp (net-tools).
     "  function handle(msg) {",
     "    if (!msg || typeof msg !== 'object') return;",
     "    if (msg.type === 'init') { if (msg.limits && typeof msg.limits === 'object') { for (var k in LIMITS) if (typeof msg.limits[k] === 'number') LIMITS[k] = msg.limits[k]; } return; }",
+    "    if (msg.type === 'cap-response') { var pend = capPending[msg.id]; if (pend) { delete capPending[msg.id]; if (msg.ok) pend.resolve(msg.value); else pend.reject(msg.error || { message: 'Capability negada' }); } return; }",
     "    if (msg.type === 'run') { files = (msg.files && typeof msg.files === 'object') ? msg.files : {}; runFile(String(msg.runId), String(msg.entrypoint)); return; }",
     "    if (msg.type === 'dispose') { if (self.close) self.close(); return; }",
     "  }",
@@ -45193,10 +45255,41 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
   let bound = false;
   let salvarTimer = null;
 
+  const RAIZ = '/home/aluno';
+
+  function normalizarAbs(path) {
+    const out = [];
+    for (const s of String(path).split('/')) { if (!s || s === '.') continue; if (s === '..') out.pop(); else out.push(s); }
+    return '/' + out.join('/');
+  }
+  /* Resolve o caminho pedido pela sandbox contra o diretório do projeto e barra
+     qualquer escape para fora de /home/aluno. */
+  function resolverVfs(p) {
+    let full = String(p);
+    if (full.charAt(0) !== '/') full = dirName(entry || PADRAO) + '/' + full;
+    full = normalizarAbs(full);
+    if (full !== RAIZ && full.indexOf(RAIZ + '/') !== 0) throw new Error('Caminho fora da área permitida: ' + p);
+    return full;
+  }
+  /* Capability fs: o único acesso ao VFS que a sandbox tem, sempre como o aluno
+     e restrito à sua área. */
+  function fsCapabilities() {
+    const sh = () => app.term.sh;
+    return {
+      fs: {
+        readFile: (p) => sh().m.fs.readFile(resolverVfs(p), sh().fsopts()),
+        writeFile: (p, d) => { const full = resolverVfs(p); sh().m.fs.mkdirp(dirName(full), sh().fsopts()); sh().m.fs.writeFile(full, String(d), sh().fsopts()); return true; },
+        readdir: (p) => (sh().m.fs.readdir(resolverVfs(p), sh().fsopts()) || []).filter(n => typeof n === 'string'),
+        mkdir: (p) => { sh().m.fs.mkdirp(resolverVfs(p), sh().fsopts()); return true; },
+        stat: (p) => { const s = sh().m.fs.stat(resolverVfs(p), sh().fsopts()); return { type: s.type, size: s.size, mode: s.mode & 0o7777, isDirectory: s.type === 'dir', isFile: s.type === 'file' }; }
+      }
+    };
+  }
+
   function ensure(a) {
     app = a || app;
     if (!runner) {
-      runner = LX.JS.createRunner({ transport: LX.JS.Sandbox.createBrowserTransport() });
+      runner = LX.JS.createRunner({ transport: LX.JS.Sandbox.createBrowserTransport(), capabilities: fsCapabilities() });
       runner.subscribe(onEvent);
       sessionId = runner.createSession();
     }
