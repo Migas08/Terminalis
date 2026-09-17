@@ -24,10 +24,41 @@
   let bound = false;
   let salvarTimer = null;
 
+  const RAIZ = '/home/aluno';
+
+  function normalizarAbs(path) {
+    const out = [];
+    for (const s of String(path).split('/')) { if (!s || s === '.') continue; if (s === '..') out.pop(); else out.push(s); }
+    return '/' + out.join('/');
+  }
+  /* Resolve o caminho pedido pela sandbox contra o diretório do projeto e barra
+     qualquer escape para fora de /home/aluno. */
+  function resolverVfs(p) {
+    let full = String(p);
+    if (full.charAt(0) !== '/') full = dirName(entry || PADRAO) + '/' + full;
+    full = normalizarAbs(full);
+    if (full !== RAIZ && full.indexOf(RAIZ + '/') !== 0) throw new Error('Caminho fora da área permitida: ' + p);
+    return full;
+  }
+  /* Capability fs: o único acesso ao VFS que a sandbox tem, sempre como o aluno
+     e restrito à sua área. */
+  function fsCapabilities() {
+    const sh = () => app.term.sh;
+    return {
+      fs: {
+        readFile: (p) => sh().m.fs.readFile(resolverVfs(p), sh().fsopts()),
+        writeFile: (p, d) => { const full = resolverVfs(p); sh().m.fs.mkdirp(dirName(full), sh().fsopts()); sh().m.fs.writeFile(full, String(d), sh().fsopts()); return true; },
+        readdir: (p) => (sh().m.fs.readdir(resolverVfs(p), sh().fsopts()) || []).filter(n => typeof n === 'string'),
+        mkdir: (p) => { sh().m.fs.mkdirp(resolverVfs(p), sh().fsopts()); return true; },
+        stat: (p) => { const s = sh().m.fs.stat(resolverVfs(p), sh().fsopts()); return { type: s.type, size: s.size, mode: s.mode & 0o7777, isDirectory: s.type === 'dir', isFile: s.type === 'file' }; }
+      }
+    };
+  }
+
   function ensure(a) {
     app = a || app;
     if (!runner) {
-      runner = LX.JS.createRunner({ transport: LX.JS.Sandbox.createBrowserTransport() });
+      runner = LX.JS.createRunner({ transport: LX.JS.Sandbox.createBrowserTransport(), capabilities: fsCapabilities() });
       runner.subscribe(onEvent);
       sessionId = runner.createSession();
     }

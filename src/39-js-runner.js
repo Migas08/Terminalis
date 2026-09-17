@@ -25,6 +25,9 @@
       throw new Error('createRunner exige um transport com open().');
     }
     const limits = Object.assign({}, P.LIMITS, options.limits || {});
+    // Capabilities (fs, fetch, …) negadas por padrão: só o que o app injetar aqui
+    // é exposto à sandbox, e cada chamada passa por este handler.
+    const capabilities = options.capabilities || {};
     const now = options.now || (() => (typeof Date !== 'undefined' ? Date.now() : 0));
     const schedule = options.schedule || ((fn, ms) => setTimeout(fn, ms));
     const cancelSchedule = options.cancelSchedule || (token => clearTimeout(token));
@@ -79,6 +82,7 @@
 
       if (type === 'ready') { emit(P.EVENTS.LIFECYCLE, session, null, { state: 'ready' }); return; }
       if (!run || (raw.runId != null && String(raw.runId) !== run.runId)) return;
+      if (type === 'cap') { handleCap(session, raw); return; }
 
       switch (type) {
         case P.EVENTS.CONSOLE: {
@@ -126,6 +130,35 @@
           // fases seguintes; por ora são ignorados em silêncio controlado.
           return;
       }
+    }
+
+    /* Atende um pedido de capability da sandbox (ex.: fs.readFile) chamando o
+       handler injetado e devolvendo uma resposta serializável pelo canal. */
+    function handleCap(session, raw) {
+      const id = raw.id;
+      function respond(ok, value, error) {
+        if (!session.handle) return;
+        try { session.handle.post({ type: 'cap-response', id, ok, value: ok ? value : undefined, error: ok ? undefined : error }); }
+        catch (_) { /* sandbox pode ter sido encerrada */ }
+      }
+      const cap = capabilities[raw.cap];
+      const method = cap && cap[raw.method];
+      if (typeof method !== 'function') {
+        respond(false, null, { name: 'CapabilityError', message: 'Capability negada: ' + raw.cap + '.' + raw.method });
+        return;
+      }
+      let args;
+      try { args = Array.isArray(raw.args) ? raw.args : []; P.assertNoPollution(args); }
+      catch (error) { respond(false, null, { name: 'CapabilityError', message: error.message }); return; }
+      Promise.resolve().then(() => method.apply(cap, args)).then(
+        value => {
+          let clean;
+          try { clean = P.assertSerializable(value === undefined ? null : value); }
+          catch (_) { respond(false, null, { name: 'CapabilityError', message: 'Resultado da capability não é serializável.' }); return; }
+          respond(true, clean);
+        },
+        error => respond(false, null, safeError({ name: (error && error.name) || 'Error', message: String(error && error.message != null ? error.message : error) }))
+      );
     }
 
     function safeError(error) {
