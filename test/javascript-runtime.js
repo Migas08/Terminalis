@@ -217,6 +217,42 @@ async function runFile(runner, files, entry) {
     runner.disposeAll();
   }
 
+  /* ---------- fs sobre VFS por RPC de capability ---------- */
+  {
+    const store = { 'dados.txt': 'olá do vfs' };
+    const runner = makeRunner({ capabilities: { fs: {
+      readFile: (p) => { if (Object.prototype.hasOwnProperty.call(store, p)) return store[p]; throw new Error('ENOENT: ' + p); },
+      writeFile: (p, d) => { store[p] = d; return true; },
+      readdir: () => Object.keys(store)
+    } } });
+    await runFile(runner, {
+      'io.js': [
+        "const fs = require('fs');",
+        "async function main() {",
+        "  const c = await fs.promises.readFile('dados.txt');",
+        "  console.log('lido:', c);",
+        "  await fs.promises.writeFile('novo.txt', 'gravado');",
+        "  const nomes = await fs.promises.readdir('.');",
+        "  console.log('arquivos:', nomes.join(','));",
+        "}",
+        "main();"
+      ].join('\n')
+    }, 'io.js');
+    assert.deepEqual(runner.textos(), ['lido: olá do vfs', 'arquivos: dados.txt,novo.txt'], 'read/write/readdir via RPC');
+    assert.equal(store['novo.txt'], 'gravado', 'writeFile persistiu pelo handler');
+    assert.equal(runner.of('run-complete')[0].payload.ok, true, 'execução espera as RPCs antes de terminar');
+    runner.disposeAll();
+  }
+
+  /* ---------- fs negado por padrão (sem capability) ---------- */
+  {
+    const runner = makeRunner();
+    await runFile(runner, { 'x.js': "require('fs').promises.readFile('a').catch(function (e) { console.log('negado:', e.message); });" }, 'x.js');
+    const line = runner.textos().find(t => /negado/.test(t));
+    assert.ok(line && /negada/i.test(line), 'fs é negado sem capability');
+    runner.disposeAll();
+  }
+
   /* ---------- require de pacote externo falha de forma clara ---------- */
   {
     const runner = makeRunner();

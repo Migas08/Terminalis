@@ -100,6 +100,27 @@ const consoleText = page => page.evaluate(() => document.querySelector('#js-cons
     await runEditor(page, "const path = require('path');\nconsole.log('base', path.basename('/a/b/c.js'), 'plataforma', process.platform);");
     await waitConsole(page, 'base c.js plataforma browser');
 
+    /* ---------- fs sobre o VFS por capability ---------- */
+    await runEditor(page, [
+      "const fs = require('fs');",
+      "async function main() {",
+      "  await fs.promises.writeFile('anotacao.txt', 'salvo pelo aluno');",
+      "  const c = await fs.promises.readFile('anotacao.txt');",
+      "  console.log('conteudo:', c);",
+      "}",
+      "main();"
+    ].join('\n'));
+    await waitConsole(page, 'conteudo: salvo pelo aluno');
+    const gravado = await page.evaluate(() => __app.term.sh.m.fs.readFile('/home/aluno/js/anotacao.txt', __app.term.sh.fsopts()));
+    assert.equal(gravado, 'salvo pelo aluno', 'fs.writeFile persistiu no VFS');
+
+    /* fuga de path é barrada */
+    await runEditor(page, "require('fs').promises.readFile('../../../etc/passwd').then(function () { console.log('VAZOU'); }, function (e) { console.log('bloqueado:', e.message); });");
+    await waitConsole(page, 'bloqueado:');
+    text = await consoleText(page);
+    assert.ok(!/VAZOU/.test(text), 'não vazou arquivo fora da área');
+    assert.match(text, /fora da área permitida/, 'escape de path barrado');
+
     /* ---------- test runner no editor ---------- */
     await runEditor(page, [
       "describe('grupo', function () {",
