@@ -52,7 +52,7 @@ const T = (nome, cond, extra) => {
 
   console.log('\n2. a tela inicial responde "onde estou / o que faço agora"');
   const inicio = await page.evaluate(() => document.querySelector('#page').innerText);
-  T('mostra a proposta e o wordmark', /terminalis/i.test(inicio) && /Assuma o terminal/i.test(inicio));
+  T('mostra a proposta e o wordmark', /terminalis/i.test(inicio) && /Aprenda tecnologia/i.test(inicio));
   T('mostra a jornada em cursos', /Linux e o terminal/.test(inicio) && /Docker/.test(inicio));
   T('o botão principal diz "Começar agora" para quem nunca fez nada', /Começar a estudar/.test(inicio));
   const cursoLinux = await page.evaluate(() => { window.__app.goCurso('linux'); return document.querySelector('#page').innerText; });
