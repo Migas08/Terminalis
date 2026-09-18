@@ -53,7 +53,7 @@
     const challenge = challengeOrFail(id);
     const value = ensure(input);
     const previous = value.challengeAttempts[challenge.id];
-    if (previous && !previous.completedAt && !(options && options.restart)) return previous;
+    if (previous && !(options && options.restart)) return previous;
     const attempt = {
       challengeId: challenge.id,
       challengeVersion: challenge.version,

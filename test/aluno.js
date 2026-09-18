@@ -52,9 +52,9 @@ const T = (nome, cond, extra) => {
 
   console.log('\n2. a tela inicial responde "onde estou / o que faço agora"');
   const inicio = await page.evaluate(() => document.querySelector('#page').innerText);
-  T('mostra a proposta e o wordmark', /terminalis/i.test(inicio) && /Aprenda tecnologia/i.test(inicio));
-  T('mostra a jornada em cursos', /Linux e o terminal/.test(inicio) && /Docker/.test(inicio));
-  T('o botão principal diz "Começar agora" para quem nunca fez nada', /Começar a estudar/.test(inicio));
+  T('mostra a proposta prática da V2', /terminalis/i.test(inicio) && /Aprenda resolvendo/i.test(inicio));
+  T('mostra desafios recomendados', /Desafios recomendados/.test(inicio) && /Organize os backups SQL/.test(inicio));
+  T('mostra nível, XP e métricas de prática', /N.vel global/i.test(inicio) && /desafios conclu.dos/i.test(inicio));
   const cursoLinux = await page.evaluate(() => { window.__app.goCurso('linux'); return document.querySelector('#page').innerText; });
   T('a página do curso mostra a próxima aula', /Próximo conteúdo/i.test(cursoLinux) && /1\.1/.test(cursoLinux), cursoLinux.slice(0, 200));
   T('a página do curso lista os módulos', await page.evaluate(() => document.querySelectorAll('.cs-mod').length >= 5));
@@ -76,43 +76,47 @@ const T = (nome, cond, extra) => {
     /Para desbloquear/i.test(naJornada || '') && /\d+ de \d+/i.test(naJornada || ''), naJornada);
 
   console.log('\n4. começar a estudar');
-  await page.evaluate(() => { window.__app.goHome(); document.querySelector('#hm-continuar').click(); });
+  const exploracao = await page.evaluate(() => {
+    window.__app.goHome();
+    document.querySelector('#v2-explore-all').click();
+    return { rota: window.__app.route.view, cards: document.querySelectorAll('[data-challenge-card]').length };
+  });
+  T('a Home leva à exploração de desafios', exploracao.rota === 'challenges' && exploracao.cards >= 5, exploracao);
+  await page.evaluate(() => document.querySelector('[data-challenge-card="LINUX-001"]').click());
   await page.waitForTimeout(700);
-  const aula = await page.evaluate(() => ({
+  const desafio = await page.evaluate(() => ({
     rota: window.__app.route.view,
-    licao: window.__app.route.lesson,
+    id: window.__app.route.challenge,
     texto: document.querySelector('#page').innerText.slice(0, 4000)
   }));
-  T('o botão leva direto para a primeira aula', aula.rota === 'lesson' && aula.licao === 'l1-1', aula.licao);
-  T('a aula abre com o objetivo declarado', /Objetivo|goal|kernel/i.test(aula.texto));
-  T('a aula tem exercício e desafio', /Desafio|Exercício|Prática/i.test(aula.texto));
+  T('o cartão abre o ambiente do desafio', desafio.rota === 'challenge' && desafio.id === 'LINUX-001', desafio);
+  T('o desafio abre com situação, missão e objetivos', /SITUAÇÃO/.test(desafio.texto) && /MISSÃO/.test(desafio.texto) && /OBJETIVOS/.test(desafio.texto));
+  T('a teoria aparece apenas como apoio opcional', /Entender conceitos/.test(desafio.texto) && /Documentação relacionada/.test(desafio.texto));
 
   console.log('\n5. resolver um desafio digitando no terminal de verdade');
-  const antes = await page.evaluate(() => Object.keys(LX.Progress.data.tasks).length);
-  /* runVisible é o caminho do botão "rodar" da aula: escreve no terminal,
-     registra no histórico e executa — igual a digitar. */
+  const antes = await page.evaluate(() => Object.keys(LX.Progress.data.challengeCompletions || {}).length);
   await page.evaluate(async () => {
-    await window.__app.term.runVisible('uname -r');
-    await window.__app.term.runVisible('cat /etc/os-release');
-    await window.__app.term.runVisible('hostname');
+    await window.__app.term.runVisible('mkdir -p /srv/migracao/backup');
+    await window.__app.term.runVisible('mv /srv/migracao/*.sql /srv/migracao/backup/');
   });
   await page.waitForTimeout(400);
-  await page.evaluate(() => {
-    const b = Array.from(document.querySelectorAll('button')).find(x => /Verificar/i.test(x.textContent));
-    if (b) b.click();
-  });
+  await page.evaluate(() => document.querySelector('#v2-validate').click());
   await page.waitForTimeout(900);
-  const depois = await page.evaluate(() => Object.keys(LX.Progress.data.tasks).length);
-  T('o desafio verificado marca progresso', depois > antes, { antes, depois });
+  const conclusao = await page.evaluate(() => ({
+    depois: Object.keys(LX.Progress.data.challengeCompletions || {}).length,
+    xp: LX.V2Progress.totalXp(),
+    texto: document.querySelector('#page').innerText
+  }));
+  T('o desafio verificado marca progresso e concede XP uma vez', conclusao.depois > antes && conclusao.xp === 50, conclusao);
+  T('a conclusão mostra debriefing e uma solução possível', /O QUE ACONTECEU/.test(conclusao.texto) && /Uma solução possível/.test(conclusao.texto));
 
   console.log('\n   e o verificador recusa quem não fez');
   const recusa = await page.evaluate(async () => {
-    const f = LX.COURSE.modules.flatMap(m => m.lessons).find(l => l.id === 'l1-1');
-    const t = f.tasks.find(x => x.id === 't1-1-b');
-    const r = await t.check({ app: window.__app, machine: window.__app.machine, term: window.__app.term, sh: window.__app.term.sh, run: (c) => window.__app.term.runQuiet(c) });
-    return r;
+    window.__app.goChallenge('LINUX-002');
+    const challenge = LX.ChallengeCatalog.challenge('LINUX-002');
+    return challenge.validate({ app: window.__app, machine: window.__app.machine, term: window.__app.term, sh: window.__app.term.sh, run: c => window.__app.term.runQuiet(c) });
   });
-  T('o desafio não resolvido é reprovado com explicação', recusa.ok === false && !!recusa.msg, recusa);
+  T('o ambiente não resolvido permanece aberto com orientação', recusa.ok === false && !!recusa.msg, recusa);
 
   console.log('\n6. a jornada mostra a evolução');
   await page.evaluate(() => window.__app.goJornada());

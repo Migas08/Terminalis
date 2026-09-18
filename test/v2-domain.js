@@ -33,6 +33,7 @@ const first = LX.V2Progress.complete('TEST-001', { commandsCount: 4 }, progress)
 const repeated = LX.V2Progress.complete('TEST-001', { commandsCount: 9 }, progress);
 assert.equal(first.awardedXp, 80);
 assert.equal(repeated.awardedXp, 0, 'conclusão repetida não concede XP novamente');
+assert.equal(LX.V2Progress.start('TEST-001', {}, progress).completedAt, first.completion.completedAt, 'reabrir não apaga a tentativa concluída');
 assert.equal(LX.V2Progress.totalXp(progress), 80);
 assert.equal(LX.V2Progress.summary(progress).completed, 1);
 assert.equal(LX.V2Progress.summary(progress).withoutHints, 0);
