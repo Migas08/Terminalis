@@ -49,6 +49,13 @@ disponível em “Ver explicação completa”, fechado por padrão. Não repita
 `brief` história, analogias, listas de referência ou explicações que a própria
 saída do exercício demonstra.
 
+O caminho direto precisa ser curto, mas também autossuficiente: todo conceito,
+comando, opção ou operador necessário nas três atividades deve aparecer no
+`brief` ou ter sido praticado em uma aula anterior. Não cobre uma ferramenta de
+módulo futuro apenas na dica ou na solução. Ao resumir uma aula existente,
+compare o `brief` com atividade guiada, pergunta, prática e verificador antes de
+considerar a migração concluída.
+
 ### Blocos de corpo aceitos
 
 `{ h2 }` `{ h4 }` `{ p }` `{ ul: [] }` `{ ol: [] }` `{ ascii }`

@@ -14,6 +14,14 @@ const ESPERADO = [
   { slot: 'prática', aceita: ['desafio'] }
 ];
 const MODULOS_DIRETOS = new Set(['m01', 'm02', 'm03', 'm04', 'm05']);
+const REQUISITOS_MODULO1 = {
+  'l1-1': [/hostname/, /sistema\.txt/, /cat ~\/sistema\.txt/],
+  'l1-2': [/\bTab\b/, /history/, /man -k/, /df -h/],
+  'l1-3': [/grep VERSION_CODENAME/, /wc -l/, /investigacao\.txt/],
+  'l1-4': [/\.\.\/\.\.\/\.\.\/\.\.\/var\/log/],
+  'l1-5': [/ls \/usr\/bin \| wc -l/, /du -sh \/var \/var\/log/, /ls \/lib\/systemd\/system \| wc -l/, /df -h \//],
+  'l1-6': [/\/proc\/loadavg/, /grep MemTotal/, /grep MemAvailable/, /\/sys\/class\/net\/eth0\/address/]
+};
 
 let problemas = 0, aulas = 0;
 for (const mod of LX.COURSE.modules) {
@@ -53,6 +61,11 @@ for (const mod of LX.COURSE.modules) {
       else if (opts.filter(o => o.correct).length > 1) erro = 'a pergunta tem mais de uma alternativa correta';
       else if (opts.some(o => !o.correct && !o.why)) erro = 'há alternativa errada sem explicação (why)';
       else if (!ts[1].explain) erro = 'a pergunta não tem o campo `explain` (a UI mostra a explicação por ele, não por `solution`)';
+    }
+    if (!erro && REQUISITOS_MODULO1[l.id]) {
+      const leituraDireta = JSON.stringify(l.brief || []);
+      const ausentes = REQUISITOS_MODULO1[l.id].filter(re => !re.test(leituraDireta));
+      if (ausentes.length) erro = `a leitura direta não prepara ${ausentes.length} requisito(s) cobrado(s) nas atividades`;
     }
     if (erro) { problemas++; console.log(`  ✗ ${mod.id} ${l.n} ${l.title}\n      ${erro}`); }
   }
