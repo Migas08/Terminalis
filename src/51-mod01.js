@@ -10,10 +10,12 @@
     id: 'l1-1', n: '1.1', title: 'O que é Linux, de verdade',
     goal: 'Separar três coisas que quase sempre se misturam: o kernel, a distribuição e o shell. Sem isso, tudo o que vem depois vira decoreba.',
     brief: [
-      { h2: 'O necessário' },
-      { p: '<strong>Linux</strong> é o kernel: ele controla CPU, memória, discos e processos. A <strong>distribuição</strong> junta esse kernel com programas e um gerenciador de pacotes. O <strong>shell</strong> interpreta os comandos que você digita.' },
-      { code: ['$ uname -r', '$ cat /etc/os-release'] },
-      { p: '<code>uname -r</code> mostra o kernel. <code>/etc/os-release</code> identifica a distribuição. Você só precisa distinguir essas duas respostas antes de seguir.' }
+      { h2: 'Identifique o sistema e registre a resposta' },
+      { p: '<strong>Linux</strong> é o kernel, que controla CPU, memória, discos e processos. A <strong>distribuição</strong> reúne esse kernel, programas e um gerenciador de pacotes. O <strong>shell</strong> interpreta os comandos digitados no terminal.' },
+      { code: ['$ uname -r', '$ cat /etc/os-release', '$ hostname'] },
+      { p: '<code>uname -r</code> mostra a versão do kernel, <code>/etc/os-release</code> identifica a distribuição e <code>hostname</code> mostra o nome da máquina. As atividades usam essas três informações.' },
+      { p: 'Para guardá-las, <code>&gt;</code> cria ou substitui um arquivo; <code>&gt;&gt;</code> acrescenta sem apagar o que já existe. Use <code>cat</code> para conferir o resultado.' },
+      { code: ['$ uname -r > ~/sistema.txt', '$ hostname >> ~/sistema.txt', '$ cat /etc/os-release >> ~/sistema.txt', '$ cat ~/sistema.txt'] }
     ],
     body: [
       { h2: 'O kernel é só o miolo' },
@@ -140,7 +142,7 @@
             'o nome desta máquina;',
             'o conteúdo inteiro do <code>/etc/os-release</code>, que identifica a distribuição.'
           ] },
-          { p: 'Cada parte precisa vir de um <strong>comando</strong> — os três que você rodou no primeiro desafio — e não ser digitada à mão. Use o <code>&gt;</code> para o primeiro (que cria o arquivo) e o <code>&gt;&gt;</code> para os outros dois (que acrescentam).' },
+          { p: 'Cada parte precisa vir de um <strong>comando</strong> — os três que você rodou na atividade guiada — e não ser digitada à mão. Use o <code>&gt;</code> para o primeiro (que cria o arquivo) e o <code>&gt;&gt;</code> para os outros dois (que acrescentam).' },
           { p: 'No fim, confira o resultado com <code>cat ~/sistema.txt</code>.' }
         ],
         hints: [
@@ -171,10 +173,13 @@
     id: 'l1-2', n: '1.2', title: 'Terminal, shell e a anatomia de um comando',
     goal: 'Entender o que acontece entre você apertar Enter e o resultado aparecer — e aprender a ler qualquer comando, mesmo os que você nunca viu.',
     brief: [
-      { h2: 'Leia qualquer comando' },
-      { p: 'O <strong>terminal</strong> é a interface onde você digita. O <strong>shell</strong> é o programa que interpreta a linha. Um comando costuma ter esta forma: <code>programa opções argumentos</code>.' },
-      { code: ['$ ls -lah /etc', '$ ls --help', '$ man ls'] },
-      { p: 'Em <code>ls -lah /etc</code>, <code>ls</code> é o programa, <code>-lah</code> reúne opções e <code>/etc</code> é o argumento. Quando não souber uma opção, consulte <code>--help</code> ou <code>man</code>.' }
+      { h2: 'Leia, complete e descubra comandos' },
+      { p: 'O <strong>terminal</strong> é a interface; o <strong>shell</strong> interpreta a linha. Um comando segue a forma <code>programa opções argumentos</code>. Em <code>ls -lah /etc</code>, <code>ls</code> é o programa, <code>-lah</code> reúne as opções e <code>/etc</code> é o argumento.' },
+      { code: ['$ ls -lah /etc', '$ man ls', '$ history'] },
+      { p: 'As opções <code>-l</code>, <code>-a</code> e <code>-h</code> significam formato longo, arquivos ocultos e tamanhos legíveis. Opções curtas podem ser agrupadas. A tecla <strong>Tab</strong> completa nomes; <code>history</code> mostra os comandos anteriores.' },
+      { p: 'Quando souber o nome do comando, use <code>--help</code> ou <code>man</code>. Quando souber apenas o que precisa fazer, use <code>man -k PALAVRA</code>. A busca é em inglês.' },
+      { code: ['$ man -k disk', '$ df -h'] },
+      { p: 'A busca por <em>disk</em> apresenta <code>df</code>, que mostra o espaço livre. A opção <code>-h</code> deixa os tamanhos legíveis — a mesma ideia usada em <code>ls -lh</code>.' }
     ],
     body: [
       { h2: 'Terminal não é shell' },
@@ -343,10 +348,12 @@
     id: 'l1-3', n: '1.3', title: 'A árvore de diretórios',
     goal: 'Entender por que o Linux não tem C: nem D:, o que é a raiz / e como o FHS torna qualquer servidor Linux previsível.',
     brief: [
-      { h2: 'Uma árvore começa em /' },
-      { p: 'No Linux, arquivos e discos aparecem em uma única árvore. A raiz é <code>/</code>. Um disco adicional é montado em um diretório, como <code>/mnt/backup</code>, em vez de receber uma letra.' },
-      { code: ['$ ls /'] },
-      { p: 'Os diretórios seguem um padrão: configurações em <code>/etc</code>, usuários em <code>/home</code>, dados variáveis em <code>/var</code> e programas em <code>/usr</code>. Por enquanto, reconheça a raiz e esses quatro destinos.' }
+      { h2: 'Explore a árvore e transforme respostas em arquivo' },
+      { p: 'No Linux, tudo parte da raiz <code>/</code>. O padrão FHS coloca configurações em <code>/etc</code>, arquivos dos usuários em <code>/home</code>, dados variáveis e logs em <code>/var</code> e programas em <code>/usr</code>.' },
+      { code: ['$ ls /', '$ ls /etc | head -20', '$ ls /var/log', '$ ls /home'] },
+      { p: 'O pipe <code>|</code> envia a saída da esquerda para o comando da direita; acima, <code>head -20</code> limita a listagem. <code>grep PALAVRA ARQUIVO</code> seleciona uma linha e <code>wc -l &lt; ARQUIVO</code> conta suas linhas imprimindo apenas o número.' },
+      { p: 'A prática reúne dados de três arquivos do sistema. Use <code>&gt;</code> na primeira resposta e <code>&gt;&gt;</code> nas seguintes para não apagar o que já foi gravado.' },
+      { code: ['$ grep VERSION_CODENAME /etc/os-release > ~/investigacao.txt', '$ wc -l < /etc/passwd >> ~/investigacao.txt', '$ cat /etc/timezone >> ~/investigacao.txt'] }
     ],
     body: [
       { h2: 'Uma única árvore' },
@@ -488,8 +495,10 @@
     brief: [
       { h2: 'Descubra de onde o caminho parte' },
       { p: 'Caminho <strong>absoluto</strong> começa com <code>/</code> e sempre parte da raiz. Caminho <strong>relativo</strong> parte do diretório atual, mostrado por <code>pwd</code>.' },
-      { code: ['$ pwd', '$ cd /var/log', '$ cd ..', '$ cd ~', '$ cd -'] },
-      { p: '<code>.</code> significa o diretório atual, <code>..</code> sobe um nível, <code>~</code> representa seu diretório pessoal e <code>cd -</code> volta ao diretório anterior.' }
+      { code: ['$ cd /', '$ cd var/log', '$ pwd', '$ cd ../..', '$ cd ~', '$ cd -'] },
+      { p: '<code>.</code> significa o diretório atual, <code>..</code> sobe um nível, <code>~</code> representa seu diretório pessoal e <code>cd -</code> volta ao diretório anterior. Os atalhos podem ser encadeados: <code>../..</code> sobe dois níveis.' },
+      { p: 'Para sair de <code>/home/aluno/projetos/site</code> e chegar a <code>/var/log</code> sem caminho absoluto, conte quatro níveis até a raiz e depois desça novamente:' },
+      { code: ['$ cd /home/aluno/projetos/site', '$ cd ../../../../var/log', '$ pwd'] }
     ],
     body: [
       { h2: 'Duas formas de dizer onde algo está' },
@@ -620,15 +629,17 @@
     id: 'l1-5', n: '1.5', title: 'Os diretórios do sistema, um por um',
     goal: 'Saber o que existe dentro de /etc, /var, /usr e /opt — e por que você vai passar boa parte da sua vida de administrador nesses quatro lugares.',
     brief: [
-      { h2: 'Quatro lugares para lembrar' },
+      { h2: 'Escolha o diretório e meça o servidor' },
       { ul: [
         '<code>/etc</code>: configurações do sistema e dos serviços.',
         '<code>/var</code>: dados que mudam, como logs e caches.',
         '<code>/usr</code>: programas, bibliotecas e arquivos compartilhados.',
         '<code>/opt</code>: aplicações instaladas fora do gerenciador de pacotes.'
       ] },
-      { code: ['$ cat /etc/hosts', '$ ls /var/log', '$ which ls', '$ du -sh /var/log'] },
-      { p: 'Você não precisa decorar cada subdiretório. Saiba escolher onde procurar configuração, log, programa ou aplicação externa.' }
+      { p: '<code>df -h /</code> mostra o uso do sistema de arquivos; <code>du -sh DIRETÓRIO</code> soma o tamanho de uma pasta. Assim, <code>df</code> responde “o disco está cheio?” e <code>du</code> ajuda a descobrir “cheio de quê?”.' },
+      { code: ['$ df -h /', '$ du -sh /var', '$ du -sh /var/log', '$ du -sh /usr'] },
+      { p: 'Para contar entradas, envie a listagem para <code>wc -l</code> com um pipe. Monte o relatório com <code>&gt;</code> na primeira linha e <code>&gt;&gt;</code> nas demais.' },
+      { code: ['$ ls /usr/bin | wc -l > ~/retrato.txt', '$ du -sh /var /var/log >> ~/retrato.txt', '$ ls /lib/systemd/system | wc -l >> ~/retrato.txt', '$ df -h / >> ~/retrato.txt'] }
     ],
     body: [
       { h2: '/etc — a sala de controle' },
@@ -757,27 +768,29 @@
           {
             ol: [
               'Quantos arquivos existem em <code>/usr/bin</code>?',
-              'Qual é o <strong>maior</strong> arquivo dentro de <code>/var/log</code>?',
-              'Quantos serviços estão definidos em <code>/etc/systemd/system</code> e <code>/lib/systemd/system</code> juntos? (basta o total de entradas)',
-              'O sistema tem algum disco com mais de 80% de uso?'
+              'Quanto espaço <code>/var</code> ocupa e quanto desse total está em <code>/var/log</code>?',
+              'Quantas entradas existem em <code>/lib/systemd/system</code>?',
+              'Quanto do sistema de arquivos raiz está ocupado?'
             ]
           },
-          { p: 'Você já tem todas as peças: <code>ls</code>, <code>wc</code>, <code>du</code>, <code>df</code>, <code>&gt;</code> e <code>&gt;&gt;</code>. Falta combinar.' }
+          { p: 'Use exatamente as peças apresentadas antes da atividade: <code>ls</code>, <code>wc</code>, <code>du</code>, <code>df</code>, <code>&gt;</code> e <code>&gt;&gt;</code>.' }
         ],
         hints: [
-          'Para contar itens de um diretório: <code>ls /usr/bin | wc -l</code>. A barra vertical <code>|</code> manda a saída de um comando para a entrada do outro — é o assunto do módulo 4.',
-          'Para achar o maior arquivo: <code>du -a /var/log | sort -n | tail -5</code>. O <code>sort -n</code> ordena numericamente e o <code>tail</code> mostra o final.'
+          'Para contar itens: <code>ls DIRETÓRIO | wc -l</code>. Use esse formato em <code>/usr/bin</code> e <code>/lib/systemd/system</code>.',
+          'Um único <code>du -sh /var /var/log</code> mostra os dois tamanhos. Finalize com <code>df -h /</code>.'
         ],
-        solution: '<div class="code"><pre>ls /usr/bin | wc -l                      &gt;  ~/retrato.txt\ndu -a /var/log | sort -n | tail -3       &gt;&gt; ~/retrato.txt\nls /lib/systemd/system | wc -l           &gt;&gt; ~/retrato.txt\ndf -h                                    &gt;&gt; ~/retrato.txt</pre></div><p style="margin-top:8px">Não existe uma única resposta certa: o que importa é você ter usado comandos para obter os números, em vez de digitar valores na mão.</p>',
+        solution: '<div class="code"><pre>ls /usr/bin | wc -l                      &gt;  ~/retrato.txt\ndu -sh /var /var/log                     &gt;&gt; ~/retrato.txt\nls /lib/systemd/system | wc -l           &gt;&gt; ~/retrato.txt\ndf -h /                                  &gt;&gt; ~/retrato.txt</pre></div><p style="margin-top:8px">Cada resposta usa somente os comandos apresentados na leitura direta e na atividade guiada.</p>',
         check: async (ctx) => {
           const c = H.read(ctx, '/home/aluno/retrato.txt');
           if (c === null) return { ok: false, msg: 'O arquivo ~/retrato.txt ainda não existe.' };
           const n = (H.ls(ctx, '/usr/bin') || []).length;
+          const servicos = (H.ls(ctx, '/lib/systemd/system') || []).length;
           const temNumeroBin = new RegExp('\\b' + n + '\\b').test(c) || new RegExp('\\b' + (n - 1) + '\\b').test(c) || new RegExp('\\b' + (n + 1) + '\\b').test(c);
           return LX.H.checkAll([
             [c.split('\n').filter(l => l.trim()).length >= 4, 'O arquivo tem poucas linhas. Ele deve conter as respostas das quatro perguntas.'],
             [temNumeroBin, `Não encontrei a contagem de arquivos de /usr/bin (deveria ser ${n}). Use <code>ls /usr/bin | wc -l</code>.`],
-            [/var\/log/.test(c), 'Não encontrei nada sobre os arquivos de /var/log. Use <code>du</code> para medi-los.'],
+            [/\/var\b/.test(c) && /\/var\/log\b/.test(c), 'Não encontrei os tamanhos de /var e /var/log. Use <code>du -sh /var /var/log</code>.'],
+            [new RegExp('\\b' + servicos + '\\b').test(c), `Não encontrei a contagem de /lib/systemd/system (deveria ser ${servicos}).`],
             [/%|\/dev\/vda|Filesystem/.test(c), 'Não encontrei a saída do <code>df</code> com o uso dos discos.']
           ]);
         }
@@ -790,10 +803,12 @@
     id: 'l1-6', n: '1.6', title: '/proc, /sys e /dev: o kernel como arquivo',
     goal: 'Conhecer os três diretórios que não existem no disco — e usar isso para inspecionar a máquina sem instalar nada.',
     brief: [
-      { h2: 'Estado do sistema como arquivos' },
-      { p: '<code>/proc</code> e <code>/sys</code> são gerados pelo kernel em memória. <code>/proc</code> expõe processos e métricas; <code>/sys</code>, dispositivos e drivers. <code>/dev</code> contém interfaces para dispositivos.' },
-      { code: ['$ cat /proc/uptime', '$ cat /proc/meminfo', '$ cat /sys/class/net/eth0/address', '$ ls -l /dev/null /dev/vda'] },
-      { p: 'Esses caminhos permitem inspecionar a máquina com ferramentas comuns como <code>cat</code> e <code>ls</code>. Eles parecem arquivos normais, mas representam estado do kernel.' }
+      { h2: 'Leia o kernel e monte um relatório de saúde' },
+      { p: '<code>/proc</code> e <code>/sys</code> são sistemas de arquivos virtuais: o kernel gera o conteúdo quando você lê. <code>/proc</code> expõe processos e métricas; <code>/sys</code>, dispositivos e drivers; <code>/dev</code>, interfaces para dispositivos.' },
+      { code: ['$ cat /proc/uptime', '$ uptime', '$ cat /proc/meminfo | head -5', '$ free -m'] },
+      { p: '<code>uptime</code> e <code>free</code> formatam dados disponíveis em <code>/proc</code>. Mesmo que <code>ls -l</code> mostre tamanho zero, um arquivo virtual pode produzir conteúdo porque ele não está armazenado no disco.' },
+      { p: 'Para o relatório, leia a carga em <code>/proc/loadavg</code>, filtre as duas linhas de memória com <code>grep</code> e leia o endereço MAC em <code>/sys</code>. Use <code>&gt;</code> uma vez e depois <code>&gt;&gt;</code>.' },
+      { code: ['$ cat /proc/loadavg > ~/saude.txt', '$ grep MemTotal /proc/meminfo >> ~/saude.txt', '$ grep MemAvailable /proc/meminfo >> ~/saude.txt', '$ cat /sys/class/net/eth0/address >> ~/saude.txt'] }
     ],
     body: [
       { h2: 'Diretórios que são mentira (do bom tipo)' },
