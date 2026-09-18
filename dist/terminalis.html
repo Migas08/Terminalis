@@ -44050,6 +44050,462 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 })();
 
 ;
+/* ==== 69-challenge-00-core.js ==== */
+/* =========================================================================
+   TERMINALIS V2 — catálogo data-driven de tecnologias e desafios
+   ========================================================================= */
+'use strict';
+(function () {
+  const DIFFICULTIES = ['beginner', 'easy', 'intermediate', 'advanced', 'expert'];
+  const TYPES = ['command', 'debugging', 'incident', 'code', 'configuration', 'project'];
+  const STATUS = ['draft', 'published', 'archived'];
+
+  const labels = {
+    difficulties: {
+      beginner: 'Iniciante', easy: 'Fácil', intermediate: 'Intermediário',
+      advanced: 'Avançado', expert: 'Especialista'
+    },
+    types: {
+      command: 'Comandos', debugging: 'Debugging', incident: 'Incidente',
+      code: 'Código', configuration: 'Configuração', project: 'Projeto'
+    }
+  };
+
+  const catalog = {
+    technologies: [],
+    challenges: [],
+    technologyById: new Map(),
+    challengeById: new Map(),
+    challengeBySlug: new Map()
+  };
+
+  function fail(message) { throw new Error('Catálogo V2: ' + message); }
+  function plainText(value, field) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) fail('`' + field + '` é obrigatório');
+    return text;
+  }
+  function validSlug(value, field) {
+    const slug = plainText(value, field);
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail('`' + field + '` deve ser um slug em kebab-case');
+    return slug;
+  }
+  function list(value) { return Array.isArray(value) ? value.slice() : []; }
+
+  function registerTechnology(spec) {
+    spec = spec || {};
+    const technology = {
+      id: validSlug(spec.id || spec.slug, 'technology.id'),
+      slug: validSlug(spec.slug || spec.id, 'technology.slug'),
+      name: plainText(spec.name, 'technology.name'),
+      description: plainText(spec.description, 'technology.description'),
+      icon: String(spec.icon || '>_'),
+      status: spec.status || 'planned',
+      order: Number.isFinite(spec.order) ? spec.order : 999
+    };
+    if (!['available', 'planned'].includes(technology.status)) fail('status de tecnologia inválido: ' + technology.status);
+    if (catalog.technologyById.has(technology.id)) fail('tecnologia duplicada: ' + technology.id);
+    if (catalog.technologies.some(item => item.slug === technology.slug)) fail('slug de tecnologia duplicado: ' + technology.slug);
+    Object.freeze(technology);
+    catalog.technologies.push(technology);
+    catalog.technologies.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+    catalog.technologyById.set(technology.id, technology);
+    return technology;
+  }
+
+  function normalizeHint(hint, index) {
+    if (typeof hint === 'string') return Object.freeze({ title: 'Dica ' + (index + 1), content: hint });
+    hint = hint || {};
+    return Object.freeze({
+      title: String(hint.title || 'Dica ' + (index + 1)),
+      content: plainText(hint.content, 'challenge.hints[' + index + '].content')
+    });
+  }
+
+  function registerChallenge(spec) {
+    spec = spec || {};
+    const technology = plainText(spec.technology, 'challenge.technology');
+    if (!catalog.technologyById.has(technology)) fail('tecnologia não registrada: ' + technology);
+    const difficulty = spec.difficulty || 'easy';
+    const type = spec.type || 'command';
+    const status = spec.status || 'published';
+    if (!DIFFICULTIES.includes(difficulty)) fail('dificuldade inválida: ' + difficulty);
+    if (!TYPES.includes(type)) fail('tipo inválido: ' + type);
+    if (!STATUS.includes(status)) fail('status inválido: ' + status);
+    const xp = Number(spec.xp);
+    if (!Number.isInteger(xp) || xp < 10 || xp > 5000) fail('XP deve ser inteiro entre 10 e 5000');
+    if (typeof spec.setup !== 'function') fail('`challenge.setup` deve ser função');
+    if (typeof spec.validate !== 'function') fail('`challenge.validate` deve ser função');
+
+    const challenge = {
+      id: plainText(spec.id, 'challenge.id'),
+      slug: validSlug(spec.slug, 'challenge.slug'),
+      title: plainText(spec.title, 'challenge.title'),
+      summary: plainText(spec.summary, 'challenge.summary'),
+      technology,
+      difficulty,
+      type,
+      xp,
+      status,
+      version: Number.isInteger(spec.version) && spec.version > 0 ? spec.version : 1,
+      estimatedMinutes: Number.isInteger(spec.estimatedMinutes) ? spec.estimatedMinutes : null,
+      tags: list(spec.tags).map(String),
+      skills: list(spec.skills).map(String),
+      situation: plainText(spec.situation, 'challenge.situation'),
+      mission: plainText(spec.mission, 'challenge.mission'),
+      objectives: list(spec.objectives).map(String),
+      hints: list(spec.hints).map(normalizeHint),
+      concepts: list(spec.concepts).map(item => Object.freeze({
+        term: plainText(item && item.term, 'challenge.concepts.term'),
+        summary: plainText(item && item.summary, 'challenge.concepts.summary'),
+        detail: String((item && item.detail) || '')
+      })),
+      setup: spec.setup,
+      validate: spec.validate,
+      explanation: plainText(spec.explanation, 'challenge.explanation'),
+      possibleSolution: plainText(spec.possibleSolution, 'challenge.possibleSolution'),
+      alternatives: list(spec.alternatives).map(String),
+      extraChallenge: String(spec.extraChallenge || ''),
+      referenceLessonIds: list(spec.referenceLessonIds).map(String),
+      prerequisites: list(spec.prerequisites).map(String)
+    };
+    if (!challenge.objectives.length) fail('desafio sem objetivos: ' + challenge.id);
+    if (!challenge.hints.length) fail('desafio sem dicas progressivas: ' + challenge.id);
+    if (catalog.challengeById.has(challenge.id)) fail('desafio duplicado: ' + challenge.id);
+    if (catalog.challengeBySlug.has(challenge.slug)) fail('slug de desafio duplicado: ' + challenge.slug);
+    Object.freeze(challenge.tags);
+    Object.freeze(challenge.skills);
+    Object.freeze(challenge.objectives);
+    Object.freeze(challenge.hints);
+    Object.freeze(challenge.concepts);
+    Object.freeze(challenge.alternatives);
+    Object.freeze(challenge.referenceLessonIds);
+    Object.freeze(challenge.prerequisites);
+    Object.freeze(challenge);
+    catalog.challenges.push(challenge);
+    catalog.challengeById.set(challenge.id, challenge);
+    catalog.challengeBySlug.set(challenge.slug, challenge);
+    return challenge;
+  }
+
+  function normalizeSearch(value) {
+    return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  }
+
+  function search(filters, progress) {
+    filters = filters || {};
+    const query = normalizeSearch(filters.query);
+    const tokens = query ? query.split(/\s+/).filter(Boolean) : [];
+    const completed = (progress && progress.challengeCompletions) || {};
+    const favorites = new Set((progress && progress.challengeFavorites) || []);
+    return catalog.challenges.filter(challenge => {
+      if (challenge.status !== 'published' && !filters.includeDrafts) return false;
+      if (filters.technology && challenge.technology !== filters.technology) return false;
+      if (filters.difficulty && challenge.difficulty !== filters.difficulty) return false;
+      if (filters.type && challenge.type !== filters.type) return false;
+      if (Number.isFinite(filters.xpMin) && challenge.xp < filters.xpMin) return false;
+      if (Number.isFinite(filters.xpMax) && challenge.xp > filters.xpMax) return false;
+      if (filters.status === 'completed' && !completed[challenge.id]) return false;
+      if (filters.status === 'open' && completed[challenge.id]) return false;
+      if (filters.status === 'favorite' && !favorites.has(challenge.id)) return false;
+      if (tokens.length) {
+        const haystack = normalizeSearch([
+          challenge.id, challenge.title, challenge.summary, challenge.technology,
+          challenge.difficulty, challenge.type, ...challenge.tags, ...challenge.skills
+        ].join(' '));
+        if (!tokens.every(token => haystack.includes(token))) return false;
+      }
+      return true;
+    });
+  }
+
+  LX.ChallengeCatalog = {
+    difficulties: DIFFICULTIES.slice(),
+    types: TYPES.slice(),
+    labels,
+    technologies: catalog.technologies,
+    challenges: catalog.challenges,
+    registerTechnology,
+    registerChallenge,
+    technology(id) { return catalog.technologyById.get(id) || null; },
+    challenge(idOrSlug) { return catalog.challengeById.get(idOrSlug) || catalog.challengeBySlug.get(idOrSlug) || null; },
+    search
+  };
+  LX.technology = registerTechnology;
+  LX.challenge = registerChallenge;
+})();
+
+;
+/* ==== 69-challenge-10-technologies.js ==== */
+/* =========================================================================
+   TERMINALIS V2 — tecnologias disponíveis e planejadas
+   ========================================================================= */
+'use strict';
+(function () {
+  const technologies = [
+    ['linux', 'Linux', 'Sistemas, shell, serviços e administração.', 'available'],
+    ['docker', 'Docker', 'Containers, imagens, Compose e operação.', 'available'],
+    ['git', 'Git', 'Versionamento, branches, conflitos e recuperação.', 'available'],
+    ['github', 'GitHub', 'Colaboração, pull requests, issues e automação.', 'available'],
+    ['javascript', 'JavaScript', 'Linguagem, browser, Node.js e APIs.', 'planned'],
+    ['typescript', 'TypeScript', 'Modelagem de tipos e aplicações seguras.', 'planned'],
+    ['python', 'Python', 'Programação, scripts e automação.', 'planned'],
+    ['java', 'Java', 'Aplicações, orientação a objetos e ecossistema.', 'planned'],
+    ['c', 'C', 'Fundamentos de baixo nível e memória.', 'planned'],
+    ['csharp', 'C#', 'Aplicações modernas no ecossistema .NET.', 'planned'],
+    ['sql', 'SQL', 'Consultas, modelagem e desempenho.', 'planned'],
+    ['databases', 'Banco de Dados', 'Operação, backup, restauração e diagnóstico.', 'planned'],
+    ['networks', 'Redes', 'TCP/IP, DNS, roteamento e conectividade.', 'planned'],
+    ['apis', 'APIs', 'HTTP, contratos, autenticação e integração.', 'planned'],
+    ['backend', 'Backend', 'Serviços, persistência e arquitetura.', 'planned'],
+    ['frontend', 'Frontend', 'Interfaces, estado, acessibilidade e performance.', 'planned'],
+    ['devops', 'DevOps', 'Entrega, observabilidade e automação operacional.', 'planned'],
+    ['troubleshooting', 'Troubleshooting', 'Investigação sistemática de falhas.', 'planned'],
+    ['security', 'Segurança', 'Práticas defensivas e menor privilégio.', 'planned']
+  ];
+  technologies.forEach((item, index) => LX.technology({
+    id: item[0], slug: item[0], name: item[1], description: item[2],
+    status: item[3], order: index + 1, icon: item[0].slice(0, 2).toUpperCase()
+  }));
+})();
+
+;
+/* ==== 69-challenge-20-linux.js ==== */
+/* =========================================================================
+   TERMINALIS V2 — primeira coleção de desafios Linux
+   Dados fictícios; verificadores aceitam qualquer caminho que produza o
+   estado final solicitado.
+   ========================================================================= */
+'use strict';
+(function () {
+  const H = LX.H;
+  const root = machine => machine.ctxRoot();
+  const write = (machine, path, content, mode = 0o644, uid = 1000, gid = 1000) => {
+    machine.fs.mkdirp(LX.FileSystem.dirname(path), { ctx: root(machine) });
+    const file = machine.fs.writeFile(path, content, { ctx: root(machine) });
+    file.mode = mode; file.uid = uid; file.gid = gid;
+    return file;
+  };
+
+  LX.challenge({
+    id: 'LINUX-001', slug: 'organize-os-backups-sql',
+    title: 'Organize os backups SQL',
+    summary: 'Separe dumps de banco sem mover a documentação da migração.',
+    technology: 'linux', difficulty: 'beginner', type: 'command', xp: 50,
+    estimatedMinutes: 6, tags: ['arquivos', 'diretórios', 'glob'], skills: ['Navegação', 'Arquivos'],
+    situation: 'A equipe deixou dumps SQL e documentos misturados em /srv/migracao. O próximo processo automatizado espera encontrar todos os dumps dentro de uma subpasta chamada backup.',
+    mission: 'Crie /srv/migracao/backup e mova para ela somente os arquivos com extensão .sql. Os demais arquivos devem permanecer no diretório original.',
+    objectives: ['Criar o diretório backup', 'Mover os três arquivos .sql', 'Preservar README.md e inventario.csv'],
+    hints: [
+      'Liste /srv/migracao e observe o padrão comum nos arquivos que precisam ser movidos.',
+      'O caractere * pode representar qualquer trecho de um nome. Um padrão como *.sql seleciona arquivos pela extensão.',
+      'Uma solução curta combina mkdir -p /srv/migracao/backup e mv /srv/migracao/*.sql /srv/migracao/backup/.'
+    ],
+    concepts: [
+      { term: 'glob', summary: 'O shell expande padrões como *.sql antes de executar o comando.', detail: 'O comando recebe a lista de caminhos que o shell encontrou. Arquivos sem a extensão não entram na expansão.' },
+      { term: 'mkdir -p', summary: 'Cria o caminho e não falha se o diretório já existir.' }
+    ],
+    setup(machine) {
+      const directory = machine.fs.mkdirp('/srv/migracao', { ctx: root(machine) });
+      directory.uid = 1000; directory.gid = 1000; directory.mode = 0o755;
+      write(machine, '/srv/migracao/clientes.sql', '-- dump clientes\n');
+      write(machine, '/srv/migracao/pedidos.sql', '-- dump pedidos\n');
+      write(machine, '/srv/migracao/estoque.sql', '-- dump estoque\n');
+      write(machine, '/srv/migracao/README.md', '# Migração\nNão mover este arquivo.\n');
+      write(machine, '/srv/migracao/inventario.csv', 'arquivo,responsavel\nclientes.sql,equipe-db\n');
+    },
+    validate(ctx) {
+      const expected = ['clientes.sql', 'estoque.sql', 'pedidos.sql'];
+      const found = H.ls(ctx, '/srv/migracao/backup') || [];
+      return H.checkAll([
+        [H.isDir(ctx, '/srv/migracao/backup'), 'Crie o diretório <code>/srv/migracao/backup</code>.'],
+        [expected.every(name => found.includes(name)), 'Ainda faltam dumps <code>.sql</code> dentro de <code>backup</code>.'],
+        [expected.every(name => !H.exists(ctx, '/srv/migracao/' + name)), 'Os dumps devem ser movidos, não apenas copiados.'],
+        [H.isFile(ctx, '/srv/migracao/README.md'), 'O <code>README.md</code> deve permanecer no diretório original.'],
+        [H.isFile(ctx, '/srv/migracao/inventario.csv'), 'O <code>inventario.csv</code> deve permanecer no diretório original.']
+      ]);
+    },
+    explanation: 'O padrão *.sql foi expandido pelo shell apenas para os três dumps. O diretório de destino organiza o processo sem afetar os documentos que não pertencem ao backup.',
+    possibleSolution: 'mkdir -p /srv/migracao/backup\nmv /srv/migracao/*.sql /srv/migracao/backup/\nls -la /srv/migracao /srv/migracao/backup',
+    alternatives: ['Usar find com -maxdepth 1 e -exec mv para selecionar os dumps.', 'Mover os arquivos individualmente; é mais longo, mas produz o mesmo estado.'],
+    extraChallenge: 'Crie um arquivo lista.txt dentro de backup contendo os nomes dos dumps em ordem alfabética.',
+    referenceLessonIds: ['l2-3', 'l2-4']
+  });
+
+  LX.challenge({
+    id: 'LINUX-002', slug: 'encontre-a-configuracao-perdida',
+    title: 'Encontre a configuração perdida',
+    summary: 'Localize um endpoint esquecido entre arquivos de configuração.',
+    technology: 'linux', difficulty: 'easy', type: 'command', xp: 70,
+    estimatedMinutes: 8, tags: ['find', 'grep', 'configuração'], skills: ['Busca', 'Redirecionamento'],
+    prerequisites: ['LINUX-001'],
+    situation: 'Um serviço legado ainda aponta para uma API interna. A equipe sabe o nome da variável, API_ENDPOINT, mas não lembra em qual arquivo ela foi definida.',
+    mission: 'Investigue /etc/terminalis e /opt/legacy. Grave em ~/endpoint-encontrado.txt a linha encontrada junto com o caminho do arquivo de origem.',
+    objectives: ['Pesquisar em mais de um diretório', 'Encontrar API_ENDPOINT', 'Registrar caminho e valor como evidência'],
+    hints: [
+      'Você não precisa abrir cada arquivo. Procure pelo texto API_ENDPOINT de forma recursiva.',
+      'grep possui uma opção recursiva. Ao pesquisar vários arquivos, a saída inclui o caminho de origem.',
+      'Use grep -R "API_ENDPOINT" /etc/terminalis /opt/legacy e redirecione a saída para ~/endpoint-encontrado.txt.'
+    ],
+    concepts: [
+      { term: 'grep -R', summary: 'Pesquisa texto recursivamente dentro de uma árvore de diretórios.' },
+      { term: 'evidência', summary: 'Um diagnóstico profissional registra o valor e também a sua origem.' }
+    ],
+    setup(machine) {
+      write(machine, '/etc/terminalis/sites/producao.conf', 'PORT=8080\nLOG_LEVEL=warn\n', 0o644, 0, 0);
+      write(machine, '/etc/terminalis/sites/homologacao.conf', 'PORT=8081\nLOG_LEVEL=debug\n', 0o644, 0, 0);
+      write(machine, '/opt/legacy/portal.env', 'APP_NAME=portal\nAPI_ENDPOINT=https://api.interna.test/v1\nTIMEOUT=5000\n', 0o644, 0, 0);
+      write(machine, '/opt/legacy/README.txt', 'Configuração antiga do portal.\n', 0o644, 0, 0);
+    },
+    validate(ctx) {
+      const evidence = H.read(ctx, '/home/aluno/endpoint-encontrado.txt') || '';
+      return H.checkAll([
+        [evidence.trim().length > 0, 'Crie <code>~/endpoint-encontrado.txt</code> com a evidência encontrada.'],
+        [/portal\.env/.test(evidence), 'A evidência precisa incluir o caminho ou nome do arquivo de origem.'],
+        [/API_ENDPOINT=https:\/\/api\.interna\.test\/v1/.test(evidence), 'O valor de <code>API_ENDPOINT</code> ainda não aparece corretamente no arquivo.']
+      ]);
+    },
+    explanation: 'Uma busca recursiva reduz o espaço de investigação e mantém o caminho junto da linha encontrada. Isso torna a evidência reproduzível para outra pessoa da equipe.',
+    possibleSolution: 'grep -R "API_ENDPOINT" /etc/terminalis /opt/legacy > ~/endpoint-encontrado.txt\ncat ~/endpoint-encontrado.txt',
+    alternatives: ['Combinar find -type f com grep.', 'Usar grep -Rl para achar o arquivo e depois grep -H para registrar a linha.'],
+    extraChallenge: 'Gere uma segunda evidência contendo apenas o valor da URL, sem o nome da variável.',
+    referenceLessonIds: ['l4-1', 'l4-2']
+  });
+
+  LX.challenge({
+    id: 'LINUX-003', slug: 'servico-caiu-apos-reboot',
+    title: 'Serviço caiu após o reboot',
+    summary: 'Recupere o acesso remoto e garanta que ele volte no próximo boot.',
+    technology: 'linux', difficulty: 'intermediate', type: 'incident', xp: 120,
+    estimatedMinutes: 12, tags: ['systemd', 'serviços', 'ssh', 'reboot'], skills: ['Serviços', 'Troubleshooting'],
+    prerequisites: ['LINUX-002'],
+    situation: 'Chamado #1042. Após uma reinicialização de manutenção, o monitoramento marcou o acesso SSH como indisponível. A máquina continua ligada e você possui acesso pelo console.',
+    mission: 'Descubra o estado do serviço responsável pelo SSH, restaure o acesso e garanta que ele seja iniciado automaticamente nos próximos boots.',
+    objectives: ['Investigar o estado do serviço', 'Iniciar o SSH', 'Habilitar inicialização no boot'],
+    hints: [
+      'Comece identificando o estado atual do serviço, sem alterar nada.',
+      'O serviço se chama ssh. systemctl consegue mostrar separadamente se ele está ativo e se está habilitado.',
+      'systemctl enable --now ssh habilita o serviço no boot e também o inicia agora.'
+    ],
+    concepts: [
+      { term: 'active', summary: 'Indica se o serviço está executando neste momento.' },
+      { term: 'enabled', summary: 'Indica se o serviço foi configurado para iniciar no boot.', detail: 'Um serviço pode estar active e disabled ao mesmo tempo; nesse caso funciona agora, mas não volta após reiniciar.' }
+    ],
+    setup(machine) {
+      try { machine.stopUnit('ssh.service'); } catch (e) { }
+      const unit = machine.unit('ssh.service');
+      if (unit) { unit.state = 'inactive'; unit.sub = 'dead'; unit.enabled = false; }
+      machine.log('systemd', 'ssh.service: unit was not enabled for the new boot target.', 4, 1, 'ssh.service');
+    },
+    validate(ctx) {
+      const machine = ctx.machine || ctx.sh.m;
+      const unit = machine.unit('ssh.service');
+      return H.checkAll([
+        [!!unit, 'O serviço <code>ssh.service</code> não foi encontrado.'],
+        [() => unit && unit.state === 'active', 'O SSH ainda não está ativo. Verifique o estado e inicie o serviço.'],
+        [() => unit && unit.enabled === true, 'O serviço funciona agora, mas ainda não está habilitado para o próximo boot.']
+      ]);
+    },
+    explanation: 'O incidente combinava dois estados diferentes do systemd: execução atual e inicialização futura. Iniciar resolveu a indisponibilidade; habilitar removeu a causa da recorrência após reboot.',
+    possibleSolution: 'systemctl status ssh --no-pager\nsystemctl is-enabled ssh\nsudo systemctl enable --now ssh\nsystemctl is-active ssh\nsystemctl is-enabled ssh',
+    alternatives: ['Executar systemctl start ssh e systemctl enable ssh separadamente.'],
+    extraChallenge: 'Consulte o journal da unidade e registre em um arquivo a evidência de que o serviço voltou.',
+    referenceLessonIds: ['l8-1', 'l8-2', 'l17-2']
+  });
+
+  LX.challenge({
+    id: 'LINUX-004', slug: 'aplicacao-sem-permissao-no-relatorio',
+    title: 'Aplicação sem permissão no relatório',
+    summary: 'Corrija dono, grupo e modo sem tornar um arquivo sensível público.',
+    technology: 'linux', difficulty: 'intermediate', type: 'configuration', xp: 110,
+    estimatedMinutes: 12, tags: ['chmod', 'chown', 'permissões'], skills: ['Permissões', 'Menor privilégio'],
+    prerequisites: ['LINUX-002'],
+    situation: 'O serviço web, executado como www-data, precisa ler /srv/financeiro/fechamento.csv. Depois de uma restauração, o arquivo voltou como root:root com modo 600 e a aplicação recebe Permission denied.',
+    mission: 'Permita que www-data leia o relatório. O arquivo deve continuar pertencendo a root, não pode ser gravável pelo serviço e não pode ficar acessível para outros usuários.',
+    objectives: ['Preservar root como proprietário', 'Dar leitura ao grupo www-data', 'Remover qualquer acesso de outros'],
+    hints: [
+      'Inspecione proprietário, grupo e permissões do arquivo antes de mudar algo.',
+      'Você pode trocar somente o grupo do arquivo e então conceder leitura a esse grupo.',
+      'Um estado final apropriado é root:www-data com modo 640.'
+    ],
+    concepts: [
+      { term: 'menor privilégio', summary: 'Conceda apenas a permissão necessária, à identidade que realmente precisa dela.' },
+      { term: '640', summary: 'Dono lê e escreve, grupo apenas lê, outros não possuem acesso.' }
+    ],
+    setup(machine) {
+      write(machine, '/srv/financeiro/fechamento.csv', 'conta,valor\nreceita,12840\ndespesa,7390\n', 0o600, 0, 0);
+    },
+    validate(ctx) {
+      const stat = H.lstat(ctx, '/srv/financeiro/fechamento.csv');
+      const owner = H.owner(ctx, '/srv/financeiro/fechamento.csv');
+      const content = H.read(ctx, '/srv/financeiro/fechamento.csv') || '';
+      return H.checkAll([
+        [!!stat, 'O relatório não deve ser removido.'],
+        [() => owner && owner.user === 'root', 'O proprietário deve continuar sendo <code>root</code>.'],
+        [() => owner && owner.group === 'www-data', 'O grupo do arquivo deve ser <code>www-data</code>.'],
+        [() => !!stat && (stat.mode & 0o040) !== 0, 'O grupo precisa de permissão de leitura.'],
+        [() => !!stat && (stat.mode & 0o020) === 0, 'O serviço não deve receber permissão de escrita.'],
+        [() => !!stat && (stat.mode & 0o007) === 0, 'Outros usuários não devem possuir acesso ao relatório.'],
+        [content.includes('receita,12840'), 'O conteúdo original do relatório deve ser preservado.']
+      ]);
+    },
+    explanation: 'A correção usa o grupo do processo como fronteira de acesso. O modo 640 entrega leitura ao serviço, mantém a escrita com root e não abre o dado para todos.',
+    possibleSolution: 'ls -l /srv/financeiro/fechamento.csv\nsudo chown root:www-data /srv/financeiro/fechamento.csv\nsudo chmod 640 /srv/financeiro/fechamento.csv\nstat -c "%a %U:%G %n" /srv/financeiro/fechamento.csv',
+    alternatives: ['Usar chgrp www-data e chmod u=rw,g=r,o= no lugar de chown e modo octal.'],
+    extraChallenge: 'Explique por que chmod 644 faria a aplicação funcionar, mas violaria o requisito de menor privilégio.',
+    referenceLessonIds: ['l5-1', 'l5-2', 'l5-3']
+  });
+
+  LX.challenge({
+    id: 'LINUX-005', slug: 'entrega-de-backup-verificavel',
+    title: 'Entrega de backup verificável',
+    summary: 'Empacote uma aplicação e gere evidência de integridade antes da transferência.',
+    technology: 'linux', difficulty: 'advanced', type: 'project', xp: 220,
+    estimatedMinutes: 20, tags: ['tar', 'gzip', 'sha256', 'backup'], skills: ['Compactação', 'Backup', 'Integridade'],
+    prerequisites: ['LINUX-003', 'LINUX-004'],
+    situation: 'Uma manutenção será feita no servidor fictício srv-app-07. Antes da janela, a equipe precisa de um backup transportável de /srv/aplicacao e de uma soma que permita detectar corrupção.',
+    mission: 'Crie /var/backups/aplicacao.tar.gz, gere /var/backups/aplicacao.sha256 e confirme a soma. Registre os dois artefatos em ~/entrega-backup.txt.',
+    objectives: ['Criar um arquivo tar comprimido', 'Gerar e validar SHA-256', 'Registrar os caminhos entregues'],
+    hints: [
+      'Primeiro inspecione /srv/aplicacao e confira se há espaço no destino.',
+      'tar combina -c para criar, -z para gzip e -f para escolher o arquivo de saída.',
+      'Depois de criar o arquivo, use sha256sum nele e redirecione a saída. Entre em /var/backups antes de gerar a soma para registrar um nome relativo verificável.'
+    ],
+    concepts: [
+      { term: 'arquivo tar', summary: 'Agrupa uma árvore de arquivos preservando caminhos e metadados.' },
+      { term: 'checksum', summary: 'Uma soma permite verificar se o artefato recebido tem o mesmo conteúdo do original.' }
+    ],
+    setup(machine) {
+      write(machine, '/srv/aplicacao/app.conf', 'PORT=9000\nENV=production\n', 0o640, 0, 33);
+      write(machine, '/srv/aplicacao/public/index.html', '<h1>Portal interno</h1>\n', 0o644, 33, 33);
+      write(machine, '/srv/aplicacao/scripts/start.sh', '#!/bin/sh\necho iniciando\n', 0o755, 0, 0);
+    },
+    async validate(ctx) {
+      const archive = H.read(ctx, '/var/backups/aplicacao.tar.gz') || '';
+      const checksum = H.read(ctx, '/var/backups/aplicacao.sha256') || '';
+      const report = H.read(ctx, '/home/aluno/entrega-backup.txt') || '';
+      let integrity = false;
+      if (ctx.run && checksum) {
+        const result = await ctx.run('cd /var/backups && sha256sum -c aplicacao.sha256');
+        integrity = !!result && result.status === 0;
+      }
+      return H.checkAll([
+        [archive.startsWith('GZIPDATA\n'), 'Crie um arquivo gzip válido em <code>/var/backups/aplicacao.tar.gz</code>.'],
+        [/^[0-9a-f]{64}\s+[* ]?aplicacao\.tar\.gz\s*$/m.test(checksum), 'Gere <code>aplicacao.sha256</code> apontando para o nome relativo do arquivo.'],
+        [integrity, 'A soma não confere. Gere novamente e teste com <code>sha256sum -c</code>.'],
+        [report.includes('/var/backups/aplicacao.tar.gz'), 'Registre o caminho do arquivo compactado em <code>~/entrega-backup.txt</code>.'],
+        [report.includes('/var/backups/aplicacao.sha256'), 'Registre o caminho da soma em <code>~/entrega-backup.txt</code>.']
+      ]);
+    },
+    explanation: 'O tar preserva a árvore; o gzip reduz o transporte; o SHA-256 prova integridade. O arquivo de soma usa nome relativo para continuar verificável dentro do diretório de entrega.',
+    possibleSolution: 'sudo tar -czf /var/backups/aplicacao.tar.gz -C /srv aplicacao\ncd /var/backups\nsha256sum aplicacao.tar.gz | sudo tee aplicacao.sha256\nsha256sum -c aplicacao.sha256\nprintf "/var/backups/aplicacao.tar.gz\\n/var/backups/aplicacao.sha256\\n" > ~/entrega-backup.txt',
+    alternatives: ['Criar o tar sem compressão e aplicar gzip em uma segunda etapa produz um artefato equivalente.'],
+    extraChallenge: 'Restaure o backup em /tmp/restore-test e compare a árvore restaurada antes da manutenção.',
+    referenceLessonIds: ['l13-1', 'l13-2', 'l16-6']
+  });
+})();
+
+;
 /* ==== 70-workspace-mutation.js ==== */
 /* =========================================================================
    TERMINALIS — LX.WorkspaceMutation: dirty tracking barato do laboratório
@@ -63935,6 +64391,653 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
   for (const [modulo, aulas] of Object.entries(CURRICULO)) {
     for (const aula of aulas) registrar(modulo, aula);
   }
+})();
+
+;
+/* ==== 89-v2-progress.js ==== */
+/* =========================================================================
+   TERMINALIS V2 — tentativas, favoritos e progressão local compatível
+   Em produção, XP e badges públicos devem ser concedidos pelo backend.
+   ========================================================================= */
+'use strict';
+(function () {
+  const VERSION = 1;
+
+  function now() { return Date.now(); }
+  function save() { if (LX.Progress && typeof LX.Progress.save === 'function') LX.Progress.save(); }
+  function data(input) { return input || (LX.Progress && LX.Progress.data) || {}; }
+
+  function ensure(input) {
+    const value = data(input);
+    value.v2 = Object.assign({ version: VERSION, rewardAuthority: 'local-preview' }, value.v2 || {});
+    value.challengeAttempts = value.challengeAttempts || {};
+    value.challengeCompletions = value.challengeCompletions || {};
+    value.challengeFavorites = Array.isArray(value.challengeFavorites) ? value.challengeFavorites : [];
+    value.v2Activity = Array.isArray(value.v2Activity) ? value.v2Activity : [];
+    return value;
+  }
+
+  function challengeOrFail(id) {
+    const challenge = LX.ChallengeCatalog.challenge(id);
+    if (!challenge) throw new Error('Desafio inexistente: ' + id);
+    return challenge;
+  }
+
+  function thresholdForLevel(level) {
+    level = Math.max(1, Math.floor(Number(level) || 1));
+    let threshold = 0;
+    for (let current = 1; current < level; current++) {
+      threshold += 400 + (current - 1) * 150 + Math.floor((current - 1) / 5) * 250;
+    }
+    return threshold;
+  }
+
+  function levelForXp(xp) {
+    xp = Math.max(0, Math.floor(Number(xp) || 0));
+    let level = 1;
+    while (level < 100 && thresholdForLevel(level + 1) <= xp) level++;
+    const floor = thresholdForLevel(level);
+    const ceiling = thresholdForLevel(level + 1);
+    return {
+      level, xp, floor, ceiling,
+      inLevel: xp - floor,
+      needed: ceiling - floor,
+      percent: ceiling === floor ? 100 : Math.round((xp - floor) / (ceiling - floor) * 100)
+    };
+  }
+
+  function start(id, options, input) {
+    const challenge = challengeOrFail(id);
+    const value = ensure(input);
+    const previous = value.challengeAttempts[challenge.id];
+    if (previous && !(options && options.restart)) return previous;
+    const attempt = {
+      challengeId: challenge.id,
+      challengeVersion: challenge.version,
+      startedAt: now(),
+      updatedAt: now(),
+      completedAt: null,
+      mode: options && options.mode === 'realistic' ? 'realistic' : 'guided',
+      hintsUsed: [],
+      validations: 0,
+      commandsAtStart: Number(options && options.commandsAtStart) || 0
+    };
+    value.challengeAttempts[challenge.id] = attempt;
+    save();
+    return attempt;
+  }
+
+  function attempt(id, input) { return ensure(input).challengeAttempts[id] || null; }
+
+  function recordHint(id, index, input) {
+    const value = ensure(input);
+    const active = value.challengeAttempts[id] || start(id, {}, value);
+    const challenge = challengeOrFail(id);
+    index = Math.floor(Number(index));
+    if (index < 0 || index >= challenge.hints.length) throw new Error('Dica inexistente: ' + index);
+    if (!active.hintsUsed.includes(index)) active.hintsUsed.push(index);
+    active.hintsUsed.sort((a, b) => a - b);
+    active.updatedAt = now();
+    save();
+    return active;
+  }
+
+  function recordValidation(id, result, input) {
+    const value = ensure(input);
+    const active = value.challengeAttempts[id] || start(id, {}, value);
+    active.validations++;
+    active.updatedAt = now();
+    active.lastValidation = { ok: !!(result && result.ok), at: active.updatedAt };
+    save();
+    return active;
+  }
+
+  function complete(id, metrics, input) {
+    const challenge = challengeOrFail(id);
+    const value = ensure(input);
+    if (value.challengeCompletions[id]) return { fresh: false, awardedXp: 0, completion: value.challengeCompletions[id] };
+    const active = value.challengeAttempts[id] || start(id, {}, value);
+    const finishedAt = now();
+    active.completedAt = finishedAt;
+    active.updatedAt = finishedAt;
+    const completion = {
+      challengeId: id,
+      challengeVersion: challenge.version,
+      completedAt: finishedAt,
+      technology: challenge.technology,
+      type: challenge.type,
+      difficulty: challenge.difficulty,
+      xpGranted: challenge.xp,
+      rewardAuthority: value.v2.rewardAuthority,
+      hintsUsed: active.hintsUsed.length,
+      withoutHints: active.hintsUsed.length === 0,
+      validations: active.validations,
+      mode: active.mode,
+      durationMs: Math.max(0, finishedAt - active.startedAt),
+      commandsCount: Math.max(0, Number(metrics && metrics.commandsCount) || 0)
+    };
+    value.challengeCompletions[id] = completion;
+    value.v2Activity.unshift({
+      id: 'challenge:' + id + ':' + finishedAt,
+      kind: 'challenge-completed',
+      challengeId: id,
+      technology: challenge.technology,
+      xp: challenge.xp,
+      at: finishedAt
+    });
+    value.v2Activity = value.v2Activity.slice(0, 50);
+    save();
+    return { fresh: true, awardedXp: challenge.xp, completion };
+  }
+
+  function toggleFavorite(id, input) {
+    challengeOrFail(id);
+    const value = ensure(input);
+    const index = value.challengeFavorites.indexOf(id);
+    if (index >= 0) value.challengeFavorites.splice(index, 1);
+    else value.challengeFavorites.push(id);
+    save();
+    return index < 0;
+  }
+
+  function totalXp(input) {
+    return Object.values(ensure(input).challengeCompletions)
+      .reduce((sum, item) => sum + Math.max(0, Number(item.xpGranted) || 0), 0);
+  }
+
+  function technologyStats(input) {
+    const grouped = {};
+    for (const technology of LX.ChallengeCatalog.technologies) {
+      grouped[technology.id] = { technology, xp: 0, completed: 0, available: 0 };
+    }
+    for (const challenge of LX.ChallengeCatalog.challenges) {
+      if (challenge.status === 'published' && grouped[challenge.technology]) grouped[challenge.technology].available++;
+    }
+    for (const completion of Object.values(ensure(input).challengeCompletions)) {
+      if (!grouped[completion.technology]) continue;
+      grouped[completion.technology].completed++;
+      grouped[completion.technology].xp += Math.max(0, Number(completion.xpGranted) || 0);
+    }
+    return Object.values(grouped).map(item => Object.assign(item, { level: levelForXp(item.xp) }));
+  }
+
+  function summary(input) {
+    const value = ensure(input);
+    const xp = totalXp(value);
+    const completions = Object.values(value.challengeCompletions);
+    return {
+      xp,
+      level: levelForXp(xp),
+      completed: completions.length,
+      withoutHints: completions.filter(item => item.withoutHints).length,
+      incidents: completions.filter(item => item.type === 'incident').length,
+      technologies: technologyStats(value),
+      rewardAuthority: value.v2.rewardAuthority
+    };
+  }
+
+  LX.V2Progress = {
+    version: VERSION,
+    ensure,
+    thresholdForLevel,
+    levelForXp,
+    start,
+    attempt,
+    recordHint,
+    recordValidation,
+    complete,
+    toggleFavorite,
+    totalXp,
+    technologyStats,
+    summary
+  };
+})();
+
+;
+/* ==== 90-v2-ui.js ==== */
+/* =========================================================================
+   TERMINALIS V2 — dashboard, exploração e experiência de desafio
+   ========================================================================= */
+'use strict';
+(function () {
+  if (!LX.App || !LX.ChallengeCatalog || !LX.V2Progress) return;
+  const { query: $, queryAll: $$, escapeHtml: esc } = LX.Util;
+  const Catalog = LX.ChallengeCatalog;
+  const V2 = LX.V2Progress;
+  const appProto = LX.App.prototype;
+
+  const icon = {
+    challenge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l1 3h3v15H4V6h3z"/><path d="M9 11h6M9 15h4"/></svg>',
+    star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg>',
+    arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M14 7l5 5-5 5"/></svg>'
+  };
+
+  function progress() { return V2.ensure(LX.Progress.data); }
+  function completed(id) { return !!progress().challengeCompletions[id]; }
+  function favorite(id) { return progress().challengeFavorites.includes(id); }
+  function difficultyLabel(value) { return Catalog.labels.difficulties[value] || value; }
+  function typeLabel(value) { return Catalog.labels.types[value] || value; }
+  function technologyLabel(id) { return (Catalog.technology(id) || { name: id }).name; }
+  function duration(ms) {
+    const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+    const minutes = Math.floor(total / 60);
+    const seconds = total % 60;
+    return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+  }
+
+  function ensureChrome() {
+    if (typeof document === 'undefined') return;
+    $$('[data-nav="cursos"] span').forEach(label => { label.textContent = 'Biblioteca'; });
+    const sidebar = $('.sb-nav');
+    if (sidebar && !sidebar.querySelector('[data-nav="challenges"]')) {
+      const button = document.createElement('button');
+      button.className = 'sb-item';
+      button.dataset.nav = 'challenges';
+      button.innerHTML = icon.challenge + '<span>Desafios</span>';
+      const home = sidebar.querySelector('[data-nav="home"]');
+      if (home) home.insertAdjacentElement('afterend', button); else sidebar.prepend(button);
+    }
+    const mobile = $('.mobile-tabs');
+    if (mobile && !mobile.querySelector('[data-nav="challenges"]')) {
+      const button = document.createElement('button');
+      button.dataset.nav = 'challenges';
+      button.setAttribute('aria-pressed', 'false');
+      button.innerHTML = icon.challenge + '<span>Desafios</span>';
+      const home = mobile.querySelector('[data-nav="home"]');
+      if (home) home.insertAdjacentElement('afterend', button); else mobile.appendChild(button);
+    }
+  }
+
+  function challengeCard(challenge) {
+    const isDone = completed(challenge.id);
+    const isFavorite = favorite(challenge.id);
+    return `<article class="v2-card ${isDone ? 'is-done' : ''}" data-challenge-card="${esc(challenge.id)}">
+      <button class="v2-favorite ${isFavorite ? 'active' : ''}" data-favorite="${esc(challenge.id)}" aria-label="${isFavorite ? 'Remover dos salvos' : 'Salvar desafio'}" title="${isFavorite ? 'Remover dos salvos' : 'Salvar desafio'}">${icon.star}</button>
+      <div class="v2-card-top"><span class="v2-tech">${esc(technologyLabel(challenge.technology))}</span><span>${esc(difficultyLabel(challenge.difficulty))}</span></div>
+      <h3>${esc(challenge.title)}</h3>
+      <p>${esc(challenge.summary)}</p>
+      <div class="v2-card-foot"><span>${esc(typeLabel(challenge.type))}</span><strong>+${challenge.xp} XP</strong>${isDone ? '<span class="v2-done">Concluído</span>' : ''}</div>
+    </article>`;
+  }
+
+  function wireCards(app, root) {
+    $$('[data-challenge-card]', root).forEach(card => card.onclick = event => {
+      if (event.target.closest('[data-favorite]')) return;
+      app.goChallenge(card.dataset.challengeCard);
+    });
+    $$('[data-favorite]', root).forEach(button => button.onclick = event => {
+      event.stopPropagation();
+      const active = V2.toggleFavorite(button.dataset.favorite);
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-label', active ? 'Remover dos salvos' : 'Salvar desafio');
+      button.title = button.getAttribute('aria-label');
+    });
+  }
+
+  function renderDashboard(app) {
+    const state = progress();
+    const summary = V2.summary(state);
+    const open = Catalog.search({ status: 'open' }, state);
+    const active = Object.values(state.challengeAttempts)
+      .filter(item => item && !item.completedAt)
+      .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    const recommendations = open.slice(0, 3);
+    const published = Catalog.search({}, state);
+    const availableTechnologies = summary.technologies.filter(item => item.available > 0);
+    const recent = state.v2Activity.slice(0, 4);
+    const level = summary.level;
+    const resumeChallenge = active && Catalog.challenge(active.challengeId);
+    const daily = published.length
+      ? published[Math.floor(Date.now() / 86400000) % published.length]
+      : null;
+
+    $('#page').innerHTML = `<div class="doc wide v2-dashboard">
+      <header class="v2-hero">
+        <div><div class="eyebrow">TERMINALIS V2 / LABORATÓRIO PRÁTICO</div><h1>Aprenda resolvendo.</h1><p>Escolha uma tecnologia, assuma o ambiente e produza um resultado verificável. A teoria continua disponível quando você precisar dela.</p></div>
+        <div class="v2-level-card"><span>Nível global</span><strong>${level.level}</strong><small>${summary.xp.toLocaleString('pt-BR')} XP</small><div class="v2-progress"><i style="width:${level.percent}%"></i></div><em>${level.ceiling - level.xp} XP para o próximo nível</em></div>
+      </header>
+
+      ${resumeChallenge ? `<section class="v2-resume"><div><span class="v2-kicker">CONTINUAR DESAFIO</span><h2>${esc(resumeChallenge.title)}</h2><p>${esc(technologyLabel(resumeChallenge.technology))} · ${esc(difficultyLabel(resumeChallenge.difficulty))} · tentativa em andamento</p></div><button class="btn primary" id="v2-resume">Retomar ${icon.arrow}</button></section>` : ''}
+
+      <section class="v2-stats" aria-label="Resumo da prática">
+        <div><strong>${summary.completed}</strong><span>desafios concluídos</span></div>
+        <div><strong>${summary.withoutHints}</strong><span>sem dicas</span></div>
+        <div><strong>${summary.incidents}</strong><span>incidentes resolvidos</span></div>
+        <div><strong>${state.challengeFavorites.length}</strong><span>salvos</span></div>
+      </section>
+
+      <div class="v2-section-title"><div><span class="v2-kicker">PRÓXIMO PASSO</span><h2>Desafios recomendados</h2></div><button class="v2-link" id="v2-explore-all">Explorar todos ${icon.arrow}</button></div>
+      <div class="v2-card-grid">${recommendations.map(challengeCard).join('') || '<div class="v2-empty">Você concluiu todos os desafios publicados.</div>'}</div>
+
+      ${daily ? `<section class="v2-daily"><div><span class="v2-kicker">DESAFIO DO DIA</span><h2>${esc(daily.title)}</h2><p>${esc(daily.summary)}</p></div><div><strong>+${daily.xp} XP</strong><button class="btn ghost" id="v2-daily-open">Abrir desafio</button></div></section>` : ''}
+
+      <div class="v2-section-title"><div><span class="v2-kicker">COMPETÊNCIAS</span><h2>Progresso por tecnologia</h2></div><button class="v2-link" id="v2-library">Abrir biblioteca de apoio</button></div>
+      <div class="v2-tech-grid">${availableTechnologies.map(item => `<button data-tech="${esc(item.technology.id)}"><span>${esc(item.technology.name)}</span><strong>Nível ${item.level.level}</strong><div class="v2-progress"><i style="width:${item.available ? Math.round(item.completed / item.available * 100) : 0}%"></i></div><small>${item.completed}/${item.available} desafios · ${item.xp} XP</small></button>`).join('')}</div>
+
+      ${recent.length ? `<section class="v2-activity"><div class="v2-section-title"><div><span class="v2-kicker">HISTÓRICO</span><h2>Atividade recente</h2></div></div>${recent.map(item => { const challenge = Catalog.challenge(item.challengeId); return challenge ? `<button data-recent-challenge="${esc(challenge.id)}"><span>Concluiu</span><strong>${esc(challenge.title)}</strong><em>+${item.xp} XP</em></button>` : ''; }).join('')}</section>` : ''}
+      <footer class="v2-authority">XP desta primeira fatia é uma prévia local. A publicação de recompensas e badges dependerá da validação autoritativa no Supabase.</footer>
+    </div>`;
+    if ($('#v2-resume')) $('#v2-resume').onclick = () => app.goChallenge(resumeChallenge.id);
+    $('#v2-explore-all').onclick = () => app.goChallenges();
+    $('#v2-library').onclick = () => app.goCursos();
+    if ($('#v2-daily-open')) $('#v2-daily-open').onclick = () => app.goChallenge(daily.id);
+    $$('[data-tech]').forEach(button => button.onclick = () => app.goChallenges({ technology: button.dataset.tech }));
+    $$('[data-recent-challenge]').forEach(button => button.onclick = () => app.goChallenge(button.dataset.recentChallenge));
+    wireCards(app, $('#page'));
+  }
+
+  function selectOptions(items, labels, current, placeholder) {
+    return `<option value="">${esc(placeholder)}</option>` + items.map(item => `<option value="${esc(item)}" ${current === item ? 'selected' : ''}>${esc(labels[item] || item)}</option>`).join('');
+  }
+
+  function renderChallenges(app, initialFilters) {
+    const filters = Object.assign({ query: '', technology: '', difficulty: '', type: '', status: '', xp: '' }, app._challengeFilters || {}, initialFilters || {});
+    app._challengeFilters = filters;
+    const state = progress();
+    const searchFilters = Object.assign({}, filters);
+    if (filters.xp === 'under-100') searchFilters.xpMax = 99;
+    if (filters.xp === '100-199') { searchFilters.xpMin = 100; searchFilters.xpMax = 199; }
+    if (filters.xp === '200-plus') searchFilters.xpMin = 200;
+    const results = Catalog.search(searchFilters, state);
+    const technologies = Catalog.technologies.filter(technology => Catalog.challenges.some(challenge => challenge.technology === technology.id && challenge.status === 'published'));
+    $('#page').innerHTML = `<div class="doc wide v2-explore">
+      <header class="v2-page-head"><div><div class="eyebrow">DESAFIOS</div><h1>Escolha o próximo problema.</h1><p>Pesquise por tecnologia, ferramenta ou situação. Cada desafio abre um ambiente isolado para você investigar.</p></div><div class="v2-result-count"><strong>${results.length}</strong><span>encontrados</span></div></header>
+      <div class="v2-filters">
+        <label class="v2-search"><span>Pesquisar</span><input id="v2-query" type="search" value="${esc(filters.query)}" placeholder="docker network, permissões, serviço…"></label>
+        <label><span>Tecnologia</span><select id="v2-technology"><option value="">Todas</option>${technologies.map(item => `<option value="${esc(item.id)}" ${filters.technology === item.id ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>
+        <label><span>Dificuldade</span><select id="v2-difficulty">${selectOptions(Catalog.difficulties, Catalog.labels.difficulties, filters.difficulty, 'Todas')}</select></label>
+        <label><span>Tipo</span><select id="v2-type">${selectOptions(Catalog.types, Catalog.labels.types, filters.type, 'Todos')}</select></label>
+        <label><span>Status</span><select id="v2-status"><option value="">Todos</option><option value="open" ${filters.status === 'open' ? 'selected' : ''}>Não concluídos</option><option value="completed" ${filters.status === 'completed' ? 'selected' : ''}>Concluídos</option><option value="favorite" ${filters.status === 'favorite' ? 'selected' : ''}>Salvos</option></select></label>
+        <label><span>XP</span><select id="v2-xp"><option value="">Qualquer XP</option><option value="under-100" ${filters.xp === 'under-100' ? 'selected' : ''}>Até 99 XP</option><option value="100-199" ${filters.xp === '100-199' ? 'selected' : ''}>100–199 XP</option><option value="200-plus" ${filters.xp === '200-plus' ? 'selected' : ''}>200+ XP</option></select></label>
+      </div>
+      <div class="v2-active-filters">${Object.entries(filters).filter(([, value]) => value).map(([key, value]) => `<button data-clear-filter="${esc(key)}">${esc(key === 'technology' ? technologyLabel(value) : (key === 'difficulty' ? difficultyLabel(value) : (key === 'type' ? typeLabel(value) : value)))} ×</button>`).join('')}</div>
+      <div class="v2-card-grid v2-all">${results.map(challengeCard).join('') || '<div class="v2-empty"><strong>Nenhum desafio encontrado.</strong><span>Remova um filtro ou tente outra busca.</span></div>'}</div>
+    </div>`;
+    const update = () => {
+      app._challengeFilters = {
+        query: $('#v2-query').value.trim(), technology: $('#v2-technology').value,
+        difficulty: $('#v2-difficulty').value, type: $('#v2-type').value,
+        status: $('#v2-status').value, xp: $('#v2-xp').value
+      };
+      renderChallenges(app);
+    };
+    $('#v2-query').oninput = () => { clearTimeout(app._challengeSearchTimer); app._challengeSearchTimer = setTimeout(update, 180); };
+    for (const id of ['#v2-technology', '#v2-difficulty', '#v2-type', '#v2-status', '#v2-xp']) $(id).onchange = update;
+    $$('[data-clear-filter]').forEach(button => button.onclick = () => { app._challengeFilters[button.dataset.clearFilter] = ''; renderChallenges(app); });
+    wireCards(app, $('#page'));
+  }
+
+  function renderConcepts(challenge) {
+    if (!challenge.concepts.length) return '';
+    return `<details class="v2-support"><summary>Entender conceitos</summary><div>${challenge.concepts.map(concept => `<article><code>${esc(concept.term)}</code><p>${esc(concept.summary)}</p>${concept.detail ? `<small>${esc(concept.detail)}</small>` : ''}</article>`).join('')}</div></details>`;
+  }
+
+  function renderChallenge(app, challenge) {
+    const state = progress();
+    const attempt = V2.attempt(challenge.id, state) || V2.start(challenge.id, { commandsAtStart: app.term.history.length }, state);
+    const storedCompletion = state.challengeCompletions[challenge.id];
+    const replaying = app._challengeReplayId === challenge.id;
+    const completion = replaying ? null : storedCompletion;
+    const shownHints = attempt.hintsUsed.map(index => challenge.hints[index]).filter(Boolean);
+    const solutionLines = challenge.possibleSolution.split('\n');
+    const commandCount = completion ? completion.commandsCount : Math.max(0, app.term.history.length - attempt.commandsAtStart);
+    $('#page').innerHTML = `<div class="doc v2-challenge">
+      <header class="v2-challenge-head">
+        <div class="v2-challenge-code">DESAFIO #${esc(challenge.id)}</div>
+        <div class="v2-challenge-actions"><button class="v2-icon-action ${favorite(challenge.id) ? 'active' : ''}" id="v2-save-challenge" title="Salvar desafio">${icon.star}</button>${!completion ? `<button class="v2-mode ${attempt.mode === 'realistic' ? 'active' : ''}" id="v2-mode">${attempt.mode === 'realistic' ? 'Modo realista ativo' : 'Ativar modo realista'}</button>` : ''}</div>
+        <h1>${esc(challenge.title)}</h1>
+        <div class="v2-meta"><span>${esc(technologyLabel(challenge.technology))}</span><span>${esc(difficultyLabel(challenge.difficulty))}</span><span>${esc(typeLabel(challenge.type))}</span><strong>+${challenge.xp} XP</strong></div>
+      </header>
+
+      ${completion ? `<section class="v2-complete"><div><span>CONCLUÍDO</span><strong>+${completion.xpGranted} XP</strong></div><dl><div><dt>Tempo</dt><dd>${duration(completion.durationMs)}</dd></div><div><dt>Dicas</dt><dd>${completion.hintsUsed}</dd></div><div><dt>Comandos</dt><dd>${completion.commandsCount}</dd></div><div><dt>Modo</dt><dd>${completion.mode === 'realistic' ? 'Realista' : 'Guiado'}</dd></div></dl></section>` : ''}
+
+      <section class="v2-brief"><span>SITUAÇÃO</span><p>${esc(challenge.situation)}</p></section>
+      <section class="v2-brief"><span>MISSÃO</span><p>${esc(challenge.mission)}</p></section>
+      <section class="v2-objectives"><span>OBJETIVOS</span>${challenge.objectives.map(objective => `<div class="${completion ? 'done' : ''}"><i>${completion ? '✓' : ''}</i><p>${esc(objective)}</p></div>`).join('')}</section>
+
+      ${shownHints.length ? `<section class="v2-hints"><span>PISTAS ABERTAS</span>${shownHints.map((hint, index) => `<article><strong>${esc(hint.title || 'Dica ' + (index + 1))}</strong><p>${esc(hint.content)}</p></article>`).join('')}</section>` : ''}
+      <div class="v2-verdict hidden" id="v2-verdict" role="status" aria-live="polite"></div>
+      <div class="v2-challenge-buttons">
+        ${!completion && shownHints.length < challenge.hints.length ? `<button class="btn ghost" id="v2-next-hint">Solicitar dica ${shownHints.length + 1}/${challenge.hints.length}</button>` : ''}
+        <button class="btn ghost" id="v2-focus-terminal">Ir para o terminal</button>
+        ${!completion ? '<button class="btn primary" id="v2-validate">Validar ambiente</button>' : '<button class="btn ghost" id="v2-retry">Refazer desafio</button>'}
+      </div>
+
+      ${renderConcepts(challenge)}
+      ${challenge.referenceLessonIds.length ? `<details class="v2-support"><summary>Documentação relacionada</summary><div class="v2-reference-list">${challenge.referenceLessonIds.map(id => { const found = app.findLesson(id); return found ? `<button data-reference="${esc(id)}"><span>${esc(found.mod.title)}</span><strong>${esc(found.lesson.title)}</strong></button>` : ''; }).join('')}</div><div class="v2-reference-preview hidden" id="v2-reference-preview"></div></details>` : ''}
+
+      ${completion ? `<section class="v2-debrief"><span>O QUE ACONTECEU</span><p>${esc(challenge.explanation)}</p><h2>Uma solução possível</h2><div class="v2-solution"><pre>${esc(solutionLines.join('\n'))}</pre></div>${challenge.alternatives.length ? `<h2>Outros caminhos válidos</h2><ul>${challenge.alternatives.map(item => `<li>${esc(item)}</li>`).join('')}</ul>` : ''}${challenge.skills.length ? `<h2>Competências praticadas</h2><div class="v2-skill-tags">${challenge.skills.map(item => `<span>${esc(item)}</span>`).join('')}</div>` : ''}${challenge.extraChallenge ? `<aside><strong>Desafio extra</strong><p>${esc(challenge.extraChallenge)}</p></aside>` : ''}</section>` : ''}
+      <footer class="v2-attempt-note">Tentativa ${attempt.mode === 'realistic' ? 'em modo realista' : 'guiada'} · ${commandCount} comando(s) desde o início. Erros do terminal fazem parte da investigação.</footer>
+    </div>`;
+
+    $('#v2-save-challenge').onclick = () => {
+      const active = V2.toggleFavorite(challenge.id);
+      $('#v2-save-challenge').classList.toggle('active', active);
+    };
+    if ($('#v2-focus-terminal')) $('#v2-focus-terminal').onclick = () => {
+      app.switchTab('term'); document.body.classList.add('show-term'); app.term.focus();
+    };
+    if ($('#v2-next-hint')) $('#v2-next-hint').onclick = () => {
+      V2.recordHint(challenge.id, attempt.hintsUsed.length);
+      renderChallenge(app, challenge);
+    };
+    if ($('#v2-mode')) $('#v2-mode').onclick = () => app.restartChallenge(challenge.id, attempt.mode === 'realistic' ? 'guided' : 'realistic');
+    if ($('#v2-retry')) $('#v2-retry').onclick = () => app.restartChallenge(challenge.id, 'guided');
+    if ($('#v2-validate')) $('#v2-validate').onclick = async () => {
+      const button = $('#v2-validate');
+      const verdict = $('#v2-verdict');
+      button.disabled = true; button.textContent = 'Validando…';
+      try {
+        const result = await challenge.validate({
+          app, machine: app.machine, term: app.term, sh: app.term.sh,
+          run: command => app.term.runQuiet(command)
+        });
+        V2.recordValidation(challenge.id, result);
+        verdict.classList.remove('hidden', 'ok', 'fail');
+        if (result && result.ok) {
+          const activeAttempt = V2.attempt(challenge.id);
+          const commandsCount = Math.max(0, app.term.history.length - activeAttempt.commandsAtStart);
+          const award = V2.complete(challenge.id, { commandsCount });
+          app._challengeReplayId = null;
+          verdict.classList.add('ok'); verdict.textContent = 'Ambiente validado. Desafio concluído.';
+          app.toast(award.fresh ? 'Desafio concluído · +' + challenge.xp + ' XP' : 'Prática concluída novamente');
+          setTimeout(() => renderChallenge(app, challenge), 350);
+        } else {
+          verdict.classList.add('fail');
+          verdict.innerHTML = '<strong>O ambiente ainda não atende à missão.</strong>' + LX.feedbackHtml((result && result.msg) || 'Continue investigando e tente novamente.');
+        }
+      } catch (error) {
+        verdict.classList.remove('hidden', 'ok'); verdict.classList.add('fail');
+        verdict.textContent = 'Não foi possível validar: ' + error.message;
+      }
+      button.disabled = false; button.textContent = 'Validar ambiente';
+    };
+    $$('[data-reference]').forEach(button => button.onclick = () => {
+      const found = app.findLesson(button.dataset.reference);
+      const preview = $('#v2-reference-preview');
+      if (!found || !preview) return;
+      preview.classList.remove('hidden');
+      preview.innerHTML = `<span>RESUMO DA DOCUMENTAÇÃO</span><h3>${esc(found.lesson.title)}</h3><p>${esc(found.lesson.goal || found.mod.blurb || '')}</p><button class="btn ghost small" data-open-reference="${esc(found.lesson.id)}">Abrir aula completa</button>`;
+      $('[data-open-reference]', preview).onclick = () => app.goLesson(found.lesson.id);
+    });
+  }
+
+  const originalBindChrome = appProto.bindChrome;
+  appProto.bindChrome = function () {
+    ensureChrome();
+    originalBindChrome.call(this);
+    $$('[data-nav="challenges"]').forEach(button => button.onclick = () => this.goChallenges());
+  };
+
+  const originalNavAtual = appProto.navAtual;
+  appProto.navAtual = function () {
+    if (this.route.view === 'challenges' || this.route.view === 'challenge') return 'challenges';
+    return originalNavAtual.call(this);
+  };
+
+  const originalAplicarChrome = appProto.aplicarChrome;
+  appProto.aplicarChrome = function () {
+    originalAplicarChrome.call(this);
+    const laboratory = this.route.view === 'lesson' || this.route.view === 'challenge';
+    document.body.classList.toggle('route-lesson', laboratory);
+    document.body.classList.toggle('route-challenge', this.route.view === 'challenge');
+    document.body.classList.toggle('route-page', !laboratory);
+    const body = $('#body');
+    if (body) body.classList.toggle('solo', !laboratory);
+  };
+
+  const originalSetCrumbs = appProto.setCrumbs;
+  appProto.setCrumbs = function (a, b) {
+    originalSetCrumbs.call(this, a, b);
+    if (this.route.view === 'challenges') $('#topback').classList.add('hidden');
+  };
+
+  const originalVoltar = appProto.voltar;
+  appProto.voltar = function () {
+    if (this.route.view === 'challenge') return this.goChallenges();
+    return originalVoltar.call(this);
+  };
+
+  appProto.goHome = function () {
+    this.route = { view: 'home', mod: null, lesson: null, challenge: null };
+    this.trilhaId = null;
+    this.setCrumbs('', 'Início');
+    $('#modprog').style.visibility = 'hidden';
+    $('#lesson-foot').classList.add('hidden');
+    this.aplicarChrome();
+    renderDashboard(this);
+    this.renderRail();
+    $('#page').scrollTop = 0;
+  };
+
+  appProto.goChallenges = function (filters) {
+    this.route = { view: 'challenges', mod: null, lesson: null, challenge: null };
+    this.trilhaId = null;
+    this.setCrumbs('', 'Desafios');
+    $('#modprog').style.visibility = 'hidden';
+    $('#lesson-foot').classList.add('hidden');
+    this.aplicarChrome();
+    renderChallenges(this, filters);
+    this.renderRail();
+    $('#page').scrollTop = 0;
+  };
+
+  appProto.goChallenge = function (id) {
+    const challenge = Catalog.challenge(id);
+    if (!challenge) return this.goChallenges();
+    this.route = { view: 'challenge', mod: null, lesson: null, challenge: challenge.id };
+    this.trilhaId = null;
+    this.setCrumbs('Desafios', challenge.title);
+    const mobileLabel = $('.mobile-tabs [data-m="lesson"] span');
+    if (mobileLabel) mobileLabel.textContent = 'Desafio';
+    $('#modprog').style.visibility = 'hidden';
+    $('#lesson-foot').classList.add('hidden');
+    if (this._activeChallengeId !== challenge.id) {
+      this.buildMachine();
+      this.term.boot(this.machine);
+      challenge.setup(this.machine, this.term);
+      this._activeChallengeId = challenge.id;
+      V2.start(challenge.id, { commandsAtStart: this.term.history.length });
+      this._challengeReplayId = null;
+    }
+    LX.Progress.data.lastChallenge = challenge.id;
+    LX.Progress.save();
+    this.aplicarChrome();
+    renderChallenge(this, challenge);
+    this.renderRail();
+    $('#page').scrollTop = 0;
+    this.term.focus();
+  };
+
+  const originalGoLesson = appProto.goLesson;
+  appProto.goLesson = function (id) {
+    const mobileLabel = $('.mobile-tabs [data-m="lesson"] span');
+    if (mobileLabel) mobileLabel.textContent = 'Aula';
+    return originalGoLesson.call(this, id);
+  };
+
+  appProto.restartChallenge = function (id, mode) {
+    const challenge = Catalog.challenge(id);
+    if (!challenge) return;
+    this.buildMachine();
+    this.term.boot(this.machine);
+    challenge.setup(this.machine, this.term);
+    this._activeChallengeId = challenge.id;
+    this._challengeReplayId = progress().challengeCompletions[id] ? id : null;
+    V2.start(challenge.id, { mode, restart: true, commandsAtStart: this.term.history.length });
+    renderChallenge(this, challenge);
+    this.term.focus();
+  };
+
+  const originalStart = appProto.start;
+  appProto.start = async function () {
+    ensureChrome();
+    await originalStart.call(this);
+    this.goHome();
+  };
+
+  const originalEnter = appProto.entrarComUsuario;
+  appProto.entrarComUsuario = async function () {
+    await originalEnter.call(this);
+    this.goHome();
+  };
+})();
+
+;
+/* ==== 91-v2-styles.js ==== */
+/* =========================================================================
+   TERMINALIS V2 — estilos isolados da experiência de desafios
+   ========================================================================= */
+'use strict';
+(function () {
+  if (typeof document === 'undefined') return;
+  const style = document.createElement('style');
+  style.id = 'terminalis-v2-styles';
+  style.textContent = `
+  .v2-dashboard,.v2-explore{padding-top:34px!important}
+  .v2-hero{display:grid;grid-template-columns:minmax(0,1.35fr)minmax(250px,.65fr);gap:24px;align-items:end;padding:18px 0 34px;border-bottom:1px solid var(--line)}
+  .v2-hero h1,.v2-page-head h1{font-size:clamp(36px,5vw,64px);line-height:1;letter-spacing:-.045em;margin:10px 0 16px}
+  .v2-hero p,.v2-page-head p{color:var(--tx-2);max-width:62ch;margin:0;font-size:16px}
+  .v2-level-card{background:var(--surface-2);border:1px solid var(--line-strong);border-radius:var(--r-lg);padding:20px;display:grid;grid-template-columns:1fr auto;align-items:end;gap:2px 16px}
+  .v2-level-card>span,.v2-level-card>small{color:var(--tx-3);font:11px var(--f-mono);text-transform:uppercase;letter-spacing:.08em}
+  .v2-level-card>strong{font:700 42px/1 var(--f-mono);grid-row:1/3;grid-column:2}
+  .v2-level-card>small{grid-column:1}.v2-level-card>em{grid-column:1/3;color:var(--tx-3);font-size:11px;font-style:normal;margin-top:5px}
+  .v2-progress{height:5px;background:#242424;border-radius:99px;overflow:hidden;grid-column:1/3;margin-top:12px}.v2-progress i{display:block;height:100%;background:var(--tx);border-radius:inherit}
+  .v2-resume,.v2-daily{margin:24px 0;display:flex;justify-content:space-between;align-items:center;gap:20px;background:linear-gradient(135deg,#171717,#0f0f0f);border:1px solid var(--line-strong);border-radius:var(--r-lg);padding:22px 24px}
+  .v2-resume h2,.v2-daily h2{margin:4px 0 2px;font-size:22px}.v2-resume p,.v2-daily p{margin:0;color:var(--tx-2)}
+  .v2-resume .btn svg,.v2-link svg{width:15px;height:15px}
+  .v2-kicker,.v2-brief>span,.v2-objectives>span,.v2-hints>span,.v2-debrief>span{font:600 10px var(--f-mono);letter-spacing:.14em;color:var(--tx-3)}
+  .v2-stats{display:grid;grid-template-columns:repeat(4,1fr);margin:24px 0 42px;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .v2-stats>div{padding:17px 18px;border-right:1px solid var(--line);display:flex;flex-direction:column}.v2-stats>div:last-child{border:0}
+  .v2-stats strong{font:650 22px var(--f-mono)}.v2-stats span{color:var(--tx-3);font-size:12px}
+  .v2-section-title{display:flex;justify-content:space-between;align-items:end;gap:20px;margin:30px 0 14px}.v2-section-title h2{font-size:22px;margin:2px 0 0}
+  .v2-link{display:inline-flex;gap:7px;align-items:center;color:var(--tx-2);background:none;border:0;cursor:pointer}.v2-link:hover{color:var(--tx)}
+  .v2-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.v2-card-grid.v2-all{margin-top:16px}
+  .v2-card{position:relative;min-width:0;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px;cursor:pointer;transition:border-color .16s,transform .16s;color:var(--tx)}
+  .v2-card:hover{border-color:#484848;transform:translateY(-2px)}.v2-card.is-done{background:#111}.v2-card.is-done:after{content:'✓';position:absolute;right:17px;bottom:16px;color:var(--tx)}
+  .v2-card-top{display:flex;gap:8px;padding-right:32px}.v2-card-top span,.v2-meta span,.v2-card-foot span{font:10px var(--f-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--tx-3);border:1px solid var(--line);border-radius:99px;padding:3px 7px}.v2-card-top .v2-tech{color:var(--tx-2)}
+  .v2-card h3{font-size:17px;line-height:1.25;margin:18px 0 7px}.v2-card p{font-size:13px;line-height:1.55;color:var(--tx-2);margin:0;min-height:42px}
+  .v2-card-foot{display:flex;align-items:center;gap:8px;margin-top:18px}.v2-card-foot>span:first-child{border:0;padding:0}.v2-card-foot strong{font:600 12px var(--f-mono);margin-left:auto}.v2-card-foot .v2-done{border:0;padding:0 22px 0 0;color:var(--tx)}
+  .v2-favorite,.v2-icon-action{position:absolute;top:14px;right:14px;width:30px;height:30px;border:0;background:transparent;color:var(--tx-3);cursor:pointer;display:grid;place-items:center;border-radius:7px}.v2-favorite:hover,.v2-favorite.active,.v2-icon-action:hover,.v2-icon-action.active{color:var(--tx);background:var(--surface-4)}.v2-favorite svg,.v2-icon-action svg{width:16px;height:16px}.v2-favorite.active svg,.v2-icon-action.active svg{fill:currentColor}
+  .v2-daily{margin:34px 0}.v2-daily>div:last-child{display:flex;align-items:center;gap:16px}.v2-daily>div:last-child>strong{font:600 14px var(--f-mono)}
+  .v2-tech-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.v2-tech-grid button{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r);padding:15px;text-align:left;color:var(--tx);cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:4px 12px}.v2-tech-grid button:hover{border-color:var(--line-strong)}.v2-tech-grid strong{font:600 11px var(--f-mono)}.v2-tech-grid small{grid-column:1/3;color:var(--tx-3)}
+  .v2-activity{margin-top:38px}.v2-activity>button{width:100%;display:grid;grid-template-columns:90px 1fr auto;gap:12px;text-align:left;padding:12px 0;border:0;border-top:1px solid var(--line);background:none;color:var(--tx);cursor:pointer}.v2-activity>button span,.v2-activity>button em{color:var(--tx-3);font-style:normal}.v2-authority{font-size:11px;color:var(--tx-3);border-top:1px solid var(--line);margin-top:36px;padding-top:18px}
+  .v2-page-head{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:28px}.v2-page-head h1{font-size:44px}.v2-result-count{display:flex;align-items:baseline;gap:8px}.v2-result-count strong{font:700 34px var(--f-mono)}.v2-result-count span{color:var(--tx-3)}
+  .v2-filters{display:grid;grid-template-columns:2fr repeat(4,1fr);gap:8px}.v2-filters label{display:flex;flex-direction:column;gap:5px}.v2-filters label>span{font:10px var(--f-mono);color:var(--tx-3);text-transform:uppercase;letter-spacing:.08em}.v2-filters input,.v2-filters select{width:100%;height:40px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--tx);padding:0 10px;font:13px var(--f-ui)}.v2-filters input:focus,.v2-filters select:focus{border-color:var(--line-strong);outline:none}
+  .v2-active-filters{min-height:39px;display:flex;gap:6px;align-items:center}.v2-active-filters button{background:var(--surface-3);border:1px solid var(--line);border-radius:99px;color:var(--tx-2);font-size:11px;padding:4px 9px;cursor:pointer}.v2-empty{grid-column:1/-1;min-height:180px;border:1px dashed var(--line-strong);border-radius:var(--r);display:grid;place-content:center;text-align:center;color:var(--tx-3)}.v2-empty strong{color:var(--tx);font-size:18px}.v2-empty span{font-size:13px}
+  .v2-challenge{max-width:820px!important;padding-top:32px!important}.v2-challenge-head{position:relative;border-bottom:1px solid var(--line);padding-bottom:25px}.v2-challenge-code{font:600 10px var(--f-mono);letter-spacing:.16em;color:var(--tx-3)}.v2-challenge-head h1{font-size:clamp(32px,4vw,50px);line-height:1.06;letter-spacing:-.035em;margin:10px 0 17px;max-width:14ch}.v2-meta{display:flex;flex-wrap:wrap;gap:7px;align-items:center}.v2-meta strong{font:600 12px var(--f-mono);margin-left:4px}.v2-challenge-actions{position:absolute;right:0;top:0;display:flex;align-items:center;gap:8px}.v2-challenge-actions .v2-icon-action{position:static;border:1px solid var(--line)}.v2-mode{height:31px;padding:0 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface-2);color:var(--tx-3);font-size:11px;cursor:pointer}.v2-mode.active{color:var(--tx);border-color:var(--line-strong)}
+  .v2-complete{margin:22px 0;border:1px solid var(--tx-3);background:var(--surface-2);border-radius:var(--r);padding:18px 20px;display:grid;grid-template-columns:170px 1fr;gap:20px}.v2-complete>div{display:flex;flex-direction:column}.v2-complete>div span{font:600 10px var(--f-mono);letter-spacing:.12em}.v2-complete>div strong{font:700 26px var(--f-mono);margin-top:5px}.v2-complete dl{display:grid;grid-template-columns:repeat(4,1fr);margin:0}.v2-complete dl div{border-left:1px solid var(--line);padding-left:15px}.v2-complete dt{font-size:10px;color:var(--tx-3);text-transform:uppercase}.v2-complete dd{margin:3px 0 0;font:600 13px var(--f-mono)}
+  .v2-brief,.v2-objectives,.v2-hints{padding:25px 0;border-bottom:1px solid var(--line)}.v2-brief p{font-size:16px;line-height:1.75;margin:8px 0 0;max-width:70ch}.v2-objectives>div{display:flex;align-items:center;gap:10px;margin-top:11px}.v2-objectives i{width:20px;height:20px;border:1px solid var(--line-strong);border-radius:5px;display:grid;place-items:center;font:11px var(--f-mono);font-style:normal}.v2-objectives p{margin:0}.v2-objectives .done i{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+  .v2-hints article{margin-top:12px;padding:14px 16px;border-left:2px solid var(--tx-2);background:var(--surface-2)}.v2-hints article strong{font-size:12px}.v2-hints article p{margin:4px 0 0;color:var(--tx-2)}.v2-challenge-buttons{display:flex;gap:8px;flex-wrap:wrap;padding:20px 0}.v2-challenge-buttons .btn.primary{margin-left:auto}.v2-verdict{margin-top:20px;padding:13px 15px;border:1px solid var(--line);border-radius:var(--r);font-size:13px}.v2-verdict.ok{border-color:var(--tx-2);background:var(--green-soft)}.v2-verdict.fail{background:var(--surface-2)}.v2-verdict strong{display:block;margin-bottom:3px}
+  .v2-support{border-top:1px solid var(--line);padding:16px 0}.v2-support summary{cursor:pointer;font-weight:600}.v2-support>div{padding:12px 0}.v2-support article{display:grid;grid-template-columns:140px 1fr;gap:4px 15px;padding:10px 0;border-top:1px solid var(--line)}.v2-support article code{grid-row:1/3}.v2-support article p{margin:0}.v2-support article small{color:var(--tx-3)}.v2-reference-list{display:grid;gap:6px}.v2-reference-list button{display:flex;justify-content:space-between;text-align:left;gap:15px;border:1px solid var(--line);background:var(--surface-2);color:var(--tx);border-radius:8px;padding:10px 12px;cursor:pointer}.v2-reference-list button span{color:var(--tx-3);font-size:11px}.v2-reference-list button:hover{border-color:var(--line-strong)}
+  .v2-reference-preview{margin-top:10px;padding:16px!important;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}.v2-reference-preview>span{font:600 9px var(--f-mono);letter-spacing:.12em;color:var(--tx-3)}.v2-reference-preview h3{font-size:16px;margin:5px 0}.v2-reference-preview p{color:var(--tx-2);margin:0 0 12px}
+  .v2-debrief{margin-top:18px;padding:24px;border:1px solid var(--line-strong);border-radius:var(--r-lg);background:var(--surface-2)}.v2-debrief>p{font-size:15px}.v2-debrief h2{font-size:16px;margin:24px 0 8px}.v2-solution{background:var(--term-bg);border:1px solid var(--line);border-radius:8px;overflow:auto}.v2-solution pre{margin:0;padding:15px;color:var(--term-tx);font:12px/1.7 var(--f-mono)}.v2-debrief aside{margin-top:22px;border-top:1px solid var(--line);padding-top:17px}.v2-debrief aside p{margin:4px 0 0}.v2-skill-tags{display:flex;gap:6px;flex-wrap:wrap}.v2-skill-tags span{border:1px solid var(--line);padding:4px 8px;border-radius:99px;font-size:11px}.v2-attempt-note{font-size:11px;color:var(--tx-3);padding:18px 0 6px}
+  body.route-challenge #sp-term-actions .sp-hint{font-size:0}body.route-challenge #sp-term-actions .sp-hint:after{content:'ambiente isolado do desafio';font-size:11px}
+  @media(max-width:1050px){.v2-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.v2-filters{grid-template-columns:repeat(3,1fr)}.v2-search{grid-column:1/-1}.v2-tech-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:760px){.v2-dashboard,.v2-explore{padding:20px 16px 80px!important}.v2-hero{grid-template-columns:1fr}.v2-stats{grid-template-columns:repeat(2,1fr)}.v2-stats>div:nth-child(2){border-right:0}.v2-stats>div:nth-child(-n+2){border-bottom:1px solid var(--line)}.v2-card-grid,.v2-tech-grid{grid-template-columns:1fr}.v2-page-head{align-items:start;flex-direction:column}.v2-page-head h1{font-size:36px}.v2-filters{grid-template-columns:1fr 1fr}.v2-search{grid-column:1/-1}.v2-resume,.v2-daily{align-items:flex-start;flex-direction:column}.v2-complete{grid-template-columns:1fr}.v2-complete dl{grid-template-columns:1fr 1fr;gap:12px}.v2-complete dl div:nth-child(odd){border-left:0}.v2-challenge-actions{position:static;margin-top:12px;justify-content:flex-end}.v2-challenge-head h1{max-width:none}.v2-support article{grid-template-columns:1fr}.v2-support article code{grid-row:auto}.v2-challenge-buttons .btn.primary{margin-left:0;width:100%}}
+  @media(max-width:480px){.v2-filters{grid-template-columns:1fr}.v2-hero h1{font-size:38px}.v2-stats{grid-template-columns:1fr 1fr}.v2-section-title{align-items:flex-start;flex-direction:column}.v2-activity>button{grid-template-columns:1fr auto}.v2-activity>button span{grid-column:1/-1}.v2-reference-list button{flex-direction:column}.mobile-tabs [data-nav="jornada"]{display:none}}
+  `;
+  document.head.appendChild(style);
 })();
 </script>
 <script>

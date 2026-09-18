@@ -93,6 +93,11 @@ JS_GROUPS = (
         "67-mod16.js",
         "68-mod16d.js",
     )),
+    ("desafios práticos", (
+        "69-challenge-00-core.js",
+        "69-challenge-10-technologies.js",
+        "69-challenge-20-linux.js",
+    )),
     ("interface", (
         "70-workspace-mutation.js",
         "71-terminal.js",
@@ -151,6 +156,11 @@ JS_GROUPS = (
     ("curso JavaScript", (
         "89-js-course.js",
         "89-z-js-course-extended.js",
+    )),
+    ("experiência V2", (
+        "89-v2-progress.js",
+        "90-v2-ui.js",
+        "91-v2-styles.js",
     )),
 )
 

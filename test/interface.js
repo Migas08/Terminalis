@@ -15,9 +15,9 @@ const {chromium}=require('playwright');
   page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:'+server.address().port);
   await page.evaluate(async()=>{await LX.Auth.criar({nome:'Aluno de teste',usuario:'interface',email:'interface@example.invalid',senha:'TesteSeguro123'});LX.AuthUI.esconder();window.__app=new LX.App();await __app.start();__app.goHome();});
-  await page.locator('.study-hero').waitFor();
-  assert.equal(await page.locator('.study-course').count(),4);
-  assert.match(await page.locator('.study-courses').innerText(),/JavaScript/, 'home includes the JavaScript course');
+  await page.locator('.v2-hero').waitFor();
+  assert.equal(await page.locator('[data-challenge-card]').count(),3);
+  assert.match(await page.locator('.v2-tech-grid').innerText(),/Linux/, 'home includes the technology with published challenges');
   await page.screenshot({path:path.join(__dirname,'../work/home-desktop.png')});
   await page.evaluate(()=>{__app.goLesson('lg4');});
   assert.equal(await page.evaluate(()=>__app.route.view),'curso','locked direct route stays on course');
@@ -53,8 +53,8 @@ const {chromium}=require('playwright');
   assert.equal(await page.evaluate(()=>LX.Progress.data.recentLessons[0]),'lg28');
   for(const width of [1440,1024,768,390,320]){
    await page.setViewportSize({width,height:900});
-   for(const route of ['home','course','lesson']){
-    await page.evaluate(r=>r==='home'?__app.goHome():r==='course'?__app.goCurso('git'):__app.goLesson('lg18'),route);
+   for(const route of ['home','challenges','challenge','course','lesson']){
+    await page.evaluate(r=>r==='home'?__app.goHome():r==='challenges'?__app.goChallenges():r==='challenge'?__app.goChallenge('LINUX-001'):r==='course'?__app.goCurso('git'):__app.goLesson('lg18'),route);
     const overflow=await page.evaluate(()=>({root:document.documentElement.scrollWidth,viewport:innerWidth,page:document.querySelector('#page').scrollWidth,pageWidth:document.querySelector('#page').clientWidth}));
     if(overflow.root>width+1)console.log(await page.evaluate(()=>[...document.querySelectorAll("body *")].filter(e=>e.getBoundingClientRect().right>innerWidth&&e.getBoundingClientRect().width>0).map(e=>({tag:e.tagName,cls:e.className,id:e.id,width:e.getBoundingClientRect().width})).slice(0,20)));
     assert(overflow.root<=width+1,JSON.stringify({width,route,overflow}));
@@ -66,7 +66,7 @@ const {chromium}=require('playwright');
   const colors=await page.evaluate(()=>[...document.querySelectorAll('#app *')].flatMap(e=>{const s=getComputedStyle(e);return ['color','backgroundColor','borderTopColor'].map(k=>s[k]);}).filter(c=>{const m=/rgba?\((\d+), (\d+), (\d+)/.exec(c);return m&&(m[1]!==m[2]||m[2]!==m[3]);}));
   assert.deepEqual([...new Set(colors)],[],'interface uses neutral colors');
   assert.deepEqual(errors,[]);
-  console.log('Interface: dashboard, code quoting, Git diagrams, PR review and merge, settings persistence, 15 responsive routes, keyboard menu: passed.');
+  console.log('Interface: dashboard V2, code quoting, Git diagrams, PR review and merge, settings persistence, 25 responsive routes, keyboard menu: passed.');
  }finally{if(browser)await browser.close();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
 
