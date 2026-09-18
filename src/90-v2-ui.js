@@ -373,9 +373,9 @@
   };
 
   const originalStart = appProto.start;
-  appProto.start = function () {
+  appProto.start = async function () {
     ensureChrome();
-    originalStart.call(this);
+    await originalStart.call(this);
     this.goHome();
   };
 
