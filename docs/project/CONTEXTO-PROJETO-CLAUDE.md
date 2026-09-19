@@ -110,7 +110,7 @@ Cada aula possui três tarefas, nesta ordem:
 
 Verificadores devem preferir estado real a procurar texto no histórico. O
 histórico serve quando o ato de executar um comando é o objetivo. Os helpers
-ficam em **LX.H**. Consulte **tools/PADRAO-TAREFAS.md** antes de criar conteúdo.
+ficam em **LX.H**. Consulte **docs/development/PADRAO-TAREFAS.md** antes de criar conteúdo.
 
 Não criar dezenas de aulas antes de provar que o motor suporta os conceitos.
 Uma vertical slice executável e testada deve preceder produção editorial em
@@ -191,9 +191,9 @@ credenciais ou repositórios reais.
 
 Foram produzidos três documentos de base:
 
-- **docs/pesquisa-javascript.txt**
-- **docs/pesquisa-typescript.txt**
-- **docs/proposta-inicial-trilhas-js-ts.txt**
+- **docs/research/pesquisa-javascript.txt**
+- **docs/research/pesquisa-typescript.txt**
+- **docs/research/proposta-inicial-trilhas-js-ts.txt**
 
 Baseline de pesquisa:
 
@@ -219,17 +219,17 @@ O menor núcleo futuro correto é:
 - checker/emitter TypeScript.
 
 Consulte o briefing específico antes de tocar nessa área:
-**docs/BRIEFING-IMPLEMENTACAO-JS-TS-CLAUDE.md**.
+**docs/project/BRIEFING-IMPLEMENTACAO-JS-TS-CLAUDE.md**.
 
 ## 10. Ordem de leitura para um novo agente
 
 1. **README.md**
-2. **docs/ARQUITETURA.md**
+2. **docs/architecture/ARQUITETURA.md**
 3. este documento;
 4. arquivos de pesquisa relacionados à tarefa;
 5. módulos de código diretamente envolvidos;
 6. testes correspondentes;
-7. **tools/PADRAO-TAREFAS.md** se houver conteúdo educacional.
+7. **docs/development/PADRAO-TAREFAS.md** se houver conteúdo educacional.
 
 Não comece alterando código apenas com base neste resumo. Confira a
 implementação atual, alterações locais e testes.

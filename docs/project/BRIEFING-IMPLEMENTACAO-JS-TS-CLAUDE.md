@@ -26,12 +26,12 @@ começando por uma vertical slice segura.
 Antes de mudar qualquer arquivo, leia integralmente:
 
 - **README.md**
-- **docs/ARQUITETURA.md**
-- **docs/CONTEXTO-PROJETO-CLAUDE.md**
-- **docs/pesquisa-javascript.txt**
-- **docs/pesquisa-typescript.txt**
-- **docs/proposta-inicial-trilhas-js-ts.txt**
-- **tools/PADRAO-TAREFAS.md**
+- **docs/architecture/ARQUITETURA.md**
+- **docs/project/CONTEXTO-PROJETO-CLAUDE.md**
+- **docs/research/pesquisa-javascript.txt**
+- **docs/research/pesquisa-typescript.txt**
+- **docs/research/proposta-inicial-trilhas-js-ts.txt**
+- **docs/development/PADRAO-TAREFAS.md**
 
 Depois inspecione:
 

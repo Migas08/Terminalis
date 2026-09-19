@@ -43,23 +43,23 @@ Cada aula possui três tarefas, nesta ordem:
 2. **Pergunta:** responder um quiz ou completar uma resposta.
 3. **Desafio:** produzir um resultado no ambiente virtual.
 
-Os guiados podem verificar o histórico de comandos; os desafios práticos verificam o estado do ambiente. O padrão editorial e os exemplos de criação de aulas estão em [tools/PADRAO-TAREFAS.md](tools/PADRAO-TAREFAS.md).
+Os guiados podem verificar o histórico de comandos; os desafios práticos verificam o estado do ambiente. O padrão editorial e os exemplos de criação de aulas estão em [docs/development/PADRAO-TAREFAS.md](docs/development/PADRAO-TAREFAS.md).
 
 ## JavaScript e próxima fase TypeScript
 
 A base técnica das duas trilhas foi pesquisada antes da criação de conteúdo:
 
-- [Pesquisa profissional de JavaScript](docs/pesquisa-javascript.txt): linguagem, runtime, browser, Node.js, assíncrono, módulos, segurança, testes, performance e arquitetura.
-- [Pesquisa profissional de TypeScript](docs/pesquisa-typescript.txt): type system, inference, narrowing, generics, tipos derivados, compilador, configuração, runtime boundaries e sistemas grandes.
-- [Proposta inicial das trilhas](docs/proposta-inicial-trilhas-js-ts.txt): currículo, projetos, dependências, APIs necessárias e análise de GAP do simulador.
+- [Pesquisa profissional de JavaScript](docs/research/pesquisa-javascript.txt): linguagem, runtime, browser, Node.js, assíncrono, módulos, segurança, testes, performance e arquitetura.
+- [Pesquisa profissional de TypeScript](docs/research/pesquisa-typescript.txt): type system, inference, narrowing, generics, tipos derivados, compilador, configuração, runtime boundaries e sistemas grandes.
+- [Proposta inicial das trilhas](docs/research/proposta-inicial-trilhas-js-ts.txt): currículo, projetos, dependências, APIs necessárias e análise de GAP do simulador.
 
-JavaScript já conta com a vertical slice segura, módulos, console, testes, integração com o VFS e o [currículo completo](docs/CURRICULO-JAVASCRIPT.md). A próxima etapa de conteúdo é TypeScript, aproveitando o mesmo laboratório e o adaptador de compilação existente. O executor reduzido de `node` usado em imagens Docker não é uma sandbox e não deve ser reutilizado para executar código arbitrário do aluno.
+JavaScript já conta com a vertical slice segura, módulos, console, testes, integração com o VFS e o [currículo completo](docs/curriculum/CURRICULO-JAVASCRIPT.md). A próxima etapa de conteúdo é TypeScript, aproveitando o mesmo laboratório e o adaptador de compilação existente. O executor reduzido de `node` usado em imagens Docker não é uma sandbox e não deve ser reutilizado para executar código arbitrário do aluno.
 
-Para transferir contexto a outro agente, consulte [Contexto do projeto para o Claude](docs/CONTEXTO-PROJETO-CLAUDE.md). Para trabalhar exclusivamente nessa nova fase, use o [briefing de implementação JavaScript e TypeScript](docs/BRIEFING-IMPLEMENTACAO-JS-TS-CLAUDE.md).
+Para transferir contexto a outro agente, consulte [Contexto do projeto para o Claude](docs/project/CONTEXTO-PROJETO-CLAUDE.md). Para trabalhar exclusivamente nessa nova fase, use o [briefing de implementação JavaScript e TypeScript](docs/project/BRIEFING-IMPLEMENTACAO-JS-TS-CLAUDE.md).
 
 ## Estrutura
 
-Uma descrição dos limites entre as camadas e do fluxo de carregamento está em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
+Uma descrição dos limites entre as camadas e do fluxo de carregamento está em [docs/architecture/ARQUITETURA.md](docs/architecture/ARQUITETURA.md).
 
 ```text
 src/
@@ -119,13 +119,15 @@ src/
   88-settings.js            preferências de leitura e terminal
   89-js-course.js           módulos e aulas-base da trilha JavaScript
   89-z-js-course-extended.js expansão para 65 aulas e projeto final
-docs/                       arquitetura e pesquisa técnica preservada
-  CURRICULO-JAVASCRIPT.md    matriz das 65 aulas e critérios de qualidade
-  CONTEXTO-PROJETO-CLAUDE.md contexto geral e regras para handoff
-  BRIEFING-IMPLEMENTACAO-JS-TS-CLAUDE.md escopo específico da nova fase
-  pesquisa-javascript.txt    base técnica da futura trilha JavaScript
-  pesquisa-typescript.txt    base técnica da futura trilha TypeScript
-  proposta-inicial-trilhas-js-ts.txt currículo e análise de GAP
+docs/                       documentação organizada por assunto
+  README.md                 índice da documentação
+  architecture/             arquitetura e limites do sistema
+  curriculum/               currículos e critérios educacionais
+  development/              fluxo Git e padrões de autoria
+  project/                  contexto, briefings e planos do projeto
+  research/                 pesquisas técnicas e propostas
+database/
+  supabase/schema.sql       schema, índices, triggers e políticas RLS
 test/                       testes do motor, conteúdo e navegador
 tools/                      ferramentas de edição e verificação
 build.py                    montagem do HTML único
@@ -164,7 +166,7 @@ A interface solicita uma conta. O código usa WebCrypto para derivar senhas com 
 
 Por padrão, contas e progresso são gravados no **localStorage do navegador**, associados à origem da página. Limpar esse armazenamento remove os dados locais. O modo local continua disponível para estudar offline.
 
-Para sincronizar a mesma conta entre computadores, configure um projeto Supabase e execute [docs/SUPABASE_SCHEMA.sql](docs/SUPABASE_SCHEMA.sql) no SQL Editor. Copie [config.example.js](config.example.js) para `config.local.js`, preencha a URL do projeto e a chave pública `anon`, e inclua esse script antes do bundle:
+Para sincronizar a mesma conta entre computadores, configure um projeto Supabase e execute [database/supabase/schema.sql](database/supabase/schema.sql) no SQL Editor. Copie [config.example.js](config.example.js) para `config.local.js`, preencha a URL do projeto e a chave pública `anon`, e inclua esse script antes do bundle:
 
 ```html
 <script>
@@ -254,7 +256,7 @@ Esses testes cobrem os comportamentos declarados, sem afirmar compatibilidade in
 
 O desenvolvimento parte de `main` e usa branches curtas com os prefixos `feat/`, `fix/`, `docs/`, `test/`, `refactor/` ou `chore/`. Cada PR deve manter o build gerado atualizado, explicar como foi validado e ser incorporado por squash; a branch remota pode ser apagada depois do merge.
 
-Os padrões de nomes, commits, checklist e comandos estão em [docs/GIT-WORKFLOW.md](docs/GIT-WORKFLOW.md). Novos PRs recebem automaticamente o modelo em [`.github/pull_request_template.md`](.github/pull_request_template.md).
+Os padrões de nomes, commits, checklist e comandos estão em [docs/development/GIT-WORKFLOW.md](docs/development/GIT-WORKFLOW.md). Novos PRs recebem automaticamente o modelo em [`.github/pull_request_template.md`](.github/pull_request_template.md).
 
 ## Limites do laboratório Git
 
