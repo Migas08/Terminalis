@@ -152,8 +152,14 @@ Terminalis/
 ├── dist/
 │   └── terminalis.html
 ├── docs/
-│   ├── ARQUITETURA.md
-│   └── pesquisa-compose-traefik.md
+│   ├── README.md
+│   ├── architecture/
+│   ├── curriculum/
+│   ├── development/
+│   ├── project/
+│   └── research/
+├── database/
+│   └── supabase/
 ├── src/
 ├── test/
 └── tools/
@@ -1164,12 +1170,12 @@ Atualizar o README quando mudanças arquiteturais relevantes forem feitas.
 
 ---
 
-# 47. docs/ARQUITETURA.md
+# 47. docs/architecture/ARQUITETURA.md
 
 Arquivo obrigatório de referência:
 
 ```text
-docs/ARQUITETURA.md
+docs/architecture/ARQUITETURA.md
 ```
 
 Ele define limites entre runtime, máquina, shell, Git, GitHub, Docker, conteúdo, interface, autenticação e progressão.
@@ -1189,7 +1195,6 @@ tools/
 Inclui ferramentas como:
 
 ```text
-PADRAO-TAREFAS.md
 checar-aula.js
 copia.py
 shot.js
@@ -1199,7 +1204,7 @@ tarefas.py
 O padrão das atividades está documentado em:
 
 ```text
-tools/PADRAO-TAREFAS.md
+docs/development/PADRAO-TAREFAS.md
 ```
 
 Consultar ao criar ou alterar conteúdo educacional.
@@ -1409,7 +1414,7 @@ Não alterar isso globalmente sem revisar aulas e testes.
 Antes de alterar código:
 
 1. ler `README.md`;
-2. ler `docs/ARQUITETURA.md`;
+2. ler `docs/architecture/ARQUITETURA.md`;
 3. localizar arquivos envolvidos;
 4. entender dependências;
 5. verificar testes existentes;
@@ -1642,7 +1647,7 @@ A base mais nova do projeto integrou o conteúdo de `Terminalis.rar` sem descart
 
 - `src/49-workspace-00-codec.js` e `src/49-workspace-10-domains.js` para snapshots versionados e restauração do laboratório completo;
 - `src/74-cloud-10-config.js` a `src/74-cloud-40-sync.js` para configuração, Auth, Storage, cache offline, revisão otimista e sincronização Supabase;
-- `docs/SUPABASE_SCHEMA.sql` com tabelas canônicas (`profiles`, `user_progress`, `workspaces`), migração, trigger seguro de perfil e RLS por `auth.uid()`;
+- `database/supabase/schema.sql` com tabelas canônicas (`profiles`, `user_progress`, `workspaces`), migração, trigger seguro de perfil e RLS por `auth.uid()`;
 - `config.example.js` para deploy e `.gitignore` protegendo `config.local.js`;
 - `.github/workflows/ci.yml` com build, testes Node e Playwright Chromium;
 - `test/workspace.js` e `test/cloud.js`, incluindo restauração, offline, conflito, merge e isolamento.
