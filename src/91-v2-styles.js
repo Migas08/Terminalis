@@ -28,6 +28,7 @@
   .v2-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.v2-card-grid.v2-all{margin-top:16px}
   .v2-card{position:relative;min-width:0;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px;cursor:pointer;transition:border-color .16s,transform .16s;color:var(--tx)}
   .v2-card:hover{border-color:#484848;transform:translateY(-2px)}.v2-card.is-done{background:#111}.v2-card.is-done:after{content:'✓';position:absolute;right:17px;bottom:16px;color:var(--tx)}
+  .v2-card.is-locked{cursor:not-allowed;opacity:.58}.v2-card.is-locked:hover{border-color:var(--line);transform:none}.v2-requirement{margin-top:13px;padding-top:11px;border-top:1px solid var(--line);color:var(--tx-3);font-size:11px;line-height:1.45}
   .v2-card-top{display:flex;gap:8px;padding-right:32px}.v2-card-top span,.v2-meta span,.v2-card-foot span{font:10px var(--f-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--tx-3);border:1px solid var(--line);border-radius:99px;padding:3px 7px}.v2-card-top .v2-tech{color:var(--tx-2)}
   .v2-card h3{font-size:17px;line-height:1.25;margin:18px 0 7px}.v2-card p{font-size:13px;line-height:1.55;color:var(--tx-2);margin:0;min-height:42px}
   .v2-card-foot{display:flex;align-items:center;gap:8px;margin-top:18px}.v2-card-foot>span:first-child{border:0;padding:0}.v2-card-foot strong{font:600 12px var(--f-mono);margin-left:auto}.v2-card-foot .v2-done{border:0;padding:0 22px 0 0;color:var(--tx)}

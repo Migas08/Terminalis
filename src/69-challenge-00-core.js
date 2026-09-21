@@ -5,6 +5,7 @@
 (function () {
   const DIFFICULTIES = ['beginner', 'easy', 'intermediate', 'advanced', 'expert'];
   const TYPES = ['command', 'debugging', 'incident', 'code', 'configuration', 'project'];
+  const FORMATS = ['training', 'ticket', 'incident', 'project'];
   const STATUS = ['draft', 'published', 'archived'];
 
   const labels = {
@@ -15,6 +16,9 @@
     types: {
       command: 'Comandos', debugging: 'Debugging', incident: 'Incidente',
       code: 'Código', configuration: 'Configuração', project: 'Projeto'
+    },
+    formats: {
+      training: 'Treino', ticket: 'Chamado', incident: 'Incidente', project: 'Projeto'
     }
   };
 
@@ -75,9 +79,11 @@
     if (!catalog.technologyById.has(technology)) fail('tecnologia não registrada: ' + technology);
     const difficulty = spec.difficulty || 'easy';
     const type = spec.type || 'command';
+    const format = spec.format || ({ command: 'training', code: 'training', debugging: 'ticket', configuration: 'ticket', incident: 'incident', project: 'project' }[type]);
     const status = spec.status || 'published';
     if (!DIFFICULTIES.includes(difficulty)) fail('dificuldade inválida: ' + difficulty);
     if (!TYPES.includes(type)) fail('tipo inválido: ' + type);
+    if (!FORMATS.includes(format)) fail('formato inválido: ' + format);
     if (!STATUS.includes(status)) fail('status inválido: ' + status);
     const xp = Number(spec.xp);
     if (!Number.isInteger(xp) || xp < 10 || xp > 5000) fail('XP deve ser inteiro entre 10 e 5000');
@@ -92,6 +98,8 @@
       technology,
       difficulty,
       type,
+      format,
+      order: Number.isFinite(spec.order) ? spec.order : (catalog.challenges.length + 1) * 10,
       xp,
       status,
       version: Number.isInteger(spec.version) && spec.version > 0 ? spec.version : 1,
@@ -130,6 +138,11 @@
     Object.freeze(challenge.prerequisites);
     Object.freeze(challenge);
     catalog.challenges.push(challenge);
+    catalog.challenges.sort((a, b) => {
+      const techA = catalog.technologyById.get(a.technology);
+      const techB = catalog.technologyById.get(b.technology);
+      return (techA.order - techB.order) || (a.order - b.order) || a.id.localeCompare(b.id);
+    });
     catalog.challengeById.set(challenge.id, challenge);
     catalog.challengeBySlug.set(challenge.slug, challenge);
     return challenge;
@@ -150,11 +163,13 @@
       if (filters.technology && challenge.technology !== filters.technology) return false;
       if (filters.difficulty && challenge.difficulty !== filters.difficulty) return false;
       if (filters.type && challenge.type !== filters.type) return false;
+      if (filters.format && challenge.format !== filters.format) return false;
       if (Number.isFinite(filters.xpMin) && challenge.xp < filters.xpMin) return false;
       if (Number.isFinite(filters.xpMax) && challenge.xp > filters.xpMax) return false;
       if (filters.status === 'completed' && !completed[challenge.id]) return false;
       if (filters.status === 'open' && completed[challenge.id]) return false;
       if (filters.status === 'favorite' && !favorites.has(challenge.id)) return false;
+      if (filters.unlocked === true && !isUnlocked(challenge, progress)) return false;
       if (tokens.length) {
         const haystack = normalizeSearch([
           challenge.id, challenge.title, challenge.summary, challenge.technology,
@@ -166,9 +181,23 @@
     });
   }
 
+  function unmetPrerequisites(idOrChallenge, progress) {
+    const challenge = typeof idOrChallenge === 'string'
+      ? (catalog.challengeById.get(idOrChallenge) || catalog.challengeBySlug.get(idOrChallenge))
+      : idOrChallenge;
+    if (!challenge) return [];
+    const completed = (progress && progress.challengeCompletions) || {};
+    return challenge.prerequisites.filter(id => !completed[id]);
+  }
+
+  function isUnlocked(idOrChallenge, progress) {
+    return unmetPrerequisites(idOrChallenge, progress).length === 0;
+  }
+
   LX.ChallengeCatalog = {
     difficulties: DIFFICULTIES.slice(),
     types: TYPES.slice(),
+    formats: FORMATS.slice(),
     labels,
     technologies: catalog.technologies,
     challenges: catalog.challenges,
@@ -176,6 +205,8 @@
     registerChallenge,
     technology(id) { return catalog.technologyById.get(id) || null; },
     challenge(idOrSlug) { return catalog.challengeById.get(idOrSlug) || catalog.challengeBySlug.get(idOrSlug) || null; },
+    unmetPrerequisites,
+    isUnlocked,
     search
   };
   LX.technology = registerTechnology;
