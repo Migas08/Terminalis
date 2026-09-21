@@ -72,16 +72,19 @@
   function renderDashboard(app) {
     const state = progress();
     const summary = V2.summary(state);
-    const open = Catalog.search({ status: 'open', unlocked: true }, state);
+    const open = Catalog.search({ status: 'open' }, state);
+    const ready = Catalog.search({ status: 'open', unlocked: true }, state);
     const active = Object.values(state.challengeAttempts)
       .filter(item => item && !item.completedAt)
       .sort((a, b) => b.updatedAt - a.updatedAt)[0];
-    const recommendations = open.slice(0, 3);
-    const published = Catalog.search({}, state);
+    const readyIds = new Set(ready.map(challenge => challenge.id));
+    const recommendations = ready.concat(open.filter(challenge => !readyIds.has(challenge.id))).slice(0, 3);
     const availableTechnologies = summary.technologies.filter(item => item.available > 0);
     const recent = state.v2Activity.slice(0, 4);
     const level = summary.level;
-    const resumeChallenge = active && Catalog.challenge(active.challengeId);
+    const resumeChallenge = active && Catalog.challenge(active.challengeId) && Catalog.isUnlocked(active.challengeId, state)
+      ? Catalog.challenge(active.challengeId)
+      : null;
     const dailyPool = Catalog.search({ unlocked: true }, state);
     const daily = dailyPool.length
       ? dailyPool[Math.floor(Date.now() / 86400000) % dailyPool.length]
@@ -109,6 +112,9 @@
 
       <div class="v2-section-title"><div><span class="v2-kicker">COMPETÊNCIAS</span><h2>Progresso por tecnologia</h2></div><button class="v2-link" id="v2-projects">Ver projetos</button></div>
       <div class="v2-tech-grid">${availableTechnologies.map(item => `<button data-tech="${esc(item.technology.id)}"><span>${esc(item.technology.name)}</span><strong>Nível ${item.level.level}</strong><div class="v2-progress"><i style="width:${item.available ? Math.round(item.completed / item.available * 100) : 0}%"></i></div><small>${item.completed}/${item.available} exercícios · ${item.xp} XP</small></button>`).join('')}</div>
+
+      <div class="v2-section-title"><div><span class="v2-kicker">HABILIDADES</span><h2>Competências praticadas</h2></div></div>
+      <div class="v2-skill-grid">${summary.skills.map(skill => `<div class="${skill.status}"><i>${skill.status === 'acquired' ? '✓' : (skill.status === 'practicing' ? '●' : '○')}</i><span>${esc(skill.name)}</span><small>${skill.completed}/${skill.available}</small></div>`).join('')}</div>
 
       ${recent.length ? `<section class="v2-activity"><div class="v2-section-title"><div><span class="v2-kicker">HISTÓRICO</span><h2>Atividade recente</h2></div></div>${recent.map(item => { const challenge = Catalog.challenge(item.challengeId); return challenge ? `<button data-recent-challenge="${esc(challenge.id)}"><span>Concluiu</span><strong>${esc(challenge.title)}</strong><em>+${item.xp} XP</em></button>` : ''; }).join('')}</section>` : ''}
       <footer class="v2-authority">XP desta primeira fatia é uma prévia local. A publicação de recompensas e badges dependerá da validação autoritativa no Supabase.</footer>
@@ -389,13 +395,6 @@
     $('#page').scrollTop = 0;
     this.term.focus();
   };
-
-  appProto.goCursos = appProto.goChallenges;
-  appProto.goJornada = appProto.goHome;
-  appProto.goProjetos = appProto.goProjects;
-  appProto.goLesson = function () { return this.goChallenges(); };
-  appProto.goCurso = function () { return this.goChallenges(); };
-  appProto.goRoadmap = function () { return this.goChallenges(); };
 
   appProto.restartChallenge = function (id, mode) {
     const challenge = Catalog.challenge(id);

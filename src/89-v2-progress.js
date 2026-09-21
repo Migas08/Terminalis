@@ -164,6 +164,24 @@
     return Object.values(grouped).map(item => Object.assign(item, { level: levelForXp(item.xp) }));
   }
 
+  function skillStats(input, technology) {
+    const value = ensure(input);
+    const grouped = new Map();
+    for (const challenge of LX.ChallengeCatalog.challenges) {
+      if (challenge.status !== 'published' || (technology && challenge.technology !== technology)) continue;
+      for (const name of challenge.skills) {
+        if (!grouped.has(name)) grouped.set(name, { name, technology: challenge.technology, completed: 0, available: 0 });
+        const item = grouped.get(name);
+        item.available++;
+        if (value.challengeCompletions[challenge.id]) item.completed++;
+      }
+    }
+    return Array.from(grouped.values()).map(item => Object.assign(item, {
+      percent: item.available ? Math.round(item.completed / item.available * 100) : 0,
+      status: item.completed === item.available ? 'acquired' : (item.completed ? 'practicing' : 'open')
+    }));
+  }
+
   function summary(input) {
     const value = ensure(input);
     const xp = totalXp(value);
@@ -175,6 +193,7 @@
       withoutHints: completions.filter(item => item.withoutHints).length,
       incidents: completions.filter(item => item.type === 'incident').length,
       technologies: technologyStats(value),
+      skills: skillStats(value),
       rewardAuthority: value.v2.rewardAuthority
     };
   }
@@ -192,6 +211,7 @@
     toggleFavorite,
     totalXp,
     technologyStats,
+    skillStats,
     summary
   };
 })();

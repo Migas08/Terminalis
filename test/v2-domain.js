@@ -11,6 +11,7 @@ LX.challenge({
   summary: 'Valida o contrato data-driven.', technology: 'linux',
   difficulty: 'easy', type: 'command', xp: 80,
   format: 'training', order: 10,
+  skills: ['Estado observável'],
   situation: 'Um ambiente controlado precisa ser verificado.',
   mission: 'Conclua o objetivo do teste.', objectives: ['Alterar o estado'],
   hints: ['Investigue primeiro.'], concepts: [{ term: 'estado', summary: 'O resultado observável da ação.' }],
@@ -40,6 +41,10 @@ assert.equal(LX.V2Progress.start('TEST-001', {}, progress).completedAt, first.co
 assert.equal(LX.V2Progress.totalXp(progress), 80);
 assert.equal(LX.V2Progress.summary(progress).completed, 1);
 assert.equal(LX.V2Progress.summary(progress).withoutHints, 0);
+assert.deepEqual(
+  { ...LX.V2Progress.skillStats(progress).find(skill => skill.name === 'Estado observável') },
+  { name: 'Estado observável', technology: 'linux', completed: 1, available: 1, percent: 100, status: 'acquired' }
+);
 
 assert.equal(LX.V2Progress.toggleFavorite('TEST-001', progress), true);
 assert.equal(LX.V2Progress.toggleFavorite('TEST-001', progress), false);

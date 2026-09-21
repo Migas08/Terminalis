@@ -1642,15 +1642,13 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
 
     <nav class="sb-nav">
       <button class="sb-item" data-nav="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h5v-5h4v5h5V9.5"/></svg><span>Início</span></button>
-      <button class="sb-item" data-nav="cursos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20"/></svg><span>Cursos</span></button>
-      <button class="sb-item" data-nav="jornada"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18.5" r="2.5"/><circle cx="18" cy="5.5" r="2.5"/><path d="M8.5 18.5H14a3.5 3.5 0 0 0 0-7H9.5a3.5 3.5 0 0 1 0-7H15"/></svg><span>Jornada</span></button>
+      <button class="sb-item" data-nav="challenges"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18.5" r="2.5"/><circle cx="18" cy="5.5" r="2.5"/><path d="M8.5 18.5H14a3.5 3.5 0 0 0 0-7H9.5a3.5 3.5 0 0 1 0-7H15"/></svg><span>Exercícios</span></button>
       <button class="sb-item" data-nav="projetos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 21 7v10l-9 4.5L3 17V7z"/><path d="M3 7l9 4.5L21 7M12 11.5V21.5"/></svg><span>Projetos</span></button>
     </nav>
 
-    <div class="sb-section">
-      <div class="sb-label">Cursos</div>
-      <div class="sb-cursos" id="sb-cursos"></div>
-    </div>
+    <!-- Ponto de compatibilidade para o código legado. A antiga árvore de
+         cursos não faz mais parte da navegação do produto. -->
+    <div class="sb-cursos hidden" id="sb-cursos" aria-hidden="true"></div>
 
     <div class="sb-foot">
       <button class="sb-item sb-config" data-nav="config"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3"/></svg><span>Configurações</span></button>
@@ -1688,7 +1686,7 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
       <footer id="lesson-foot" class="hidden"></footer>
     </section>
 
-    <div id="workspace-resizer" role="separator" aria-orientation="vertical" aria-label="Redimensionar aula e laboratório" tabindex="0"></div>
+    <div id="workspace-resizer" role="separator" aria-orientation="vertical" aria-label="Redimensionar exercício e laboratório" tabindex="0"></div>
 
     <section id="side-panel">
       <div class="sp-tabs" role="tablist">
@@ -1779,7 +1777,7 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
       <!-- anotações -->
       <div class="sp-view" data-view="notes">
         <div class="notes-wrap">
-          <textarea id="notes-area" aria-label="Anotações da aula" placeholder="Suas anotações desta aula…&#10;&#10;Ficam salvas no seu navegador." spellcheck="false"></textarea>
+          <textarea id="notes-area" aria-label="Anotações do exercício" placeholder="Suas anotações deste exercício…&#10;&#10;Ficam salvas no seu navegador." spellcheck="false"></textarea>
           <div class="notes-foot"><span id="notes-title">Anotações</span><span class="spacer" style="flex:1"></span><span id="notes-status">salvo automaticamente</span></div>
         </div>
       </div>
@@ -1788,11 +1786,10 @@ input,select,textarea { accent-color:#e5e5e5;caret-color:#eee; }
 </div>
 
 <nav class="mobile-tabs" aria-label="Navegação móvel">
-  <button data-m="lesson" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20"/></svg><span>Aula</span></button>
+  <button data-m="lesson" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20"/></svg><span>Exercício</span></button>
   <button data-m="term" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-5-6-5"/><path d="M12 19h8"/></svg><span>Terminal</span></button>
   <button data-nav="home" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h5v-5h4v5h5V9.5"/></svg><span>Início</span></button>
-  <button data-nav="cursos" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20"/></svg><span>Cursos</span></button>
-  <button data-nav="jornada" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18.5" r="2.5"/><circle cx="18" cy="5.5" r="2.5"/><path d="M8.5 18.5H14a3.5 3.5 0 0 0 0-7H9.5a3.5 3.5 0 0 1 0-7H15"/></svg><span>Jornada</span></button>
+  <button data-nav="challenges" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18.5" r="2.5"/><circle cx="18" cy="5.5" r="2.5"/><path d="M8.5 18.5H14a3.5 3.5 0 0 0 0-7H9.5a3.5 3.5 0 0 1 0-7H15"/></svg><span>Exercícios</span></button>
   <button data-nav="projetos" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 21 7v10l-9 4.5L3 17V7z"/><path d="M3 7l9 4.5L21 7M12 11.5V21.5"/></svg><span>Projetos</span></button>
 </nav>
 
@@ -44058,6 +44055,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
 (function () {
   const DIFFICULTIES = ['beginner', 'easy', 'intermediate', 'advanced', 'expert'];
   const TYPES = ['command', 'debugging', 'incident', 'code', 'configuration', 'project'];
+  const FORMATS = ['training', 'ticket', 'incident', 'project'];
   const STATUS = ['draft', 'published', 'archived'];
 
   const labels = {
@@ -44068,6 +44066,9 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     types: {
       command: 'Comandos', debugging: 'Debugging', incident: 'Incidente',
       code: 'Código', configuration: 'Configuração', project: 'Projeto'
+    },
+    formats: {
+      training: 'Treino', ticket: 'Chamado', incident: 'Incidente', project: 'Projeto'
     }
   };
 
@@ -44128,9 +44129,11 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     if (!catalog.technologyById.has(technology)) fail('tecnologia não registrada: ' + technology);
     const difficulty = spec.difficulty || 'easy';
     const type = spec.type || 'command';
+    const format = spec.format || ({ command: 'training', code: 'training', debugging: 'ticket', configuration: 'ticket', incident: 'incident', project: 'project' }[type]);
     const status = spec.status || 'published';
     if (!DIFFICULTIES.includes(difficulty)) fail('dificuldade inválida: ' + difficulty);
     if (!TYPES.includes(type)) fail('tipo inválido: ' + type);
+    if (!FORMATS.includes(format)) fail('formato inválido: ' + format);
     if (!STATUS.includes(status)) fail('status inválido: ' + status);
     const xp = Number(spec.xp);
     if (!Number.isInteger(xp) || xp < 10 || xp > 5000) fail('XP deve ser inteiro entre 10 e 5000');
@@ -44145,6 +44148,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       technology,
       difficulty,
       type,
+      format,
+      order: Number.isFinite(spec.order) ? spec.order : (catalog.challenges.length + 1) * 10,
       xp,
       status,
       version: Number.isInteger(spec.version) && spec.version > 0 ? spec.version : 1,
@@ -44183,6 +44188,11 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     Object.freeze(challenge.prerequisites);
     Object.freeze(challenge);
     catalog.challenges.push(challenge);
+    catalog.challenges.sort((a, b) => {
+      const techA = catalog.technologyById.get(a.technology);
+      const techB = catalog.technologyById.get(b.technology);
+      return (techA.order - techB.order) || (a.order - b.order) || a.id.localeCompare(b.id);
+    });
     catalog.challengeById.set(challenge.id, challenge);
     catalog.challengeBySlug.set(challenge.slug, challenge);
     return challenge;
@@ -44203,11 +44213,13 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       if (filters.technology && challenge.technology !== filters.technology) return false;
       if (filters.difficulty && challenge.difficulty !== filters.difficulty) return false;
       if (filters.type && challenge.type !== filters.type) return false;
+      if (filters.format && challenge.format !== filters.format) return false;
       if (Number.isFinite(filters.xpMin) && challenge.xp < filters.xpMin) return false;
       if (Number.isFinite(filters.xpMax) && challenge.xp > filters.xpMax) return false;
       if (filters.status === 'completed' && !completed[challenge.id]) return false;
       if (filters.status === 'open' && completed[challenge.id]) return false;
       if (filters.status === 'favorite' && !favorites.has(challenge.id)) return false;
+      if (filters.unlocked === true && !isUnlocked(challenge, progress)) return false;
       if (tokens.length) {
         const haystack = normalizeSearch([
           challenge.id, challenge.title, challenge.summary, challenge.technology,
@@ -44219,9 +44231,23 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     });
   }
 
+  function unmetPrerequisites(idOrChallenge, progress) {
+    const challenge = typeof idOrChallenge === 'string'
+      ? (catalog.challengeById.get(idOrChallenge) || catalog.challengeBySlug.get(idOrChallenge))
+      : idOrChallenge;
+    if (!challenge) return [];
+    const completed = (progress && progress.challengeCompletions) || {};
+    return challenge.prerequisites.filter(id => !completed[id]);
+  }
+
+  function isUnlocked(idOrChallenge, progress) {
+    return unmetPrerequisites(idOrChallenge, progress).length === 0;
+  }
+
   LX.ChallengeCatalog = {
     difficulties: DIFFICULTIES.slice(),
     types: TYPES.slice(),
+    formats: FORMATS.slice(),
     labels,
     technologies: catalog.technologies,
     challenges: catalog.challenges,
@@ -44229,6 +44255,8 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     registerChallenge,
     technology(id) { return catalog.technologyById.get(id) || null; },
     challenge(idOrSlug) { return catalog.challengeById.get(idOrSlug) || catalog.challengeBySlug.get(idOrSlug) || null; },
+    unmetPrerequisites,
+    isUnlocked,
     search
   };
   LX.technology = registerTechnology;
@@ -44288,11 +44316,94 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
   };
 
   LX.challenge({
+    id: 'LINUX-006', slug: 'inspecione-o-deploy-atual',
+    title: 'Inspecione o deploy atual',
+    summary: 'Confirme o diretório certo antes de alterar uma aplicação em produção.',
+    technology: 'linux', difficulty: 'beginner', type: 'command', format: 'training', order: 10, xp: 40,
+    estimatedMinutes: 5, tags: ['pwd', 'ls', 'navegação', 'deploy'], skills: ['Navegação', 'Inspeção segura'],
+    situation: 'Você entrou no servidor fictício srv-web-03 para apoiar um deploy. Antes de qualquer alteração, a equipe pediu uma evidência simples do caminho ativo e dos arquivos que estão publicados.',
+    mission: 'Entre em /srv/portal/releases/current e crie ~/inspecao-deploy.txt com o caminho absoluto na primeira linha e uma listagem, incluindo arquivos ocultos, nas linhas seguintes.',
+    objectives: ['Navegar até o release ativo', 'Confirmar o caminho absoluto', 'Registrar uma listagem completa como evidência'],
+    hints: [
+      'Comece entrando no diretório informado e confirme onde o terminal está.',
+      'pwd mostra o caminho atual. ls -la inclui arquivos ocultos.',
+      'Redirecione pwd com > e acrescente ls -la com >> ao mesmo arquivo.'
+    ],
+    concepts: [
+      { term: 'pwd', summary: 'Mostra o caminho absoluto do diretório atual. É uma verificação simples antes de qualquer mudança.' },
+      { term: '>>', summary: 'Acrescenta a saída ao fim de um arquivo sem apagar o conteúdo que já existe.' }
+    ],
+    setup(machine) {
+      write(machine, '/srv/portal/releases/current/VERSION', '2026.09.21\n', 0o644, 0, 33);
+      write(machine, '/srv/portal/releases/current/app.js', 'console.log("portal");\n', 0o644, 0, 33);
+      write(machine, '/srv/portal/releases/current/.env', 'NODE_ENV=production\n', 0o640, 0, 33);
+    },
+    validate(ctx) {
+      const report = H.read(ctx, '/home/aluno/inspecao-deploy.txt') || '';
+      const firstLine = report.trim().split('\n')[0] || '';
+      return H.checkAll([
+        [firstLine === '/srv/portal/releases/current', 'A primeira linha deve ser o caminho absoluto do release ativo.'],
+        [report.includes('VERSION'), 'A listagem ainda não mostra o arquivo <code>VERSION</code>.'],
+        [report.includes('app.js'), 'A listagem ainda não mostra <code>app.js</code>.'],
+        [report.includes('.env'), 'Inclua arquivos ocultos na evidência; o <code>.env</code> precisa aparecer.']
+      ]);
+    },
+    explanation: 'A inspeção registra contexto antes da mudança. O caminho evita atuar no release errado, e a listagem completa deixa uma evidência reproduzível para a equipe.',
+    possibleSolution: 'cd /srv/portal/releases/current\npwd > ~/inspecao-deploy.txt\nls -la >> ~/inspecao-deploy.txt\ncat ~/inspecao-deploy.txt',
+    alternatives: ['Executar pwd e ls dentro de um subshell e redirecionar toda a saída de uma vez.'],
+    extraChallenge: 'Acrescente ao relatório somente o conteúdo do arquivo VERSION.',
+    referenceLessonIds: ['l2-1']
+  });
+
+  LX.challenge({
+    id: 'LINUX-007', slug: 'prepare-a-estrutura-do-release',
+    title: 'Prepare a estrutura do release',
+    summary: 'Monte diretórios previsíveis e copie uma configuração modelo sem destruir a origem.',
+    technology: 'linux', difficulty: 'beginner', type: 'command', format: 'training', order: 20, xp: 45,
+    estimatedMinutes: 6, tags: ['mkdir', 'cp', 'diretórios', 'deploy'], skills: ['Diretórios', 'Cópia de arquivos'],
+    prerequisites: ['LINUX-006'],
+    situation: 'O próximo release do portal será preparado manualmente antes de a automação assumir. A equipe padronizou uma pasta para aplicação, outra para configuração e outra para logs.',
+    mission: 'Crie app, config e logs dentro de /srv/portal/releases/2026-09-22. Copie /srv/portal/template/.env.example para config/app.env sem remover o modelo original.',
+    objectives: ['Criar os três diretórios do release', 'Copiar a configuração para o destino correto', 'Preservar o arquivo modelo'],
+    hints: [
+      'mkdir aceita vários caminhos na mesma execução.',
+      'A opção -p cria também os diretórios pais que ainda não existem.',
+      'Use cp para criar /srv/portal/releases/2026-09-22/config/app.env a partir do modelo.'
+    ],
+    concepts: [
+      { term: 'mkdir -p', summary: 'Cria toda a árvore necessária e não falha quando parte dela já existe.' },
+      { term: 'cp', summary: 'Copia o conteúdo para outro caminho; o arquivo de origem permanece disponível.' }
+    ],
+    setup(machine) {
+      write(machine, '/srv/portal/template/.env.example', 'PORT=8080\nLOG_LEVEL=info\n', 0o644, 0, 33);
+      const release = machine.fs.mkdirp('/srv/portal/releases/2026-09-22', { ctx: root(machine) });
+      release.uid = 1000; release.gid = 1000; release.mode = 0o755;
+    },
+    validate(ctx) {
+      const base = '/srv/portal/releases/2026-09-22';
+      const expected = 'PORT=8080\nLOG_LEVEL=info\n';
+      return H.checkAll([
+        [H.isDir(ctx, base + '/app'), 'Crie o diretório <code>app</code> dentro do release.'],
+        [H.isDir(ctx, base + '/config'), 'Crie o diretório <code>config</code> dentro do release.'],
+        [H.isDir(ctx, base + '/logs'), 'Crie o diretório <code>logs</code> dentro do release.'],
+        [H.read(ctx, base + '/config/app.env') === expected, 'Copie a configuração modelo para <code>config/app.env</code>.'],
+        [H.read(ctx, '/srv/portal/template/.env.example') === expected, 'O arquivo modelo deve continuar no local original.']
+      ]);
+    },
+    explanation: 'Uma estrutura previsível reduz erros no deploy e facilita scripts futuros. A configuração foi copiada porque o modelo precisa continuar disponível para os próximos releases.',
+    possibleSolution: 'mkdir -p /srv/portal/releases/2026-09-22/app /srv/portal/releases/2026-09-22/config /srv/portal/releases/2026-09-22/logs\ncp /srv/portal/template/.env.example /srv/portal/releases/2026-09-22/config/app.env\nls -la /srv/portal/releases/2026-09-22/config',
+    alternatives: ['Entrar no diretório do release e criar app, config e logs usando caminhos relativos.'],
+    extraChallenge: 'Crie um arquivo RELEASE com a data e o nome do responsável fictício pelo deploy.',
+    referenceLessonIds: ['l2-2', 'l2-4']
+  });
+
+  LX.challenge({
     id: 'LINUX-001', slug: 'organize-os-backups-sql',
     title: 'Organize os backups SQL',
     summary: 'Separe dumps de banco sem mover a documentação da migração.',
-    technology: 'linux', difficulty: 'beginner', type: 'command', xp: 50,
+    technology: 'linux', difficulty: 'beginner', type: 'command', format: 'training', order: 30, xp: 50,
     estimatedMinutes: 6, tags: ['arquivos', 'diretórios', 'glob'], skills: ['Navegação', 'Arquivos'],
+    prerequisites: ['LINUX-007'],
     situation: 'A equipe deixou dumps SQL e documentos misturados em /srv/migracao. O próximo processo automatizado espera encontrar todos os dumps dentro de uma subpasta chamada backup.',
     mission: 'Crie /srv/migracao/backup e mova para ela somente os arquivos com extensão .sql. Os demais arquivos devem permanecer no diretório original.',
     objectives: ['Criar o diretório backup', 'Mover os três arquivos .sql', 'Preservar README.md e inventario.csv'],
@@ -44333,12 +44444,99 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
   });
 
   LX.challenge({
+    id: 'LINUX-008', slug: 'separe-os-erros-do-chamado',
+    title: 'Separe os erros do chamado',
+    summary: 'Extraia de um log somente os eventos relevantes para uma requisição.',
+    technology: 'linux', difficulty: 'easy', type: 'debugging', format: 'ticket', order: 40, xp: 65,
+    estimatedMinutes: 8, tags: ['grep', 'pipes', 'logs', 'suporte'], skills: ['Filtros', 'Análise de logs'],
+    prerequisites: ['LINUX-001'],
+    situation: 'Chamado #2187. O checkout falhou para a requisição fictícia req-7f3a. O arquivo /var/log/checkout/app.log contém eventos de vários usuários e níveis de severidade.',
+    mission: 'Crie ~/chamado-2187.log contendo somente as linhas ERROR relacionadas a req-7f3a. Não inclua avisos, informações nem eventos de outras requisições.',
+    objectives: ['Filtrar pelo identificador da requisição', 'Manter somente erros', 'Salvar uma evidência limpa para o chamado'],
+    hints: [
+      'Procure primeiro pelo identificador req-7f3a e leia o resultado.',
+      'Você pode ligar dois filtros com um pipe: um para a requisição e outro para a severidade.',
+      'Redirecione o resultado de grep "req-7f3a" ... | grep "ERROR" para ~/chamado-2187.log.'
+    ],
+    concepts: [
+      { term: 'pipe', summary: 'Envia a saída de um comando para a entrada do próximo, permitindo montar uma investigação em etapas.' },
+      { term: 'correlation ID', summary: 'Um identificador de requisição conecta eventos do mesmo fluxo entre diferentes linhas ou serviços.' }
+    ],
+    setup(machine) {
+      write(machine, '/var/log/checkout/app.log', [
+        '2026-09-21T10:00:01Z INFO req-a91c checkout iniciado',
+        '2026-09-21T10:00:03Z INFO req-7f3a checkout iniciado',
+        '2026-09-21T10:00:04Z WARN req-7f3a tentativa de pagamento repetida',
+        '2026-09-21T10:00:05Z ERROR req-7f3a timeout no gateway ficticio',
+        '2026-09-21T10:00:06Z ERROR req-b820 estoque indisponivel',
+        '2026-09-21T10:00:08Z ERROR req-7f3a checkout cancelado',
+        '2026-09-21T10:00:10Z INFO req-7f3a resposta 503'
+      ].join('\n') + '\n', 0o644, 0, 33);
+    },
+    validate(ctx) {
+      const evidence = H.read(ctx, '/home/aluno/chamado-2187.log') || '';
+      const lines = evidence.trim().split('\n').filter(Boolean);
+      return H.checkAll([
+        [lines.length === 2, 'A evidência deve conter exatamente os dois erros da requisição.'],
+        [lines.every(line => line.includes('ERROR')), 'Remova linhas que não sejam de nível <code>ERROR</code>.'],
+        [lines.every(line => line.includes('req-7f3a')), 'Remova eventos de outras requisições.'],
+        [evidence.includes('timeout no gateway ficticio') && evidence.includes('checkout cancelado'), 'Ainda falta um dos erros relacionados ao chamado.']
+      ]);
+    },
+    explanation: 'Filtrar pelo identificador e pela severidade reduz ruído sem perder o encadeamento do incidente. O arquivo final pode ser anexado ao chamado sem expor eventos de outros fluxos.',
+    possibleSolution: 'grep "req-7f3a" /var/log/checkout/app.log | grep "ERROR" > ~/chamado-2187.log\ncat ~/chamado-2187.log',
+    alternatives: ['Usar um único grep com uma expressão que exija ERROR e req-7f3a na mesma linha.', 'Usar awk para selecionar os dois campos.'],
+    extraChallenge: 'Gere outro arquivo com todos os eventos da requisição em ordem cronológica.',
+    referenceLessonIds: ['l3-2', 'l4-1']
+  });
+
+  LX.challenge({
+    id: 'LINUX-009', slug: 'identifique-o-consumo-de-disco',
+    title: 'Identifique o consumo de disco',
+    summary: 'Descubra qual área de uma aplicação está pressionando o armazenamento.',
+    technology: 'linux', difficulty: 'easy', type: 'incident', format: 'ticket', order: 50, xp: 75,
+    estimatedMinutes: 9, tags: ['du', 'sort', 'armazenamento', 'diagnóstico'], skills: ['Armazenamento', 'Troubleshooting'],
+    prerequisites: ['LINUX-008'],
+    situation: 'Chamado #2214. O alerta do servidor fictício srv-api-04 informa 91% de uso em disco. A equipe suspeita de /var/lib/terminalis, mas não autorizou apagar nada durante o diagnóstico.',
+    mission: 'Compare o uso dos diretórios imediatamente abaixo de /var/lib/terminalis e grave a maior entrada em ~/maior-consumo.txt. Não remova nem altere os arquivos investigados.',
+    objectives: ['Medir o uso por diretório', 'Ordenar do maior para o menor', 'Registrar a maior entrada sem apagar dados'],
+    hints: [
+      'du resume quanto espaço cada caminho ocupa.',
+      'Use um padrão para medir cada item dentro de /var/lib/terminalis e depois ordene os resultados.',
+      'Uma sequência possível é du -sh /var/lib/terminalis/* | sort -hr | head -1.'
+    ],
+    concepts: [
+      { term: 'du -sh', summary: 'Resume o espaço usado por cada caminho em uma unidade legível.' },
+      { term: 'diagnóstico não destrutivo', summary: 'Primeiro produza evidências. Remover dados exige autorização e uma decisão separada.' }
+    ],
+    setup(machine) {
+      write(machine, '/var/lib/terminalis/cache/blocos.tmp', 'x'.repeat(180000), 0o640, 0, 33);
+      write(machine, '/var/lib/terminalis/uploads/lote.bin', 'x'.repeat(42000), 0o640, 0, 33);
+      write(machine, '/var/lib/terminalis/packages/index.db', 'x'.repeat(12000), 0o640, 0, 33);
+    },
+    validate(ctx) {
+      const report = H.read(ctx, '/home/aluno/maior-consumo.txt') || '';
+      return H.checkAll([
+        [report.trim().length > 0, 'Crie <code>~/maior-consumo.txt</code> com a maior entrada encontrada.'],
+        [report.includes('/var/lib/terminalis/cache'), 'A maior entrada registrada ainda não é o diretório <code>cache</code>.'],
+        [H.isFile(ctx, '/var/lib/terminalis/cache/blocos.tmp'), 'O diagnóstico não autorizava remover ou mover o arquivo de cache.'],
+        [H.isFile(ctx, '/var/lib/terminalis/uploads/lote.bin'), 'Preserve os dados investigados durante o diagnóstico.']
+      ]);
+    },
+    explanation: 'O diagnóstico separa medição de correção. O cache é a maior área, mas a evidência foi produzida sem apagar dados; a equipe pode decidir depois se deve limpar, mover ou ampliar o volume.',
+    possibleSolution: 'du -sh /var/lib/terminalis/* | sort -hr | head -1 > ~/maior-consumo.txt\ncat ~/maior-consumo.txt',
+    alternatives: ['Usar du -h --max-depth=1 e selecionar a maior subpasta, ignorando a linha do total.'],
+    extraChallenge: 'Crie um segundo relatório ordenado com todas as entradas, da maior para a menor.',
+    referenceLessonIds: ['l13-3', 'l3-3']
+  });
+
+  LX.challenge({
     id: 'LINUX-002', slug: 'encontre-a-configuracao-perdida',
     title: 'Encontre a configuração perdida',
     summary: 'Localize um endpoint esquecido entre arquivos de configuração.',
-    technology: 'linux', difficulty: 'easy', type: 'command', xp: 70,
+    technology: 'linux', difficulty: 'easy', type: 'command', format: 'ticket', order: 60, xp: 70,
     estimatedMinutes: 8, tags: ['find', 'grep', 'configuração'], skills: ['Busca', 'Redirecionamento'],
-    prerequisites: ['LINUX-001'],
+    prerequisites: ['LINUX-009'],
     situation: 'Um serviço legado ainda aponta para uma API interna. A equipe sabe o nome da variável, API_ENDPOINT, mas não lembra em qual arquivo ela foi definida.',
     mission: 'Investigue /etc/terminalis e /opt/legacy. Grave em ~/endpoint-encontrado.txt a linha encontrada junto com o caminho do arquivo de origem.',
     objectives: ['Pesquisar em mais de um diretório', 'Encontrar API_ENDPOINT', 'Registrar caminho e valor como evidência'],
@@ -44376,7 +44574,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     id: 'LINUX-003', slug: 'servico-caiu-apos-reboot',
     title: 'Serviço caiu após o reboot',
     summary: 'Recupere o acesso remoto e garanta que ele volte no próximo boot.',
-    technology: 'linux', difficulty: 'intermediate', type: 'incident', xp: 120,
+    technology: 'linux', difficulty: 'intermediate', type: 'incident', format: 'incident', order: 80, xp: 120,
     estimatedMinutes: 12, tags: ['systemd', 'serviços', 'ssh', 'reboot'], skills: ['Serviços', 'Troubleshooting'],
     prerequisites: ['LINUX-002'],
     situation: 'Chamado #1042. Após uma reinicialização de manutenção, o monitoramento marcou o acesso SSH como indisponível. A máquina continua ligada e você possui acesso pelo console.',
@@ -44417,7 +44615,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     id: 'LINUX-004', slug: 'aplicacao-sem-permissao-no-relatorio',
     title: 'Aplicação sem permissão no relatório',
     summary: 'Corrija dono, grupo e modo sem tornar um arquivo sensível público.',
-    technology: 'linux', difficulty: 'intermediate', type: 'configuration', xp: 110,
+    technology: 'linux', difficulty: 'intermediate', type: 'configuration', format: 'ticket', order: 70, xp: 110,
     estimatedMinutes: 12, tags: ['chmod', 'chown', 'permissões'], skills: ['Permissões', 'Menor privilégio'],
     prerequisites: ['LINUX-002'],
     situation: 'O serviço web, executado como www-data, precisa ler /srv/financeiro/fechamento.csv. Depois de uma restauração, o arquivo voltou como root:root com modo 600 e a aplicação recebe Permission denied.',
@@ -44460,7 +44658,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     id: 'LINUX-005', slug: 'entrega-de-backup-verificavel',
     title: 'Entrega de backup verificável',
     summary: 'Empacote uma aplicação e gere evidência de integridade antes da transferência.',
-    technology: 'linux', difficulty: 'advanced', type: 'project', xp: 220,
+    technology: 'linux', difficulty: 'advanced', type: 'project', format: 'project', order: 90, xp: 220,
     estimatedMinutes: 20, tags: ['tar', 'gzip', 'sha256', 'backup'], skills: ['Compactação', 'Backup', 'Integridade'],
     prerequisites: ['LINUX-003', 'LINUX-004'],
     situation: 'Uma manutenção será feita no servidor fictício srv-app-07. Antes da janela, a equipe precisa de um backup transportável de /srv/aplicacao e de uma soma que permita detectar corrupção.',
@@ -45373,11 +45571,26 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
     }
 
     resetEnvironment() {
-      if (!confirm('Recriar a máquina do zero? Os arquivos que você criou no terminal serão perdidos (seu progresso nas aulas é mantido).')) return;
+      if (!confirm('Recriar o ambiente do zero? Os arquivos que você criou serão perdidos, mas seu progresso permanece salvo.')) return;
       this.buildMachine();
       this.term.boot(this.machine);
       this.toast('Ambiente reiniciado');
       if (this.route.view === 'lesson') this.applyLessonSetup();
+      if (this.route.view === 'challenge' && LX.ChallengeCatalog) {
+        const challenge = LX.ChallengeCatalog.challenge(this.route.challenge);
+        if (challenge) {
+          challenge.setup(this.machine, this.term);
+          this._activeChallengeId = challenge.id;
+          if (LX.V2Progress) {
+            const active = LX.V2Progress.attempt(challenge.id);
+            LX.V2Progress.start(challenge.id, {
+              mode: active && active.mode,
+              restart: true,
+              commandsAtStart: this.term.history.length
+            });
+          }
+        }
+      }
       // Recriar a máquina também é uma alteração persistente do workspace: marca
       // como sujo para que a máquina limpa seja salva e propagada a outros
       // dispositivos, sem depender de o aluno rodar mais um comando.
@@ -45551,7 +45764,7 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       $('#btn-new-term').onclick = () => { this.term.clear(); this.term.prompt(); this.term.focus(); };
       const notes = $('#notes-area');
       notes.addEventListener('input', () => {
-        const key = this.route.lesson || '_geral';
+        const key = this.route.challenge || this.route.lesson || '_geral';
         Progress.data.notes[key] = notes.value;
         Progress.save();
         $('#notes-status').textContent = 'salvo';
@@ -45601,9 +45814,10 @@ Mem:          3,8Gi   1,1Gi   180Mi    12Mi      2,5Gi       2,4Gi
       if (tab === 'files') this.renderFiles();
       if (tab === 'js' && LX.JSWorkspace) LX.JSWorkspace.onShow(this);
       if (tab === 'notes') {
-        const key = this.route.lesson || '_geral';
+        const key = this.route.challenge || this.route.lesson || '_geral';
         $('#notes-area').value = Progress.data.notes[key] || '';
-        $('#notes-title').textContent = this.route.lesson ? (this.findLesson(this.route.lesson).lesson.title) : 'Anotações gerais';
+        const challenge = this.route.challenge && LX.ChallengeCatalog && LX.ChallengeCatalog.challenge(this.route.challenge);
+        $('#notes-title').textContent = challenge ? challenge.title : (this.route.lesson ? this.findLesson(this.route.lesson).lesson.title : 'Anotações gerais');
       }
       if (tab === 'term') this.term.focus();
     }
@@ -64561,6 +64775,24 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
     return Object.values(grouped).map(item => Object.assign(item, { level: levelForXp(item.xp) }));
   }
 
+  function skillStats(input, technology) {
+    const value = ensure(input);
+    const grouped = new Map();
+    for (const challenge of LX.ChallengeCatalog.challenges) {
+      if (challenge.status !== 'published' || (technology && challenge.technology !== technology)) continue;
+      for (const name of challenge.skills) {
+        if (!grouped.has(name)) grouped.set(name, { name, technology: challenge.technology, completed: 0, available: 0 });
+        const item = grouped.get(name);
+        item.available++;
+        if (value.challengeCompletions[challenge.id]) item.completed++;
+      }
+    }
+    return Array.from(grouped.values()).map(item => Object.assign(item, {
+      percent: item.available ? Math.round(item.completed / item.available * 100) : 0,
+      status: item.completed === item.available ? 'acquired' : (item.completed ? 'practicing' : 'open')
+    }));
+  }
+
   function summary(input) {
     const value = ensure(input);
     const xp = totalXp(value);
@@ -64572,6 +64804,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
       withoutHints: completions.filter(item => item.withoutHints).length,
       incidents: completions.filter(item => item.type === 'incident').length,
       technologies: technologyStats(value),
+      skills: skillStats(value),
       rewardAuthority: value.v2.rewardAuthority
     };
   }
@@ -64589,6 +64822,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
     toggleFavorite,
     totalXp,
     technologyStats,
+    skillStats,
     summary
   };
 })();
@@ -64616,7 +64850,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
   function completed(id) { return !!progress().challengeCompletions[id]; }
   function favorite(id) { return progress().challengeFavorites.includes(id); }
   function difficultyLabel(value) { return Catalog.labels.difficulties[value] || value; }
-  function typeLabel(value) { return Catalog.labels.types[value] || value; }
+  function formatLabel(value) { return Catalog.labels.formats[value] || value; }
   function technologyLabel(id) { return (Catalog.technology(id) || { name: id }).name; }
   function duration(ms) {
     const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
@@ -64627,42 +64861,34 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
 
   function ensureChrome() {
     if (typeof document === 'undefined') return;
-    $$('[data-nav="cursos"] span').forEach(label => { label.textContent = 'Biblioteca'; });
-    const sidebar = $('.sb-nav');
-    if (sidebar && !sidebar.querySelector('[data-nav="challenges"]')) {
-      const button = document.createElement('button');
-      button.className = 'sb-item';
-      button.dataset.nav = 'challenges';
-      button.innerHTML = icon.challenge + '<span>Desafios</span>';
-      const home = sidebar.querySelector('[data-nav="home"]');
-      if (home) home.insertAdjacentElement('afterend', button); else sidebar.prepend(button);
-    }
-    const mobile = $('.mobile-tabs');
-    if (mobile && !mobile.querySelector('[data-nav="challenges"]')) {
-      const button = document.createElement('button');
-      button.dataset.nav = 'challenges';
-      button.setAttribute('aria-pressed', 'false');
-      button.innerHTML = icon.challenge + '<span>Desafios</span>';
-      const home = mobile.querySelector('[data-nav="home"]');
-      if (home) home.insertAdjacentElement('afterend', button); else mobile.appendChild(button);
-    }
+    $$('[data-nav="challenges"] span').forEach(label => { label.textContent = 'Exercícios'; });
   }
 
   function challengeCard(challenge) {
     const isDone = completed(challenge.id);
     const isFavorite = favorite(challenge.id);
-    return `<article class="v2-card ${isDone ? 'is-done' : ''}" data-challenge-card="${esc(challenge.id)}">
+    const unmet = Catalog.unmetPrerequisites(challenge, progress());
+    const locked = unmet.length > 0;
+    const requirement = unmet.map(id => (Catalog.challenge(id) || { title: id }).title).join(', ');
+    return `<article class="v2-card ${isDone ? 'is-done' : ''} ${locked ? 'is-locked' : ''}" data-challenge-card="${esc(challenge.id)}" ${locked ? 'aria-disabled="true"' : ''}>
       <button class="v2-favorite ${isFavorite ? 'active' : ''}" data-favorite="${esc(challenge.id)}" aria-label="${isFavorite ? 'Remover dos salvos' : 'Salvar desafio'}" title="${isFavorite ? 'Remover dos salvos' : 'Salvar desafio'}">${icon.star}</button>
       <div class="v2-card-top"><span class="v2-tech">${esc(technologyLabel(challenge.technology))}</span><span>${esc(difficultyLabel(challenge.difficulty))}</span></div>
       <h3>${esc(challenge.title)}</h3>
       <p>${esc(challenge.summary)}</p>
-      <div class="v2-card-foot"><span>${esc(typeLabel(challenge.type))}</span><strong>+${challenge.xp} XP</strong>${isDone ? '<span class="v2-done">Concluído</span>' : ''}</div>
+      ${locked ? `<div class="v2-requirement">Conclua antes: ${esc(requirement)}</div>` : ''}
+      <div class="v2-card-foot"><span>${esc(formatLabel(challenge.format))}</span><strong>+${challenge.xp} XP</strong>${isDone ? '<span class="v2-done">Concluído</span>' : ''}</div>
     </article>`;
   }
 
   function wireCards(app, root) {
     $$('[data-challenge-card]', root).forEach(card => card.onclick = event => {
       if (event.target.closest('[data-favorite]')) return;
+      const challenge = Catalog.challenge(card.dataset.challengeCard);
+      const unmet = Catalog.unmetPrerequisites(challenge, progress());
+      if (unmet.length) {
+        app.toast('Conclua os exercícios anteriores para liberar este cenário');
+        return;
+      }
       app.goChallenge(card.dataset.challengeCard);
     });
     $$('[data-favorite]', root).forEach(button => button.onclick = event => {
@@ -64678,17 +64904,21 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
     const state = progress();
     const summary = V2.summary(state);
     const open = Catalog.search({ status: 'open' }, state);
+    const ready = Catalog.search({ status: 'open', unlocked: true }, state);
     const active = Object.values(state.challengeAttempts)
       .filter(item => item && !item.completedAt)
       .sort((a, b) => b.updatedAt - a.updatedAt)[0];
-    const recommendations = open.slice(0, 3);
-    const published = Catalog.search({}, state);
+    const readyIds = new Set(ready.map(challenge => challenge.id));
+    const recommendations = ready.concat(open.filter(challenge => !readyIds.has(challenge.id))).slice(0, 3);
     const availableTechnologies = summary.technologies.filter(item => item.available > 0);
     const recent = state.v2Activity.slice(0, 4);
     const level = summary.level;
-    const resumeChallenge = active && Catalog.challenge(active.challengeId);
-    const daily = published.length
-      ? published[Math.floor(Date.now() / 86400000) % published.length]
+    const resumeChallenge = active && Catalog.challenge(active.challengeId) && Catalog.isUnlocked(active.challengeId, state)
+      ? Catalog.challenge(active.challengeId)
+      : null;
+    const dailyPool = Catalog.search({ unlocked: true }, state);
+    const daily = dailyPool.length
+      ? dailyPool[Math.floor(Date.now() / 86400000) % dailyPool.length]
       : null;
 
     $('#page').innerHTML = `<div class="doc wide v2-dashboard">
@@ -64697,29 +64927,32 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
         <div class="v2-level-card"><span>Nível global</span><strong>${level.level}</strong><small>${summary.xp.toLocaleString('pt-BR')} XP</small><div class="v2-progress"><i style="width:${level.percent}%"></i></div><em>${level.ceiling - level.xp} XP para o próximo nível</em></div>
       </header>
 
-      ${resumeChallenge ? `<section class="v2-resume"><div><span class="v2-kicker">CONTINUAR DESAFIO</span><h2>${esc(resumeChallenge.title)}</h2><p>${esc(technologyLabel(resumeChallenge.technology))} · ${esc(difficultyLabel(resumeChallenge.difficulty))} · tentativa em andamento</p></div><button class="btn primary" id="v2-resume">Retomar ${icon.arrow}</button></section>` : ''}
+      ${resumeChallenge ? `<section class="v2-resume"><div><span class="v2-kicker">CONTINUAR EXERCÍCIO</span><h2>${esc(resumeChallenge.title)}</h2><p>${esc(technologyLabel(resumeChallenge.technology))} · ${esc(difficultyLabel(resumeChallenge.difficulty))} · tentativa em andamento</p></div><button class="btn primary" id="v2-resume">Retomar ${icon.arrow}</button></section>` : ''}
 
       <section class="v2-stats" aria-label="Resumo da prática">
-        <div><strong>${summary.completed}</strong><span>desafios concluídos</span></div>
+        <div><strong>${summary.completed}</strong><span>exercícios concluídos</span></div>
         <div><strong>${summary.withoutHints}</strong><span>sem dicas</span></div>
         <div><strong>${summary.incidents}</strong><span>incidentes resolvidos</span></div>
         <div><strong>${state.challengeFavorites.length}</strong><span>salvos</span></div>
       </section>
 
-      <div class="v2-section-title"><div><span class="v2-kicker">PRÓXIMO PASSO</span><h2>Desafios recomendados</h2></div><button class="v2-link" id="v2-explore-all">Explorar todos ${icon.arrow}</button></div>
-      <div class="v2-card-grid">${recommendations.map(challengeCard).join('') || '<div class="v2-empty">Você concluiu todos os desafios publicados.</div>'}</div>
+      <div class="v2-section-title"><div><span class="v2-kicker">PRÓXIMO PASSO</span><h2>Exercícios recomendados</h2></div><button class="v2-link" id="v2-explore-all">Explorar todos ${icon.arrow}</button></div>
+      <div class="v2-card-grid">${recommendations.map(challengeCard).join('') || '<div class="v2-empty">Você concluiu todos os exercícios publicados.</div>'}</div>
 
-      ${daily ? `<section class="v2-daily"><div><span class="v2-kicker">DESAFIO DO DIA</span><h2>${esc(daily.title)}</h2><p>${esc(daily.summary)}</p></div><div><strong>+${daily.xp} XP</strong><button class="btn ghost" id="v2-daily-open">Abrir desafio</button></div></section>` : ''}
+      ${daily ? `<section class="v2-daily"><div><span class="v2-kicker">EXERCÍCIO DO DIA</span><h2>${esc(daily.title)}</h2><p>${esc(daily.summary)}</p></div><div><strong>+${daily.xp} XP</strong><button class="btn ghost" id="v2-daily-open">Abrir exercício</button></div></section>` : ''}
 
-      <div class="v2-section-title"><div><span class="v2-kicker">COMPETÊNCIAS</span><h2>Progresso por tecnologia</h2></div><button class="v2-link" id="v2-library">Abrir biblioteca de apoio</button></div>
-      <div class="v2-tech-grid">${availableTechnologies.map(item => `<button data-tech="${esc(item.technology.id)}"><span>${esc(item.technology.name)}</span><strong>Nível ${item.level.level}</strong><div class="v2-progress"><i style="width:${item.available ? Math.round(item.completed / item.available * 100) : 0}%"></i></div><small>${item.completed}/${item.available} desafios · ${item.xp} XP</small></button>`).join('')}</div>
+      <div class="v2-section-title"><div><span class="v2-kicker">COMPETÊNCIAS</span><h2>Progresso por tecnologia</h2></div><button class="v2-link" id="v2-projects">Ver projetos</button></div>
+      <div class="v2-tech-grid">${availableTechnologies.map(item => `<button data-tech="${esc(item.technology.id)}"><span>${esc(item.technology.name)}</span><strong>Nível ${item.level.level}</strong><div class="v2-progress"><i style="width:${item.available ? Math.round(item.completed / item.available * 100) : 0}%"></i></div><small>${item.completed}/${item.available} exercícios · ${item.xp} XP</small></button>`).join('')}</div>
+
+      <div class="v2-section-title"><div><span class="v2-kicker">HABILIDADES</span><h2>Competências praticadas</h2></div></div>
+      <div class="v2-skill-grid">${summary.skills.map(skill => `<div class="${skill.status}"><i>${skill.status === 'acquired' ? '✓' : (skill.status === 'practicing' ? '●' : '○')}</i><span>${esc(skill.name)}</span><small>${skill.completed}/${skill.available}</small></div>`).join('')}</div>
 
       ${recent.length ? `<section class="v2-activity"><div class="v2-section-title"><div><span class="v2-kicker">HISTÓRICO</span><h2>Atividade recente</h2></div></div>${recent.map(item => { const challenge = Catalog.challenge(item.challengeId); return challenge ? `<button data-recent-challenge="${esc(challenge.id)}"><span>Concluiu</span><strong>${esc(challenge.title)}</strong><em>+${item.xp} XP</em></button>` : ''; }).join('')}</section>` : ''}
       <footer class="v2-authority">XP desta primeira fatia é uma prévia local. A publicação de recompensas e badges dependerá da validação autoritativa no Supabase.</footer>
     </div>`;
     if ($('#v2-resume')) $('#v2-resume').onclick = () => app.goChallenge(resumeChallenge.id);
     $('#v2-explore-all').onclick = () => app.goChallenges();
-    $('#v2-library').onclick = () => app.goCursos();
+    $('#v2-projects').onclick = () => app.goProjects();
     if ($('#v2-daily-open')) $('#v2-daily-open').onclick = () => app.goChallenge(daily.id);
     $$('[data-tech]').forEach(button => button.onclick = () => app.goChallenges({ technology: button.dataset.tech }));
     $$('[data-recent-challenge]').forEach(button => button.onclick = () => app.goChallenge(button.dataset.recentChallenge));
@@ -64731,7 +64964,8 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
   }
 
   function renderChallenges(app, initialFilters) {
-    const filters = Object.assign({ query: '', technology: '', difficulty: '', type: '', status: '', xp: '' }, app._challengeFilters || {}, initialFilters || {});
+    const filters = Object.assign({ query: '', technology: '', difficulty: '', format: '', status: '', xp: '' }, app._challengeFilters || {}, initialFilters || {});
+    delete filters.type;
     app._challengeFilters = filters;
     const state = progress();
     const searchFilters = Object.assign({}, filters);
@@ -64741,29 +64975,38 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
     const results = Catalog.search(searchFilters, state);
     const technologies = Catalog.technologies.filter(technology => Catalog.challenges.some(challenge => challenge.technology === technology.id && challenge.status === 'published'));
     $('#page').innerHTML = `<div class="doc wide v2-explore">
-      <header class="v2-page-head"><div><div class="eyebrow">DESAFIOS</div><h1>Escolha o próximo problema.</h1><p>Pesquise por tecnologia, ferramenta ou situação. Cada desafio abre um ambiente isolado para você investigar.</p></div><div class="v2-result-count"><strong>${results.length}</strong><span>encontrados</span></div></header>
+      <header class="v2-page-head"><div><div class="eyebrow">EXERCÍCIOS</div><h1>Escolha o próximo problema.</h1><p>Pesquise por tecnologia, ferramenta ou situação. Cada exercício abre um ambiente isolado para você investigar.</p></div><div class="v2-result-count"><strong>${results.length}</strong><span>encontrados</span></div></header>
       <div class="v2-filters">
         <label class="v2-search"><span>Pesquisar</span><input id="v2-query" type="search" value="${esc(filters.query)}" placeholder="docker network, permissões, serviço…"></label>
         <label><span>Tecnologia</span><select id="v2-technology"><option value="">Todas</option>${technologies.map(item => `<option value="${esc(item.id)}" ${filters.technology === item.id ? 'selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>
         <label><span>Dificuldade</span><select id="v2-difficulty">${selectOptions(Catalog.difficulties, Catalog.labels.difficulties, filters.difficulty, 'Todas')}</select></label>
-        <label><span>Tipo</span><select id="v2-type">${selectOptions(Catalog.types, Catalog.labels.types, filters.type, 'Todos')}</select></label>
+        <label><span>Formato</span><select id="v2-format">${selectOptions(Catalog.formats, Catalog.labels.formats, filters.format, 'Todos')}</select></label>
         <label><span>Status</span><select id="v2-status"><option value="">Todos</option><option value="open" ${filters.status === 'open' ? 'selected' : ''}>Não concluídos</option><option value="completed" ${filters.status === 'completed' ? 'selected' : ''}>Concluídos</option><option value="favorite" ${filters.status === 'favorite' ? 'selected' : ''}>Salvos</option></select></label>
         <label><span>XP</span><select id="v2-xp"><option value="">Qualquer XP</option><option value="under-100" ${filters.xp === 'under-100' ? 'selected' : ''}>Até 99 XP</option><option value="100-199" ${filters.xp === '100-199' ? 'selected' : ''}>100–199 XP</option><option value="200-plus" ${filters.xp === '200-plus' ? 'selected' : ''}>200+ XP</option></select></label>
       </div>
-      <div class="v2-active-filters">${Object.entries(filters).filter(([, value]) => value).map(([key, value]) => `<button data-clear-filter="${esc(key)}">${esc(key === 'technology' ? technologyLabel(value) : (key === 'difficulty' ? difficultyLabel(value) : (key === 'type' ? typeLabel(value) : value)))} ×</button>`).join('')}</div>
-      <div class="v2-card-grid v2-all">${results.map(challengeCard).join('') || '<div class="v2-empty"><strong>Nenhum desafio encontrado.</strong><span>Remova um filtro ou tente outra busca.</span></div>'}</div>
+        <div class="v2-active-filters">${Object.entries(filters).filter(([, value]) => value).map(([key, value]) => `<button data-clear-filter="${esc(key)}">${esc(key === 'technology' ? technologyLabel(value) : (key === 'difficulty' ? difficultyLabel(value) : (key === 'format' ? formatLabel(value) : value)))} ×</button>`).join('')}</div>
+      <div class="v2-card-grid v2-all">${results.map(challengeCard).join('') || '<div class="v2-empty"><strong>Nenhum exercício encontrado.</strong><span>Remova um filtro ou tente outra busca.</span></div>'}</div>
     </div>`;
     const update = () => {
       app._challengeFilters = {
         query: $('#v2-query').value.trim(), technology: $('#v2-technology').value,
-        difficulty: $('#v2-difficulty').value, type: $('#v2-type').value,
+        difficulty: $('#v2-difficulty').value, format: $('#v2-format').value,
         status: $('#v2-status').value, xp: $('#v2-xp').value
       };
       renderChallenges(app);
     };
     $('#v2-query').oninput = () => { clearTimeout(app._challengeSearchTimer); app._challengeSearchTimer = setTimeout(update, 180); };
-    for (const id of ['#v2-technology', '#v2-difficulty', '#v2-type', '#v2-status', '#v2-xp']) $(id).onchange = update;
+    for (const id of ['#v2-technology', '#v2-difficulty', '#v2-format', '#v2-status', '#v2-xp']) $(id).onchange = update;
     $$('[data-clear-filter]').forEach(button => button.onclick = () => { app._challengeFilters[button.dataset.clearFilter] = ''; renderChallenges(app); });
+    wireCards(app, $('#page'));
+  }
+
+  function renderProjects(app) {
+    const projects = Catalog.search({ type: 'project' }, progress());
+    $('#page').innerHTML = `<div class="doc wide v2-explore v2-projects">
+      <header class="v2-page-head"><div><div class="eyebrow">PROJETOS</div><h1>Entregas completas, como no trabalho.</h1><p>Una várias competências em ambientes simulados. Cada projeto pede um resultado verificável e aceita caminhos profissionais diferentes.</p></div><div class="v2-result-count"><strong>${projects.length}</strong><span>disponíveis</span></div></header>
+      <div class="v2-card-grid v2-all">${projects.map(challengeCard).join('') || '<div class="v2-empty"><strong>Nenhum projeto publicado ainda.</strong><span>Os projetos aparecem aqui quando o ambiente e a validação estão prontos.</span></div>'}</div>
+    </div>`;
     wireCards(app, $('#page'));
   }
 
@@ -64783,10 +65026,10 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
     const commandCount = completion ? completion.commandsCount : Math.max(0, app.term.history.length - attempt.commandsAtStart);
     $('#page').innerHTML = `<div class="doc v2-challenge">
       <header class="v2-challenge-head">
-        <div class="v2-challenge-code">DESAFIO #${esc(challenge.id)}</div>
+        <div class="v2-challenge-code">${esc(formatLabel(challenge.format).toUpperCase())} #${esc(challenge.id)}</div>
         <div class="v2-challenge-actions"><button class="v2-icon-action ${favorite(challenge.id) ? 'active' : ''}" id="v2-save-challenge" title="Salvar desafio">${icon.star}</button>${!completion ? `<button class="v2-mode ${attempt.mode === 'realistic' ? 'active' : ''}" id="v2-mode">${attempt.mode === 'realistic' ? 'Modo realista ativo' : 'Ativar modo realista'}</button>` : ''}</div>
         <h1>${esc(challenge.title)}</h1>
-        <div class="v2-meta"><span>${esc(technologyLabel(challenge.technology))}</span><span>${esc(difficultyLabel(challenge.difficulty))}</span><span>${esc(typeLabel(challenge.type))}</span><strong>+${challenge.xp} XP</strong></div>
+        <div class="v2-meta"><span>${esc(technologyLabel(challenge.technology))}</span><span>${esc(difficultyLabel(challenge.difficulty))}</span><span>${esc(formatLabel(challenge.format))}</span><strong>+${challenge.xp} XP</strong></div>
       </header>
 
       ${completion ? `<section class="v2-complete"><div><span>CONCLUÍDO</span><strong>+${completion.xpGranted} XP</strong></div><dl><div><dt>Tempo</dt><dd>${duration(completion.durationMs)}</dd></div><div><dt>Dicas</dt><dd>${completion.hintsUsed}</dd></div><div><dt>Comandos</dt><dd>${completion.commandsCount}</dd></div><div><dt>Modo</dt><dd>${completion.mode === 'realistic' ? 'Realista' : 'Guiado'}</dd></div></dl></section>` : ''}
@@ -64804,7 +65047,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
       </div>
 
       ${renderConcepts(challenge)}
-      ${challenge.referenceLessonIds.length ? `<details class="v2-support"><summary>Documentação relacionada</summary><div class="v2-reference-list">${challenge.referenceLessonIds.map(id => { const found = app.findLesson(id); return found ? `<button data-reference="${esc(id)}"><span>${esc(found.mod.title)}</span><strong>${esc(found.lesson.title)}</strong></button>` : ''; }).join('')}</div><div class="v2-reference-preview hidden" id="v2-reference-preview"></div></details>` : ''}
+      ${challenge.referenceLessonIds.length ? `<details class="v2-support"><summary>Entender melhor</summary><div class="v2-reference-list">${challenge.referenceLessonIds.map(id => { const found = app.findLesson(id); return found ? `<button data-reference="${esc(id)}"><span>${esc(found.mod.title)}</span><strong>${esc(found.lesson.title)}</strong></button>` : ''; }).join('')}</div><div class="v2-reference-preview hidden" id="v2-reference-preview"></div></details>` : ''}
 
       ${completion ? `<section class="v2-debrief"><span>O QUE ACONTECEU</span><p>${esc(challenge.explanation)}</p><h2>Uma solução possível</h2><div class="v2-solution"><pre>${esc(solutionLines.join('\n'))}</pre></div>${challenge.alternatives.length ? `<h2>Outros caminhos válidos</h2><ul>${challenge.alternatives.map(item => `<li>${esc(item)}</li>`).join('')}</ul>` : ''}${challenge.skills.length ? `<h2>Competências praticadas</h2><div class="v2-skill-tags">${challenge.skills.map(item => `<span>${esc(item)}</span>`).join('')}</div>` : ''}${challenge.extraChallenge ? `<aside><strong>Desafio extra</strong><p>${esc(challenge.extraChallenge)}</p></aside>` : ''}</section>` : ''}
       <footer class="v2-attempt-note">Tentativa ${attempt.mode === 'realistic' ? 'em modo realista' : 'guiada'} · ${commandCount} comando(s) desde o início. Erros do terminal fazem parte da investigação.</footer>
@@ -64857,21 +65100,37 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
       const preview = $('#v2-reference-preview');
       if (!found || !preview) return;
       preview.classList.remove('hidden');
-      preview.innerHTML = `<span>RESUMO DA DOCUMENTAÇÃO</span><h3>${esc(found.lesson.title)}</h3><p>${esc(found.lesson.goal || found.mod.blurb || '')}</p><button class="btn ghost small" data-open-reference="${esc(found.lesson.id)}">Abrir aula completa</button>`;
-      $('[data-open-reference]', preview).onclick = () => app.goLesson(found.lesson.id);
+      preview.innerHTML = `<span>MATERIAL DE APOIO</span><h3>${esc(found.lesson.title)}</h3><p>${esc(found.lesson.goal || found.mod.blurb || '')}</p>`;
     });
   }
+
+  const originalPaintAccount = appProto.pintarConta;
+  appProto.pintarConta = function () {
+    originalPaintAccount.call(this);
+    const rows = $$('.cm-linha', $('#conta-menu'));
+    if (rows.length < 2) return;
+    const summary = V2.summary(progress());
+    rows[0].querySelector('span').textContent = 'Exercícios concluídos';
+    rows[0].querySelector('b').textContent = summary.completed;
+    rows[1].querySelector('span').textContent = 'Resolvidos sem dicas';
+    rows[1].querySelector('b').textContent = summary.withoutHints;
+  };
 
   const originalBindChrome = appProto.bindChrome;
   appProto.bindChrome = function () {
     ensureChrome();
     originalBindChrome.call(this);
     $$('[data-nav="challenges"]').forEach(button => button.onclick = () => this.goChallenges());
+    $$('[data-nav="projetos"]').forEach(button => button.onclick = () => this.goProjects());
+    const progressButton = $('#btn-bell');
+    if (progressButton) progressButton.onclick = () => this.goHome();
   };
 
   const originalNavAtual = appProto.navAtual;
   appProto.navAtual = function () {
-    if (this.route.view === 'challenges' || this.route.view === 'challenge') return 'challenges';
+    const active = this.route.view === 'challenge' && Catalog.challenge(this.route.challenge);
+    if (this.route.view === 'challenges' || (active && active.type !== 'project')) return 'challenges';
+    if (this.route.view === 'projects' || (active && active.type === 'project')) return 'projetos';
     return originalNavAtual.call(this);
   };
 
@@ -64889,12 +65148,15 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
   const originalSetCrumbs = appProto.setCrumbs;
   appProto.setCrumbs = function (a, b) {
     originalSetCrumbs.call(this, a, b);
-    if (this.route.view === 'challenges') $('#topback').classList.add('hidden');
+    if (this.route.view === 'challenges' || this.route.view === 'projects') $('#topback').classList.add('hidden');
   };
 
   const originalVoltar = appProto.voltar;
   appProto.voltar = function () {
-    if (this.route.view === 'challenge') return this.goChallenges();
+    if (this.route.view === 'challenge') {
+      const challenge = Catalog.challenge(this.route.challenge);
+      return challenge && challenge.type === 'project' ? this.goProjects() : this.goChallenges();
+    }
     return originalVoltar.call(this);
   };
 
@@ -64913,7 +65175,7 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
   appProto.goChallenges = function (filters) {
     this.route = { view: 'challenges', mod: null, lesson: null, challenge: null };
     this.trilhaId = null;
-    this.setCrumbs('', 'Desafios');
+    this.setCrumbs('', 'Exercícios');
     $('#modprog').style.visibility = 'hidden';
     $('#lesson-foot').classList.add('hidden');
     this.aplicarChrome();
@@ -64922,12 +65184,28 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
     $('#page').scrollTop = 0;
   };
 
+  appProto.goProjects = function () {
+    this.route = { view: 'projects', mod: null, lesson: null, challenge: null };
+    this.trilhaId = null;
+    this.setCrumbs('', 'Projetos');
+    $('#modprog').style.visibility = 'hidden';
+    $('#lesson-foot').classList.add('hidden');
+    this.aplicarChrome();
+    renderProjects(this);
+    this.renderRail();
+    $('#page').scrollTop = 0;
+  };
+
   appProto.goChallenge = function (id) {
     const challenge = Catalog.challenge(id);
     if (!challenge) return this.goChallenges();
+    if (!Catalog.isUnlocked(challenge, progress())) {
+      this.toast('Conclua os exercícios anteriores para liberar este cenário');
+      return challenge.type === 'project' ? this.goProjects() : this.goChallenges();
+    }
     this.route = { view: 'challenge', mod: null, lesson: null, challenge: challenge.id };
     this.trilhaId = null;
-    this.setCrumbs('Desafios', challenge.title);
+    this.setCrumbs(challenge.type === 'project' ? 'Projetos' : 'Exercícios', challenge.title);
     const mobileLabel = $('.mobile-tabs [data-m="lesson"] span');
     if (mobileLabel) mobileLabel.textContent = 'Desafio';
     $('#modprog').style.visibility = 'hidden';
@@ -64947,13 +65225,6 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
     this.renderRail();
     $('#page').scrollTop = 0;
     this.term.focus();
-  };
-
-  const originalGoLesson = appProto.goLesson;
-  appProto.goLesson = function (id) {
-    const mobileLabel = $('.mobile-tabs [data-m="lesson"] span');
-    if (mobileLabel) mobileLabel.textContent = 'Aula';
-    return originalGoLesson.call(this, id);
   };
 
   appProto.restartChallenge = function (id, mode) {
@@ -65015,12 +65286,14 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
   .v2-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.v2-card-grid.v2-all{margin-top:16px}
   .v2-card{position:relative;min-width:0;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px;cursor:pointer;transition:border-color .16s,transform .16s;color:var(--tx)}
   .v2-card:hover{border-color:#484848;transform:translateY(-2px)}.v2-card.is-done{background:#111}.v2-card.is-done:after{content:'✓';position:absolute;right:17px;bottom:16px;color:var(--tx)}
+  .v2-card.is-locked{cursor:not-allowed;opacity:.58}.v2-card.is-locked:hover{border-color:var(--line);transform:none}.v2-requirement{margin-top:13px;padding-top:11px;border-top:1px solid var(--line);color:var(--tx-3);font-size:11px;line-height:1.45}
   .v2-card-top{display:flex;gap:8px;padding-right:32px}.v2-card-top span,.v2-meta span,.v2-card-foot span{font:10px var(--f-mono);letter-spacing:.05em;text-transform:uppercase;color:var(--tx-3);border:1px solid var(--line);border-radius:99px;padding:3px 7px}.v2-card-top .v2-tech{color:var(--tx-2)}
   .v2-card h3{font-size:17px;line-height:1.25;margin:18px 0 7px}.v2-card p{font-size:13px;line-height:1.55;color:var(--tx-2);margin:0;min-height:42px}
   .v2-card-foot{display:flex;align-items:center;gap:8px;margin-top:18px}.v2-card-foot>span:first-child{border:0;padding:0}.v2-card-foot strong{font:600 12px var(--f-mono);margin-left:auto}.v2-card-foot .v2-done{border:0;padding:0 22px 0 0;color:var(--tx)}
   .v2-favorite,.v2-icon-action{position:absolute;top:14px;right:14px;width:30px;height:30px;border:0;background:transparent;color:var(--tx-3);cursor:pointer;display:grid;place-items:center;border-radius:7px}.v2-favorite:hover,.v2-favorite.active,.v2-icon-action:hover,.v2-icon-action.active{color:var(--tx);background:var(--surface-4)}.v2-favorite svg,.v2-icon-action svg{width:16px;height:16px}.v2-favorite.active svg,.v2-icon-action.active svg{fill:currentColor}
   .v2-daily{margin:34px 0}.v2-daily>div:last-child{display:flex;align-items:center;gap:16px}.v2-daily>div:last-child>strong{font:600 14px var(--f-mono)}
   .v2-tech-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.v2-tech-grid button{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r);padding:15px;text-align:left;color:var(--tx);cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:4px 12px}.v2-tech-grid button:hover{border-color:var(--line-strong)}.v2-tech-grid strong{font:600 11px var(--f-mono)}.v2-tech-grid small{grid-column:1/3;color:var(--tx-3)}
+  .v2-skill-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--line);border-radius:var(--r);overflow:hidden}.v2-skill-grid>div{display:grid;grid-template-columns:20px 1fr auto;align-items:center;gap:8px;padding:11px 13px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}.v2-skill-grid i{font:13px var(--f-mono);font-style:normal;color:var(--tx-3)}.v2-skill-grid span{font-size:12px}.v2-skill-grid small{font:10px var(--f-mono);color:var(--tx-3)}.v2-skill-grid .acquired i,.v2-skill-grid .practicing i{color:var(--tx)}
   .v2-activity{margin-top:38px}.v2-activity>button{width:100%;display:grid;grid-template-columns:90px 1fr auto;gap:12px;text-align:left;padding:12px 0;border:0;border-top:1px solid var(--line);background:none;color:var(--tx);cursor:pointer}.v2-activity>button span,.v2-activity>button em{color:var(--tx-3);font-style:normal}.v2-authority{font-size:11px;color:var(--tx-3);border-top:1px solid var(--line);margin-top:36px;padding-top:18px}
   .v2-page-head{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:28px}.v2-page-head h1{font-size:44px}.v2-result-count{display:flex;align-items:baseline;gap:8px}.v2-result-count strong{font:700 34px var(--f-mono)}.v2-result-count span{color:var(--tx-3)}
   .v2-filters{display:grid;grid-template-columns:2fr repeat(4,1fr);gap:8px}.v2-filters label{display:flex;flex-direction:column;gap:5px}.v2-filters label>span{font:10px var(--f-mono);color:var(--tx-3);text-transform:uppercase;letter-spacing:.08em}.v2-filters input,.v2-filters select{width:100%;height:40px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--tx);padding:0 10px;font:13px var(--f-ui)}.v2-filters input:focus,.v2-filters select:focus{border-color:var(--line-strong);outline:none}
@@ -65033,8 +65306,8 @@ Registre uma Issue descrevendo a entrega. Em outra branch, feature/docs, complet
   .v2-reference-preview{margin-top:10px;padding:16px!important;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}.v2-reference-preview>span{font:600 9px var(--f-mono);letter-spacing:.12em;color:var(--tx-3)}.v2-reference-preview h3{font-size:16px;margin:5px 0}.v2-reference-preview p{color:var(--tx-2);margin:0 0 12px}
   .v2-debrief{margin-top:18px;padding:24px;border:1px solid var(--line-strong);border-radius:var(--r-lg);background:var(--surface-2)}.v2-debrief>p{font-size:15px}.v2-debrief h2{font-size:16px;margin:24px 0 8px}.v2-solution{background:var(--term-bg);border:1px solid var(--line);border-radius:8px;overflow:auto}.v2-solution pre{margin:0;padding:15px;color:var(--term-tx);font:12px/1.7 var(--f-mono)}.v2-debrief aside{margin-top:22px;border-top:1px solid var(--line);padding-top:17px}.v2-debrief aside p{margin:4px 0 0}.v2-skill-tags{display:flex;gap:6px;flex-wrap:wrap}.v2-skill-tags span{border:1px solid var(--line);padding:4px 8px;border-radius:99px;font-size:11px}.v2-attempt-note{font-size:11px;color:var(--tx-3);padding:18px 0 6px}
   body.route-challenge #sp-term-actions .sp-hint{font-size:0}body.route-challenge #sp-term-actions .sp-hint:after{content:'ambiente isolado do desafio';font-size:11px}
-  @media(max-width:1050px){.v2-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.v2-filters{grid-template-columns:repeat(3,1fr)}.v2-search{grid-column:1/-1}.v2-tech-grid{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:760px){.v2-dashboard,.v2-explore{padding:20px 16px 80px!important}.v2-hero{grid-template-columns:1fr}.v2-stats{grid-template-columns:repeat(2,1fr)}.v2-stats>div:nth-child(2){border-right:0}.v2-stats>div:nth-child(-n+2){border-bottom:1px solid var(--line)}.v2-card-grid,.v2-tech-grid{grid-template-columns:1fr}.v2-page-head{align-items:start;flex-direction:column}.v2-page-head h1{font-size:36px}.v2-filters{grid-template-columns:1fr 1fr}.v2-search{grid-column:1/-1}.v2-resume,.v2-daily{align-items:flex-start;flex-direction:column}.v2-complete{grid-template-columns:1fr}.v2-complete dl{grid-template-columns:1fr 1fr;gap:12px}.v2-complete dl div:nth-child(odd){border-left:0}.v2-challenge-actions{position:static;margin-top:12px;justify-content:flex-end}.v2-challenge-head h1{max-width:none}.v2-support article{grid-template-columns:1fr}.v2-support article code{grid-row:auto}.v2-challenge-buttons .btn.primary{margin-left:0;width:100%}}
+  @media(max-width:1050px){.v2-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.v2-filters{grid-template-columns:repeat(3,1fr)}.v2-search{grid-column:1/-1}.v2-tech-grid,.v2-skill-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:760px){.v2-dashboard,.v2-explore{padding:20px 16px 80px!important}.v2-hero{grid-template-columns:1fr}.v2-stats{grid-template-columns:repeat(2,1fr)}.v2-stats>div:nth-child(2){border-right:0}.v2-stats>div:nth-child(-n+2){border-bottom:1px solid var(--line)}.v2-card-grid,.v2-tech-grid,.v2-skill-grid{grid-template-columns:1fr}.v2-page-head{align-items:start;flex-direction:column}.v2-page-head h1{font-size:36px}.v2-filters{grid-template-columns:1fr 1fr}.v2-search{grid-column:1/-1}.v2-resume,.v2-daily{align-items:flex-start;flex-direction:column}.v2-complete{grid-template-columns:1fr}.v2-complete dl{grid-template-columns:1fr 1fr;gap:12px}.v2-complete dl div:nth-child(odd){border-left:0}.v2-challenge-actions{position:static;margin-top:12px;justify-content:flex-end}.v2-challenge-head h1{max-width:none}.v2-support article{grid-template-columns:1fr}.v2-support article code{grid-row:auto}.v2-challenge-buttons .btn.primary{margin-left:0;width:100%}}
   @media(max-width:480px){.v2-filters{grid-template-columns:1fr}.v2-hero h1{font-size:38px}.v2-stats{grid-template-columns:1fr 1fr}.v2-section-title{align-items:flex-start;flex-direction:column}.v2-activity>button{grid-template-columns:1fr auto}.v2-activity>button span{grid-column:1/-1}.v2-reference-list button{flex-direction:column}.mobile-tabs [data-nav="jornada"]{display:none}}
   `;
   document.head.appendChild(style);

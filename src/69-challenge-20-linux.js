@@ -15,11 +15,94 @@
   };
 
   LX.challenge({
+    id: 'LINUX-006', slug: 'inspecione-o-deploy-atual',
+    title: 'Inspecione o deploy atual',
+    summary: 'Confirme o diretório certo antes de alterar uma aplicação em produção.',
+    technology: 'linux', difficulty: 'beginner', type: 'command', format: 'training', order: 10, xp: 40,
+    estimatedMinutes: 5, tags: ['pwd', 'ls', 'navegação', 'deploy'], skills: ['Navegação', 'Inspeção segura'],
+    situation: 'Você entrou no servidor fictício srv-web-03 para apoiar um deploy. Antes de qualquer alteração, a equipe pediu uma evidência simples do caminho ativo e dos arquivos que estão publicados.',
+    mission: 'Entre em /srv/portal/releases/current e crie ~/inspecao-deploy.txt com o caminho absoluto na primeira linha e uma listagem, incluindo arquivos ocultos, nas linhas seguintes.',
+    objectives: ['Navegar até o release ativo', 'Confirmar o caminho absoluto', 'Registrar uma listagem completa como evidência'],
+    hints: [
+      'Comece entrando no diretório informado e confirme onde o terminal está.',
+      'pwd mostra o caminho atual. ls -la inclui arquivos ocultos.',
+      'Redirecione pwd com > e acrescente ls -la com >> ao mesmo arquivo.'
+    ],
+    concepts: [
+      { term: 'pwd', summary: 'Mostra o caminho absoluto do diretório atual. É uma verificação simples antes de qualquer mudança.' },
+      { term: '>>', summary: 'Acrescenta a saída ao fim de um arquivo sem apagar o conteúdo que já existe.' }
+    ],
+    setup(machine) {
+      write(machine, '/srv/portal/releases/current/VERSION', '2026.09.21\n', 0o644, 0, 33);
+      write(machine, '/srv/portal/releases/current/app.js', 'console.log("portal");\n', 0o644, 0, 33);
+      write(machine, '/srv/portal/releases/current/.env', 'NODE_ENV=production\n', 0o640, 0, 33);
+    },
+    validate(ctx) {
+      const report = H.read(ctx, '/home/aluno/inspecao-deploy.txt') || '';
+      const firstLine = report.trim().split('\n')[0] || '';
+      return H.checkAll([
+        [firstLine === '/srv/portal/releases/current', 'A primeira linha deve ser o caminho absoluto do release ativo.'],
+        [report.includes('VERSION'), 'A listagem ainda não mostra o arquivo <code>VERSION</code>.'],
+        [report.includes('app.js'), 'A listagem ainda não mostra <code>app.js</code>.'],
+        [report.includes('.env'), 'Inclua arquivos ocultos na evidência; o <code>.env</code> precisa aparecer.']
+      ]);
+    },
+    explanation: 'A inspeção registra contexto antes da mudança. O caminho evita atuar no release errado, e a listagem completa deixa uma evidência reproduzível para a equipe.',
+    possibleSolution: 'cd /srv/portal/releases/current\npwd > ~/inspecao-deploy.txt\nls -la >> ~/inspecao-deploy.txt\ncat ~/inspecao-deploy.txt',
+    alternatives: ['Executar pwd e ls dentro de um subshell e redirecionar toda a saída de uma vez.'],
+    extraChallenge: 'Acrescente ao relatório somente o conteúdo do arquivo VERSION.',
+    referenceLessonIds: ['l2-1']
+  });
+
+  LX.challenge({
+    id: 'LINUX-007', slug: 'prepare-a-estrutura-do-release',
+    title: 'Prepare a estrutura do release',
+    summary: 'Monte diretórios previsíveis e copie uma configuração modelo sem destruir a origem.',
+    technology: 'linux', difficulty: 'beginner', type: 'command', format: 'training', order: 20, xp: 45,
+    estimatedMinutes: 6, tags: ['mkdir', 'cp', 'diretórios', 'deploy'], skills: ['Diretórios', 'Cópia de arquivos'],
+    prerequisites: ['LINUX-006'],
+    situation: 'O próximo release do portal será preparado manualmente antes de a automação assumir. A equipe padronizou uma pasta para aplicação, outra para configuração e outra para logs.',
+    mission: 'Crie app, config e logs dentro de /srv/portal/releases/2026-09-22. Copie /srv/portal/template/.env.example para config/app.env sem remover o modelo original.',
+    objectives: ['Criar os três diretórios do release', 'Copiar a configuração para o destino correto', 'Preservar o arquivo modelo'],
+    hints: [
+      'mkdir aceita vários caminhos na mesma execução.',
+      'A opção -p cria também os diretórios pais que ainda não existem.',
+      'Use cp para criar /srv/portal/releases/2026-09-22/config/app.env a partir do modelo.'
+    ],
+    concepts: [
+      { term: 'mkdir -p', summary: 'Cria toda a árvore necessária e não falha quando parte dela já existe.' },
+      { term: 'cp', summary: 'Copia o conteúdo para outro caminho; o arquivo de origem permanece disponível.' }
+    ],
+    setup(machine) {
+      write(machine, '/srv/portal/template/.env.example', 'PORT=8080\nLOG_LEVEL=info\n', 0o644, 0, 33);
+      const release = machine.fs.mkdirp('/srv/portal/releases/2026-09-22', { ctx: root(machine) });
+      release.uid = 1000; release.gid = 1000; release.mode = 0o755;
+    },
+    validate(ctx) {
+      const base = '/srv/portal/releases/2026-09-22';
+      const expected = 'PORT=8080\nLOG_LEVEL=info\n';
+      return H.checkAll([
+        [H.isDir(ctx, base + '/app'), 'Crie o diretório <code>app</code> dentro do release.'],
+        [H.isDir(ctx, base + '/config'), 'Crie o diretório <code>config</code> dentro do release.'],
+        [H.isDir(ctx, base + '/logs'), 'Crie o diretório <code>logs</code> dentro do release.'],
+        [H.read(ctx, base + '/config/app.env') === expected, 'Copie a configuração modelo para <code>config/app.env</code>.'],
+        [H.read(ctx, '/srv/portal/template/.env.example') === expected, 'O arquivo modelo deve continuar no local original.']
+      ]);
+    },
+    explanation: 'Uma estrutura previsível reduz erros no deploy e facilita scripts futuros. A configuração foi copiada porque o modelo precisa continuar disponível para os próximos releases.',
+    possibleSolution: 'mkdir -p /srv/portal/releases/2026-09-22/app /srv/portal/releases/2026-09-22/config /srv/portal/releases/2026-09-22/logs\ncp /srv/portal/template/.env.example /srv/portal/releases/2026-09-22/config/app.env\nls -la /srv/portal/releases/2026-09-22/config',
+    alternatives: ['Entrar no diretório do release e criar app, config e logs usando caminhos relativos.'],
+    extraChallenge: 'Crie um arquivo RELEASE com a data e o nome do responsável fictício pelo deploy.',
+    referenceLessonIds: ['l2-2', 'l2-4']
+  });
+
+  LX.challenge({
     id: 'LINUX-001', slug: 'organize-os-backups-sql',
     title: 'Organize os backups SQL',
     summary: 'Separe dumps de banco sem mover a documentação da migração.',
-    technology: 'linux', difficulty: 'beginner', type: 'command', xp: 50,
+    technology: 'linux', difficulty: 'beginner', type: 'command', format: 'training', order: 30, xp: 50,
     estimatedMinutes: 6, tags: ['arquivos', 'diretórios', 'glob'], skills: ['Navegação', 'Arquivos'],
+    prerequisites: ['LINUX-007'],
     situation: 'A equipe deixou dumps SQL e documentos misturados em /srv/migracao. O próximo processo automatizado espera encontrar todos os dumps dentro de uma subpasta chamada backup.',
     mission: 'Crie /srv/migracao/backup e mova para ela somente os arquivos com extensão .sql. Os demais arquivos devem permanecer no diretório original.',
     objectives: ['Criar o diretório backup', 'Mover os três arquivos .sql', 'Preservar README.md e inventario.csv'],
@@ -60,12 +143,99 @@
   });
 
   LX.challenge({
+    id: 'LINUX-008', slug: 'separe-os-erros-do-chamado',
+    title: 'Separe os erros do chamado',
+    summary: 'Extraia de um log somente os eventos relevantes para uma requisição.',
+    technology: 'linux', difficulty: 'easy', type: 'debugging', format: 'ticket', order: 40, xp: 65,
+    estimatedMinutes: 8, tags: ['grep', 'pipes', 'logs', 'suporte'], skills: ['Filtros', 'Análise de logs'],
+    prerequisites: ['LINUX-001'],
+    situation: 'Chamado #2187. O checkout falhou para a requisição fictícia req-7f3a. O arquivo /var/log/checkout/app.log contém eventos de vários usuários e níveis de severidade.',
+    mission: 'Crie ~/chamado-2187.log contendo somente as linhas ERROR relacionadas a req-7f3a. Não inclua avisos, informações nem eventos de outras requisições.',
+    objectives: ['Filtrar pelo identificador da requisição', 'Manter somente erros', 'Salvar uma evidência limpa para o chamado'],
+    hints: [
+      'Procure primeiro pelo identificador req-7f3a e leia o resultado.',
+      'Você pode ligar dois filtros com um pipe: um para a requisição e outro para a severidade.',
+      'Redirecione o resultado de grep "req-7f3a" ... | grep "ERROR" para ~/chamado-2187.log.'
+    ],
+    concepts: [
+      { term: 'pipe', summary: 'Envia a saída de um comando para a entrada do próximo, permitindo montar uma investigação em etapas.' },
+      { term: 'correlation ID', summary: 'Um identificador de requisição conecta eventos do mesmo fluxo entre diferentes linhas ou serviços.' }
+    ],
+    setup(machine) {
+      write(machine, '/var/log/checkout/app.log', [
+        '2026-09-21T10:00:01Z INFO req-a91c checkout iniciado',
+        '2026-09-21T10:00:03Z INFO req-7f3a checkout iniciado',
+        '2026-09-21T10:00:04Z WARN req-7f3a tentativa de pagamento repetida',
+        '2026-09-21T10:00:05Z ERROR req-7f3a timeout no gateway ficticio',
+        '2026-09-21T10:00:06Z ERROR req-b820 estoque indisponivel',
+        '2026-09-21T10:00:08Z ERROR req-7f3a checkout cancelado',
+        '2026-09-21T10:00:10Z INFO req-7f3a resposta 503'
+      ].join('\n') + '\n', 0o644, 0, 33);
+    },
+    validate(ctx) {
+      const evidence = H.read(ctx, '/home/aluno/chamado-2187.log') || '';
+      const lines = evidence.trim().split('\n').filter(Boolean);
+      return H.checkAll([
+        [lines.length === 2, 'A evidência deve conter exatamente os dois erros da requisição.'],
+        [lines.every(line => line.includes('ERROR')), 'Remova linhas que não sejam de nível <code>ERROR</code>.'],
+        [lines.every(line => line.includes('req-7f3a')), 'Remova eventos de outras requisições.'],
+        [evidence.includes('timeout no gateway ficticio') && evidence.includes('checkout cancelado'), 'Ainda falta um dos erros relacionados ao chamado.']
+      ]);
+    },
+    explanation: 'Filtrar pelo identificador e pela severidade reduz ruído sem perder o encadeamento do incidente. O arquivo final pode ser anexado ao chamado sem expor eventos de outros fluxos.',
+    possibleSolution: 'grep "req-7f3a" /var/log/checkout/app.log | grep "ERROR" > ~/chamado-2187.log\ncat ~/chamado-2187.log',
+    alternatives: ['Usar um único grep com uma expressão que exija ERROR e req-7f3a na mesma linha.', 'Usar awk para selecionar os dois campos.'],
+    extraChallenge: 'Gere outro arquivo com todos os eventos da requisição em ordem cronológica.',
+    referenceLessonIds: ['l3-2', 'l4-1']
+  });
+
+  LX.challenge({
+    id: 'LINUX-009', slug: 'identifique-o-consumo-de-disco',
+    title: 'Identifique o consumo de disco',
+    summary: 'Descubra qual área de uma aplicação está pressionando o armazenamento.',
+    technology: 'linux', difficulty: 'easy', type: 'incident', format: 'ticket', order: 50, xp: 75,
+    estimatedMinutes: 9, tags: ['du', 'sort', 'armazenamento', 'diagnóstico'], skills: ['Armazenamento', 'Troubleshooting'],
+    prerequisites: ['LINUX-008'],
+    situation: 'Chamado #2214. O alerta do servidor fictício srv-api-04 informa 91% de uso em disco. A equipe suspeita de /var/lib/terminalis, mas não autorizou apagar nada durante o diagnóstico.',
+    mission: 'Compare o uso dos diretórios imediatamente abaixo de /var/lib/terminalis e grave a maior entrada em ~/maior-consumo.txt. Não remova nem altere os arquivos investigados.',
+    objectives: ['Medir o uso por diretório', 'Ordenar do maior para o menor', 'Registrar a maior entrada sem apagar dados'],
+    hints: [
+      'du resume quanto espaço cada caminho ocupa.',
+      'Use um padrão para medir cada item dentro de /var/lib/terminalis e depois ordene os resultados.',
+      'Uma sequência possível é du -sh /var/lib/terminalis/* | sort -hr | head -1.'
+    ],
+    concepts: [
+      { term: 'du -sh', summary: 'Resume o espaço usado por cada caminho em uma unidade legível.' },
+      { term: 'diagnóstico não destrutivo', summary: 'Primeiro produza evidências. Remover dados exige autorização e uma decisão separada.' }
+    ],
+    setup(machine) {
+      write(machine, '/var/lib/terminalis/cache/blocos.tmp', 'x'.repeat(180000), 0o640, 0, 33);
+      write(machine, '/var/lib/terminalis/uploads/lote.bin', 'x'.repeat(42000), 0o640, 0, 33);
+      write(machine, '/var/lib/terminalis/packages/index.db', 'x'.repeat(12000), 0o640, 0, 33);
+    },
+    validate(ctx) {
+      const report = H.read(ctx, '/home/aluno/maior-consumo.txt') || '';
+      return H.checkAll([
+        [report.trim().length > 0, 'Crie <code>~/maior-consumo.txt</code> com a maior entrada encontrada.'],
+        [report.includes('/var/lib/terminalis/cache'), 'A maior entrada registrada ainda não é o diretório <code>cache</code>.'],
+        [H.isFile(ctx, '/var/lib/terminalis/cache/blocos.tmp'), 'O diagnóstico não autorizava remover ou mover o arquivo de cache.'],
+        [H.isFile(ctx, '/var/lib/terminalis/uploads/lote.bin'), 'Preserve os dados investigados durante o diagnóstico.']
+      ]);
+    },
+    explanation: 'O diagnóstico separa medição de correção. O cache é a maior área, mas a evidência foi produzida sem apagar dados; a equipe pode decidir depois se deve limpar, mover ou ampliar o volume.',
+    possibleSolution: 'du -sh /var/lib/terminalis/* | sort -hr | head -1 > ~/maior-consumo.txt\ncat ~/maior-consumo.txt',
+    alternatives: ['Usar du -h --max-depth=1 e selecionar a maior subpasta, ignorando a linha do total.'],
+    extraChallenge: 'Crie um segundo relatório ordenado com todas as entradas, da maior para a menor.',
+    referenceLessonIds: ['l13-3', 'l3-3']
+  });
+
+  LX.challenge({
     id: 'LINUX-002', slug: 'encontre-a-configuracao-perdida',
     title: 'Encontre a configuração perdida',
     summary: 'Localize um endpoint esquecido entre arquivos de configuração.',
-    technology: 'linux', difficulty: 'easy', type: 'command', xp: 70,
+    technology: 'linux', difficulty: 'easy', type: 'command', format: 'ticket', order: 60, xp: 70,
     estimatedMinutes: 8, tags: ['find', 'grep', 'configuração'], skills: ['Busca', 'Redirecionamento'],
-    prerequisites: ['LINUX-001'],
+    prerequisites: ['LINUX-009'],
     situation: 'Um serviço legado ainda aponta para uma API interna. A equipe sabe o nome da variável, API_ENDPOINT, mas não lembra em qual arquivo ela foi definida.',
     mission: 'Investigue /etc/terminalis e /opt/legacy. Grave em ~/endpoint-encontrado.txt a linha encontrada junto com o caminho do arquivo de origem.',
     objectives: ['Pesquisar em mais de um diretório', 'Encontrar API_ENDPOINT', 'Registrar caminho e valor como evidência'],
@@ -103,7 +273,7 @@
     id: 'LINUX-003', slug: 'servico-caiu-apos-reboot',
     title: 'Serviço caiu após o reboot',
     summary: 'Recupere o acesso remoto e garanta que ele volte no próximo boot.',
-    technology: 'linux', difficulty: 'intermediate', type: 'incident', xp: 120,
+    technology: 'linux', difficulty: 'intermediate', type: 'incident', format: 'incident', order: 80, xp: 120,
     estimatedMinutes: 12, tags: ['systemd', 'serviços', 'ssh', 'reboot'], skills: ['Serviços', 'Troubleshooting'],
     prerequisites: ['LINUX-002'],
     situation: 'Chamado #1042. Após uma reinicialização de manutenção, o monitoramento marcou o acesso SSH como indisponível. A máquina continua ligada e você possui acesso pelo console.',
@@ -144,7 +314,7 @@
     id: 'LINUX-004', slug: 'aplicacao-sem-permissao-no-relatorio',
     title: 'Aplicação sem permissão no relatório',
     summary: 'Corrija dono, grupo e modo sem tornar um arquivo sensível público.',
-    technology: 'linux', difficulty: 'intermediate', type: 'configuration', xp: 110,
+    technology: 'linux', difficulty: 'intermediate', type: 'configuration', format: 'ticket', order: 70, xp: 110,
     estimatedMinutes: 12, tags: ['chmod', 'chown', 'permissões'], skills: ['Permissões', 'Menor privilégio'],
     prerequisites: ['LINUX-002'],
     situation: 'O serviço web, executado como www-data, precisa ler /srv/financeiro/fechamento.csv. Depois de uma restauração, o arquivo voltou como root:root com modo 600 e a aplicação recebe Permission denied.',
@@ -187,7 +357,7 @@
     id: 'LINUX-005', slug: 'entrega-de-backup-verificavel',
     title: 'Entrega de backup verificável',
     summary: 'Empacote uma aplicação e gere evidência de integridade antes da transferência.',
-    technology: 'linux', difficulty: 'advanced', type: 'project', xp: 220,
+    technology: 'linux', difficulty: 'advanced', type: 'project', format: 'project', order: 90, xp: 220,
     estimatedMinutes: 20, tags: ['tar', 'gzip', 'sha256', 'backup'], skills: ['Compactação', 'Backup', 'Integridade'],
     prerequisites: ['LINUX-003', 'LINUX-004'],
     situation: 'Uma manutenção será feita no servidor fictício srv-app-07. Antes da janela, a equipe precisa de um backup transportável de /srv/aplicacao e de uma soma que permita detectar corrupção.',
