@@ -28,6 +28,7 @@ const T = (nome, cond, extra) => {
   const erros = [];
   page.on('pageerror', e => erros.push('PAGEERROR: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') erros.push('CONSOLE: ' + m.text()); });
+  await page.route('**/@supabase/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
 
   /* escreve no campo sem depender do autofill do navegador */
   const preencher = async (sel, valor) => {

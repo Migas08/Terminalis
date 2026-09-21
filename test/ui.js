@@ -21,6 +21,7 @@ const { chromium } = require('playwright');
   const errors = [];
   page.on('pageerror', e => errors.push('PAGEERROR: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('CONSOLE: ' + m.text()); });
+  await page.route('**/@supabase/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
 
   await page.goto(alvo);
   await page.waitForFunction(() => !!window.LX && !!LX.AuthUI && !!LX.AuthUI.el, null, { timeout: 15000 });
