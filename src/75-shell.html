@@ -20,15 +20,13 @@
 
     <nav class="sb-nav">
       <button class="sb-item" data-nav="home">__ICON_HOME__<span>Início</span></button>
-      <button class="sb-item" data-nav="cursos">__ICON_BOOK__<span>Cursos</span></button>
-      <button class="sb-item" data-nav="jornada">__ICON_ROUTE__<span>Jornada</span></button>
+      <button class="sb-item" data-nav="challenges">__ICON_ROUTE__<span>Exercícios</span></button>
       <button class="sb-item" data-nav="projetos">__ICON_CUBE__<span>Projetos</span></button>
     </nav>
 
-    <div class="sb-section">
-      <div class="sb-label">Cursos</div>
-      <div class="sb-cursos" id="sb-cursos"></div>
-    </div>
+    <!-- Ponto de compatibilidade para o código legado. A antiga árvore de
+         cursos não faz mais parte da navegação do produto. -->
+    <div class="sb-cursos hidden" id="sb-cursos" aria-hidden="true"></div>
 
     <div class="sb-foot">
       <button class="sb-item sb-config" data-nav="config">__ICON_GEAR__<span>Configurações</span></button>
@@ -66,7 +64,7 @@
       <footer id="lesson-foot" class="hidden"></footer>
     </section>
 
-    <div id="workspace-resizer" role="separator" aria-orientation="vertical" aria-label="Redimensionar aula e laboratório" tabindex="0"></div>
+    <div id="workspace-resizer" role="separator" aria-orientation="vertical" aria-label="Redimensionar exercício e laboratório" tabindex="0"></div>
 
     <section id="side-panel">
       <div class="sp-tabs" role="tablist">
@@ -157,7 +155,7 @@
       <!-- anotações -->
       <div class="sp-view" data-view="notes">
         <div class="notes-wrap">
-          <textarea id="notes-area" aria-label="Anotações da aula" placeholder="Suas anotações desta aula…&#10;&#10;Ficam salvas no seu navegador." spellcheck="false"></textarea>
+          <textarea id="notes-area" aria-label="Anotações do exercício" placeholder="Suas anotações deste exercício…&#10;&#10;Ficam salvas no seu navegador." spellcheck="false"></textarea>
           <div class="notes-foot"><span id="notes-title">Anotações</span><span class="spacer" style="flex:1"></span><span id="notes-status">salvo automaticamente</span></div>
         </div>
       </div>
@@ -166,11 +164,10 @@
 </div>
 
 <nav class="mobile-tabs" aria-label="Navegação móvel">
-  <button data-m="lesson" aria-pressed="true">__ICON_BOOK__<span>Aula</span></button>
+  <button data-m="lesson" aria-pressed="true">__ICON_BOOK__<span>Exercício</span></button>
   <button data-m="term" aria-pressed="false">__ICON_TERM__<span>Terminal</span></button>
   <button data-nav="home" aria-pressed="true">__ICON_HOME__<span>Início</span></button>
-  <button data-nav="cursos" aria-pressed="false">__ICON_BOOK__<span>Cursos</span></button>
-  <button data-nav="jornada" aria-pressed="false">__ICON_ROUTE__<span>Jornada</span></button>
+  <button data-nav="challenges" aria-pressed="false">__ICON_ROUTE__<span>Exercícios</span></button>
   <button data-nav="projetos" aria-pressed="false">__ICON_CUBE__<span>Projetos</span></button>
 </nav>
 

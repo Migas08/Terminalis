@@ -83,9 +83,9 @@ Até esse backend existir, a UI identifica progresso local como tal e não publi
 
 - Contas, sessões, notas, aulas, tarefas e workspaces atuais permanecem válidos.
 - O codec de workspace continuará versionado; mudanças serão aditivas.
-- A home V2 passa a priorizar desafios. “Biblioteca” mantém o acesso aos cursos existentes.
+- A navegação pública contém apenas Início, Exercícios e Projetos. O acervo anterior permanece no bundle como fonte de apoio contextual e compatibilidade, sem expor rotas de aulas ao usuário.
 - Conclusões antigas não geram XP retroativo automaticamente, evitando premiação sem uma política revisada.
-- Desafios podem apontar para aulas existentes em “Entender melhor”.
+- Exercícios podem reutilizar resumos do acervo existente em “Entender melhor”, sempre dentro do cenário e sem levar o usuário a uma aula.
 - Remoções só ocorrerão depois de telemetria/testes confirmarem que não há dependências.
 
 ## Sequência incremental
@@ -134,4 +134,14 @@ Cada commit funcional precisa manter:
 
 ## Primeira fatia vertical
 
-A primeira entrega funcional contém catálogo extensível, exploração, página de desafio, dicas progressivas, modo realista, conclusão por estado, métricas, favoritos, XP/nível local claramente identificado e desafios iniciais de Linux. Ela prova o novo fluxo sem apagar o curso atual e estabelece os contratos necessários para o backend autoritativo.
+A primeira entrega funcional contém catálogo extensível, exploração, página de exercício, dicas progressivas, modo realista, conclusão por estado, métricas, favoritos, XP/nível local claramente identificado e cenários iniciais de Linux. Ela prova o novo fluxo sem apagar o acervo anterior e estabelece os contratos necessários para o backend autoritativo.
+
+## Estado do incremento exercises-only
+
+- navegação pública sem Cursos, Jornada ou Aula;
+- rotas próprias para Exercícios e Projetos;
+- quatro formatos editoriais: Treino, Chamado, Incidente e Projeto;
+- pré-requisitos aplicados no catálogo e na abertura direta;
+- nove cenários Linux ordenados do básico ao avançado;
+- material anterior acessível somente como apoio curto em “Entender melhor”;
+- testes de domínio, soluções e percurso real no navegador.

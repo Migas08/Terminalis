@@ -1,6 +1,6 @@
 # Terminalis
 
-Plataforma interativa em português para aprender **Linux, Bash, Docker, Git & GitHub, JavaScript e administração de servidores**, com aulas escritas e exercícios no próprio navegador.
+Simulador profissional em português para aprender **Linux, Bash, Docker, Git & GitHub, JavaScript e administração de servidores** resolvendo treinos, chamados, incidentes e projetos no próprio navegador.
 
 A aplicação é distribuída em **um único arquivo HTML** (`dist/terminalis.html`). O motor e a interface usam JavaScript, HTML e CSS, sem bibliotecas externas necessárias para a simulação. Comandos alteram arquivos, permissões, processos e serviços do ambiente virtual em memória. O projeto não executa uma máquina Linux nem containers Docker reais.
 
@@ -13,37 +13,25 @@ A aplicação é distribuída em **um único arquivo HTML** (`dist/terminalis.ht
 - **Serviços:** Traefik, roteamento HTTP e bancos de dados simulados para os exercícios.
 - **Git & GitHub:** snapshots, staging, branches, merges e conflitos, remotos locais, PRs com revisão visual, Issues, tags, releases, stash, recuperação e CI educacional.
 - **JavaScript:** runner isolado, editor multi-arquivo e currículo progressivo de fundamentos a browser, Node, backend, segurança e produção.
-- **Interface monocromática:** dashboard com progresso e acessos recentes, leitura ajustável, navegação móvel entre aula e terminal e foco de teclado.
+- **Interface monocromática:** dashboard com progresso e acessos recentes, navegação móvel entre exercício e laboratório e foco de teclado.
 - **Interface:** terminal com histórico e autocompletar, editor, explorador de arquivos, anotações, dicas e soluções sob demanda.
-- **Progressão:** aulas, etapas, pré-requisitos entre trilhas e registro permanente de desbloqueios.
+- **Progressão:** XP, competências e pré-requisitos entre exercícios; cenários avançados só abrem depois da prática necessária.
 
 ## Conteúdo atual
 
-Inventário conferido em **17 de setembro de 2026**: **91 módulos, 282 aulas, 846 tarefas e 233 comandos registrados** no motor.
+Inventário conferido em **21 de setembro de 2026**: **9 exercícios Linux publicados**, incluindo **3 treinos, 4 chamados, 1 incidente e 1 projeto**, além de **233 comandos registrados** no motor.
 
-| Trilha | Módulos no código | Situação |
+O fluxo público é 100% prático: **situação → tentativa → investigação → dica opcional → validação → explicação curta → desafio extra**. Os 282 conteúdos e 846 tarefas da arquitetura anterior continuam no repositório como acervo de apoio e regressão dos motores, mas não aparecem como cursos ou aulas na navegação principal.
+| Tecnologia | Laboratório disponível | Exercícios no catálogo novo |
 |---|---|---|
-| Linux | `m01` a `m16`, mais `m16d` — 17 módulos | Conteúdo implementado |
-| Projeto final de Linux | `mpf1` | Implementado; requer Linux |
-| Docker | `d01` a `d22` — 22 módulos | Implementado; requer projeto final de Linux |
-| Projeto final de Docker | `mpf2` | Implementado; requer Docker |
-| Git & GitHub | `g01` a `g34` — 34 capítulos | Implementado; requer Linux |
-| Projeto final de Git & GitHub | `gpf` | Implementado; requer Git & GitHub |
-| Operação integrada | `m25` e `m26` | Implementado; requer projeto final de Docker |
-| JavaScript | `js01` a `js12`, mais `jspf` — 13 módulos e 65 aulas | Implementado; disponível desde o início |
-| TypeScript | Pesquisa técnica e currículo proposto | Curso ainda não implementado |
+| Linux | Completo | 9 publicados, do primeiro deploy inspecionado ao backup verificável |
+| Docker | Completo | Próxima migração |
+| Git & GitHub | Completo | Próxima migração |
+| JavaScript | Runner e editor completos | Planejado |
+| TypeScript | Adaptador de compilação disponível | Planejado |
+| Redes, SQL e operação | Recursos distribuídos nos simuladores | Planejado |
 
-A jornada segue **Linux → projeto final de Linux → Docker → projeto final de Docker → operação integrada**. Git & GitHub abre após Linux e tem seu próprio projeto final. Os identificadores dos módulos são internos; a numeração exibida é definida no mapa do curso.
-
-A trilha JavaScript possui runner isolado, editor multi-arquivo, 65 aulas e projeto final integrado. TypeScript já possui suporte de execução no laboratório, mas sua trilha de conteúdo ainda está em planejamento. Python para automação, Redes, SQL e Kubernetes continuam declarados como trilhas planejadas.
-
-Cada aula possui três tarefas, nesta ordem:
-
-1. **Guiado:** executar comandos apresentados e observar o resultado.
-2. **Pergunta:** responder um quiz ou completar uma resposta.
-3. **Desafio:** produzir um resultado no ambiente virtual.
-
-Os guiados podem verificar o histórico de comandos; os desafios práticos verificam o estado do ambiente. O padrão editorial e os exemplos de criação de aulas estão em [docs/development/PADRAO-TAREFAS.md](docs/development/PADRAO-TAREFAS.md).
+Cada exercício define situação profissional fictícia, missão, objetivos observáveis, cenário isolado, dicas progressivas, material de apoio contextual e um verificador por estado. Quando existem várias soluções válidas, a validação aceita qualquer caminho que produza o resultado pedido.
 
 ## JavaScript e próxima fase TypeScript
 
@@ -91,13 +79,16 @@ src/
   48-compose.js             operação de stacks Compose
   49-workspace-00-codec.js  codec versionado de snapshots do laboratório
   49-workspace-10-domains.js serialização e restauração por domínios
-  50-content-00-core.js     registro de aulas, helpers e cenário inicial
-  50-content-01-modules.js  mapa dos módulos
-  50-content-02-trilhas.js  trilhas, etapas e pré-requisitos
-  51-*.js a 68-*.js         aulas Linux e projeto final de Linux
+  50-content-00-core.js     helpers de validação e cenário inicial
+  50-content-01-modules.js  catálogo legado de apoio
+  50-content-02-trilhas.js  progressão legada preservada
+  51-*.js a 68-*.js         material teórico legado de Linux
+  69-challenge-00-core.js   domínio e catálogo de exercícios
+  69-challenge-10-technologies.js tecnologias disponíveis e planejadas
+  69-challenge-20-linux.js  treinos, chamados, incidente e projeto Linux
   70-styles.css             estilos e layout responsivo
   71-terminal.js            terminal, editor e sessões
-  72-app.js                 navegação e páginas principais
+  72-app.js                 aplicação, laboratório e compatibilidade
   72-task-ui.js             atividades e verificações na interface
   72-file-browser.js        navegador de arquivos virtuais
   73-render.js              renderização dos blocos das aulas
@@ -109,7 +100,7 @@ src/
   75-shell.html             estrutura HTML e inicialização
   76-progressao.js          etapas, conclusões e desbloqueios
   77-authui.js              interface de autenticação
-  78-jornada.js             páginas de cursos, jornada e projetos
+  78-jornada.js             telas legadas mantidas para compatibilidade
   79-docker-helpers.js      cenários e verificações Docker
   80-d01.js a 80-d22.js     aulas Docker
   81-mpf2.js                projeto final de Docker
@@ -118,7 +109,10 @@ src/
   87-git-visual.js          diagramas de branches, PRs e commits
   88-settings.js            preferências de leitura e terminal
   89-js-course.js           módulos e aulas-base da trilha JavaScript
+  89-v2-progress.js         tentativas, conclusões, XP e competências
   89-z-js-course-extended.js expansão para 65 aulas e projeto final
+  90-v2-ui.js               home, catálogo, projetos e experiência prática
+  91-v2-styles.js           estilos da experiência orientada a exercícios
 docs/                       documentação organizada por assunto
   README.md                 índice da documentação
   architecture/             arquitetura e limites do sistema
@@ -134,7 +128,7 @@ build.py                    montagem do HTML único
 dist/terminalis.html        aplicação gerada
 ```
 
-Os componentes compartilham o namespace `LX`. O build concatena os arquivos JavaScript em ordem alfabética, insere o CSS e substitui os ícones no HTML. A ordem dos nomes dos arquivos faz parte da organização das dependências.
+Os componentes compartilham o namespace `LX`. O build usa um manifesto explícito de fontes, insere o CSS e substitui os ícones no HTML. A ordem desse manifesto respeita as dependências entre os módulos.
 
 ## Construir e executar
 
@@ -207,10 +201,12 @@ node test/solutions.js
 | `javascript-curriculum.js` | 65 aulas, 195 atividades, IDs estáveis, cobertura e correções técnicas |
 | `git.js` | Semântica de snapshots, branches, integração e recuperação |
 | `git-vocabulary.js` | Operações e flags ensinadas antes dos exercícios de Git |
-| `interface.js` | Dashboard, PR visual, persistência e responsividade |
+| `v2-domain.js` | Formatos, filtros, pré-requisitos, XP e idempotência |
+| `v2-challenges.js` | Soluções de referência dos cenários profissionais publicados |
+| `interface.js` | Navegação por exercícios/projetos, laboratórios legados, persistência e responsividade |
 | `ui.js` | Inicialização e interação com a interface no navegador |
 | `auth.js` | Login e progressão entre trilhas no navegador |
-| `aluno.js` | Percurso de um aluno pela interface |
+| `aluno.js` | Percurso prático: bloqueio, dica, terminal, validação e desbloqueio |
 | `workspace.js` | Codec e restauração do estado completo do laboratório |
 | `cloud.js` | Cache offline, migração e bloqueio otimista entre dispositivos |
 
@@ -239,13 +235,15 @@ npm run test:browser
 
 ### Última verificação local
 
-Em 17 de setembro de 2026, com Node.js 24.19.0 e Edge/Playwright:
+Em 21 de setembro de 2026, com Node.js 24.19.0 e Edge/Playwright:
 
 - Linux e shell: **163 verificações aprovadas**; Docker: **160**; sem falhas.
 - Git: **24 verificações semânticas**, incluindo conflitos, proteção de alterações, reset, stash, clone e autenticação simulada.
 - Estrutura: **282 aulas** no padrão de três tarefas.
 - Vocabulário: soluções revisadas sem depender das dicas para apresentar comandos; auditoria adicional das operações e flags de Git.
 - Currículo JavaScript: **13 módulos, 65 aulas e 195 atividades**, com IDs anteriores preservados e cobertura temática validada.
+- Catálogo prático: **9 exercícios Linux**, todos com cenário isolado, dicas progressivas, apoio contextual e solução de referência aprovada.
+- Jornada prática no navegador: **20 verificações aprovadas**, incluindo ausência de aulas na navegação, pré-requisitos, conclusão e página de projetos.
 - Soluções: **514 verificações aprovadas, zero falhas, zero aprovações indevidas e zero exceções**; 332 tarefas sem verificador de estado, como quizzes, são contabilizadas separadamente.
 - Navegador JavaScript: 65 aulas carregadas, módulos visíveis e execução no playground isolado.
 - Dependências: nenhuma dependência de execução; Playwright e seus dois pacotes transitivos são usados apenas nos testes. A consulta ao banco OSV não encontrou vulnerabilidades conhecidas nessas versões.

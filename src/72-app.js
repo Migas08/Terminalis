@@ -98,11 +98,26 @@
     }
 
     resetEnvironment() {
-      if (!confirm('Recriar a máquina do zero? Os arquivos que você criou no terminal serão perdidos (seu progresso nas aulas é mantido).')) return;
+      if (!confirm('Recriar o ambiente do zero? Os arquivos que você criou serão perdidos, mas seu progresso permanece salvo.')) return;
       this.buildMachine();
       this.term.boot(this.machine);
       this.toast('Ambiente reiniciado');
       if (this.route.view === 'lesson') this.applyLessonSetup();
+      if (this.route.view === 'challenge' && LX.ChallengeCatalog) {
+        const challenge = LX.ChallengeCatalog.challenge(this.route.challenge);
+        if (challenge) {
+          challenge.setup(this.machine, this.term);
+          this._activeChallengeId = challenge.id;
+          if (LX.V2Progress) {
+            const active = LX.V2Progress.attempt(challenge.id);
+            LX.V2Progress.start(challenge.id, {
+              mode: active && active.mode,
+              restart: true,
+              commandsAtStart: this.term.history.length
+            });
+          }
+        }
+      }
       // Recriar a máquina também é uma alteração persistente do workspace: marca
       // como sujo para que a máquina limpa seja salva e propagada a outros
       // dispositivos, sem depender de o aluno rodar mais um comando.
@@ -276,7 +291,7 @@
       $('#btn-new-term').onclick = () => { this.term.clear(); this.term.prompt(); this.term.focus(); };
       const notes = $('#notes-area');
       notes.addEventListener('input', () => {
-        const key = this.route.lesson || '_geral';
+        const key = this.route.challenge || this.route.lesson || '_geral';
         Progress.data.notes[key] = notes.value;
         Progress.save();
         $('#notes-status').textContent = 'salvo';
@@ -326,9 +341,10 @@
       if (tab === 'files') this.renderFiles();
       if (tab === 'js' && LX.JSWorkspace) LX.JSWorkspace.onShow(this);
       if (tab === 'notes') {
-        const key = this.route.lesson || '_geral';
+        const key = this.route.challenge || this.route.lesson || '_geral';
         $('#notes-area').value = Progress.data.notes[key] || '';
-        $('#notes-title').textContent = this.route.lesson ? (this.findLesson(this.route.lesson).lesson.title) : 'Anotações gerais';
+        const challenge = this.route.challenge && LX.ChallengeCatalog && LX.ChallengeCatalog.challenge(this.route.challenge);
+        $('#notes-title').textContent = challenge ? challenge.title : (this.route.lesson ? this.findLesson(this.route.lesson).lesson.title : 'Anotações gerais');
       }
       if (tab === 'term') this.term.focus();
     }

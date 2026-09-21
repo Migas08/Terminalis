@@ -17,6 +17,7 @@ const { chromium } = require('playwright');
     const page = await browser.newPage();
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
+    await page.route('**/@supabase/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
     await page.goto('http://127.0.0.1:' + server.address().port);
     await page.evaluate(async () => {
       await LX.Auth.criar({ usuario: 'feedback', email: 'feedback@example.invalid', senha: 'TesteSeguro123' });
